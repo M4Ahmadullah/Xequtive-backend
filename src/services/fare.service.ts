@@ -26,12 +26,12 @@ export class FareService {
     "Luxury Vehicle": 30,
   };
 
-  // Per kilometer rates for different vehicle types
-  private static readonly PER_KM_RATES: { [key: string]: number } = {
-    "Standard Saloon": 2.0, // £2.00 per km
-    "Executive Saloon": 2.5, // £2.50 per km
-    "Executive MPV": 3.0, // £3.00 per km
-    "Luxury Vehicle": 3.5, // £3.50 per km
+  // Per mile rates for different vehicle types
+  private static readonly PER_MILE_RATES: { [key: string]: number } = {
+    "Standard Saloon": 3.2, // £3.20 per mile
+    "Executive Saloon": 4.0, // £4.00 per mile
+    "Executive MPV": 4.8, // £4.80 per mile
+    "Luxury Vehicle": 5.6, // £5.60 per mile
   };
 
   // Per minute rates for different vehicle types
@@ -175,8 +175,8 @@ export class FareService {
       );
 
       return {
-        // Convert distance from meters to kilometers
-        distance: route.distance / 1000,
+        // Distance is already in miles from Mapbox API
+        distance: route.distance,
         // Convert duration from seconds to minutes
         duration: route.duration / 60,
         congestion: avgCongestion,
@@ -209,8 +209,9 @@ export class FareService {
       const baseRate =
         this.VEHICLE_BASE_RATES[vehicleType] ||
         this.VEHICLE_BASE_RATES["Standard Saloon"];
-      const perKmRate =
-        this.PER_KM_RATES[vehicleType] || this.PER_KM_RATES["Standard Saloon"];
+      const perMileRate =
+        this.PER_MILE_RATES[vehicleType] ||
+        this.PER_MILE_RATES["Standard Saloon"];
       const perMinuteRate =
         this.PER_MINUTE_RATES[vehicleType] ||
         this.PER_MINUTE_RATES["Standard Saloon"];
@@ -228,7 +229,7 @@ export class FareService {
       console.log("Route details:", routeDetails);
 
       // Calculate base fare components
-      const distanceFare = routeDetails.distance * perKmRate;
+      const distanceFare = routeDetails.distance * perMileRate;
       const timeFare = routeDetails.duration * perMinuteRate;
 
       // Get time-based multiplier
@@ -264,8 +265,8 @@ export class FareService {
 
       return {
         fareEstimate,
-        distance_km: Math.round(routeDetails.distance * 10) / 10,
-        duration_min: Math.round(routeDetails.duration),
+        distance_miles: Math.round(routeDetails.distance * 10) / 10,
+        duration_minutes: Math.round(routeDetails.duration),
       };
     } catch (error) {
       console.error("Error in calculateFare:", error);

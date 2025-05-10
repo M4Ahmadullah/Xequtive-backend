@@ -4,34 +4,67 @@
 
 Xequtive's fare calculation system is designed to provide transparent, consistent, and fair pricing for all journeys across our range of premium vehicles. This document provides a detailed overview of how fares are calculated, what factors influence pricing, and how our system handles various scenarios.
 
+## Input Parameters
+
+The fare calculation system accepts the following parameters:
+
+### 1. Location Information
+
+- **Pickup Location**
+  - Address (string)
+  - Coordinates (latitude, longitude)
+- **Dropoff Location**
+  - Address (string)
+  - Coordinates (latitude, longitude)
+- **Additional Stops** (optional)
+  - Array of locations with address and coordinates
+  - Each stop adds £5.00 to the fare
+
+### 2. Journey Details
+
+- **Date and Time**
+  - Date (YYYY-MM-DD format)
+  - Time (HH:mm format)
+  - Used to determine time-based multipliers
+- **Passenger Information**
+  - Number of passengers
+  - Number of checked luggage items
+  - Number of hand luggage items
+  - Special requirements (e.g., wheelchair access)
+
 ## Core Components
 
 ### 1. Route Planning and Distance Calculation
 
-Our system uses the Mapbox Directions API, a leading mapping service, to calculate:
+Our system uses the Mapbox Directions API to calculate:
 
 - Optimal routes between locations
-- Total journey distance in kilometers
+- Total journey distance in miles
 - Estimated journey duration in minutes
 - Route segments for multi-stop journeys
 
-For each journey, we determine the most efficient route considering road types, typical traffic patterns, and geographical constraints. The route calculation incorporates all stops in the sequence provided by the customer.
+The route calculation considers:
+
+- Road types and restrictions
+- Typical traffic patterns
+- Geographical constraints
+- All stops in the sequence provided
 
 ### 2. Vehicle Types and Base Pricing
 
-Xequtive offers nine distinct vehicle classes to meet different customer needs:
+Xequtive offers nine distinct vehicle classes:
 
-| Vehicle Type          | Examples                               | Capacity                             | Base Rate (per km) | Minimum Fare |
-| --------------------- | -------------------------------------- | ------------------------------------ | ------------------ | ------------ |
-| Standard Saloon       | Toyota Prius, Ford Mondeo              | 4 passengers, 2 luggage              | £2.50              | £15.00       |
-| Estate                | VW Passat Estate, Skoda Octavia Estate | 4 passengers, 4 luggage              | £3.00              | £18.00       |
-| Large MPV             | Ford Galaxy, VW Sharan                 | 6 passengers, 4 luggage              | £3.50              | £22.00       |
-| Extra Large MPV       | Ford Tourneo, VW Transporter           | 8 passengers, 8 luggage              | £4.00              | £25.00       |
-| Executive Saloon      | Mercedes E-Class, BMW 5-Series         | 3 passengers, 2 luggage              | £4.50              | £30.00       |
-| Executive Large MPV   | Mercedes Vito, VW Caravelle            | 7 passengers, 7 luggage              | £5.50              | £40.00       |
-| VIP                   | Mercedes S-Class, BMW 7-Series         | 3 passengers, 2 luggage              | £7.00              | £50.00       |
-| VIP MPV               | Mercedes V-Class                       | 6 passengers, 6 luggage              | £8.50              | £60.00       |
-| Wheelchair Accessible | Specially adapted vans                 | 4 passengers + wheelchair, 2 luggage | £3.50              | £25.00       |
+| Vehicle Type          | Examples                               | Capacity                    | Base Rate (per mile) | Minimum Fare |
+| --------------------- | -------------------------------------- | --------------------------- | -------------------- | ------------ |
+| Standard Saloon       | Mercedes C-Class, BMW 3 Series         | 3 passengers, 3 suitcases   | £2.50/mile           | £15.00       |
+| Estate                | Mercedes E-Class Estate, BMW 5 Touring | 4 passengers, 4 suitcases   | £3.50/mile           | £25.00       |
+| Large MPV             | Mercedes V-Class, VW Multivan          | 6 passengers, 6 suitcases   | £4.00/mile           | £30.00       |
+| Extra Large MPV       | Rolls-Royce Ghost, Bentley Flying Spur | 3 passengers, 3 suitcases   | £4.50/mile           | £35.00       |
+| Executive Saloon      | Mercedes E-Class, BMW 5 Series         | 3 passengers, 3 suitcases   | £3.00/mile           | £20.00       |
+| Executive Large MPV   | Mercedes V-Class, VW Multivan          | 6 passengers, 6 suitcases   | £4.00/mile           | £30.00       |
+| VIP                   | Mercedes S-Class, BMW 7 Series         | 3 passengers, 3 suitcases   | £4.50/mile           | £35.00       |
+| VIP MPV               | Mercedes Sprinter VIP                  | 6 passengers, 6 suitcases   | £7.00/mile           | £45.00       |
+| Wheelchair Accessible | Mercedes Sprinter WAV                  | 1 wheelchair + 5 passengers | £3.50/mile           | £25.00       |
 
 ### 3. Premium Vehicle Features
 
@@ -48,13 +81,13 @@ Higher-tier vehicles include additional features:
 For each vehicle type, we calculate the initial fare using:
 
 ```
-Initial Fare = Base Rate + (Distance in km × Base Rate per km)
+Initial Fare = Base Rate + (Distance in miles × Base Rate per mile)
 ```
 
-For example, a 20 km journey in a Standard Saloon would have an initial fare of:
+For example, a 20-mile journey in a Standard Saloon would have an initial fare of:
 
 ```
-£2.50 + (20 km × £2.50/km) = £52.50
+£2.50 + (20 miles × £2.50/mile) = £52.50
 ```
 
 ### Step 2: Time & Day Adjustments
@@ -123,11 +156,11 @@ For example, £87.30 would be rounded to £87.50.
 
 ### Example 1: Short Local Trip
 
-**Scenario**: Tuesday at 2 PM, 5 km journey in a Standard Saloon with no additional stops
+**Scenario**: Tuesday at 2 PM, 5-mile journey in a Standard Saloon with no additional stops
 
 **Calculation**:
 
-1. Initial Fare = £2.50 + (5 km × £2.50/km) = £15.00
+1. Initial Fare = £2.50 + (5 miles × £2.50/mile) = £15.00
 2. Time Multiplier = 1.0 (off-peak)
 3. Adjusted Fare = £15.00 × 1.0 = £15.00
 4. No additional stops = £0.00
@@ -137,43 +170,43 @@ For example, £87.30 would be rounded to £87.50.
 
 ### Example 2: Airport Transfer (Peak Hour)
 
-**Scenario**: Monday at 8 AM, 30 km journey in an Executive Saloon with one additional stop
+**Scenario**: Monday at 8 AM, 30-mile journey in an Executive Saloon with one additional stop
 
 **Calculation**:
 
-1. Initial Fare = £4.50 + (30 km × £4.50/km) = £139.50
+1. Initial Fare = £4.50 + (30 miles × £4.50/mile) = £139.50
 2. Time Multiplier = 1.5 (weekday peak hour)
 3. Adjusted Fare = £139.50 × 1.5 = £209.25
 4. One additional stop = £5.00
 5. Fare with Extras = £209.25 + £5.00 = £214.25
-6. Minimum Fare Check: £214.25 vs. £30.00 (exceeds minimum)
+6. Minimum Fare Check: £214.25 vs. £20.00 (exceeds minimum)
 7. Final Fare = £214.50 (rounded up)
 
 ### Example 3: Weekend Night Journey
 
-**Scenario**: Saturday at 11 PM, 15 km journey in a VIP vehicle with no additional stops
+**Scenario**: Saturday at 11 PM, 15-mile journey in a VIP vehicle with no additional stops
 
 **Calculation**:
 
-1. Initial Fare = £7.00 + (15 km × £7.00/km) = £112.00
+1. Initial Fare = £7.00 + (15 miles × £7.00/mile) = £112.00
 2. Time Multipliers = 1.3 (night) × 1.2 (weekend) = 1.56
 3. Adjusted Fare = £112.00 × 1.56 = £174.72
 4. No additional stops = £0.00
 5. Fare with Extras = £174.72
-6. Minimum Fare Check: £174.72 vs. £50.00 (exceeds minimum)
+6. Minimum Fare Check: £174.72 vs. £35.00 (exceeds minimum)
 7. Final Fare = £175.00 (rounded up)
 
 ## Special Case Handling
 
 ### Very Long Journeys
 
-For exceptionally long journeys (over 100 km), the standard fare calculation applies without adjustments. The example below shows how the fare would be calculated for a very long journey:
+For exceptionally long journeys (over 100 miles), the standard fare calculation applies without adjustments. The example below shows how the fare would be calculated for a very long journey:
 
-**Scenario**: 500 km journey in a Standard Saloon during off-peak hours
+**Scenario**: 500-mile journey in a Standard Saloon during off-peak hours
 
 **Calculation**:
 
-1. Initial Fare = £2.50 + (500 km × £2.50/km) = £1,252.50
+1. Initial Fare = £2.50 + (500 miles × £2.50/mile) = £1,252.50
 2. Time Multiplier = 1.0 (off-peak)
 3. Adjusted Fare = £1,252.50
 4. Final Fare = £1,252.50
@@ -182,11 +215,11 @@ For exceptionally long journeys (over 100 km), the standard fare calculation app
 
 Each additional stop adds £5.00 to the fare. For journeys with multiple stops:
 
-**Scenario**: 20 km journey with 3 additional stops in an Estate car
+**Scenario**: 20-mile journey with 3 additional stops in an Estate car
 
 **Calculation**:
 
-1. Initial Fare = £3.00 + (20 km × £3.00/km) = £63.00
+1. Initial Fare = £3.50 + (20 miles × £3.50/mile) = £63.00
 2. Assuming off-peak: £63.00
 3. Three additional stops = 3 × £5.00 = £15.00
 4. Fare with Extras = £63.00 + £15.00 = £78.00
@@ -231,7 +264,7 @@ The fare calculation system is implemented as part of the Xequtive backend API:
 ## Glossary of Terms
 
 - **Base Rate**: The starting charge for a journey with a particular vehicle type
-- **Per Kilometer Rate**: The amount charged per kilometer of the journey
+- **Per Mile Rate**: The amount charged per mile of the journey
 - **Minimum Fare**: The lowest fare that will be charged, regardless of calculated fare
 - **Time Multiplier**: A factor applied to the fare based on time of day
 - **ETA**: Estimated Time of Arrival - the predicted time for a vehicle to reach the pickup location

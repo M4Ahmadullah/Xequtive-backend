@@ -82,8 +82,8 @@ The booking process follows these steps:
           "currency": "GBP"
         },
         "journey": {
-          "distance_km": 27.4,
-          "duration_min": 52
+          "distance_miles": 27.4,
+          "duration_minutes": 52
         },
         "status": "pending"
       }
@@ -214,8 +214,8 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
         "currency": "GBP"
       },
       "journey": {
-        "distance_km": 27.4,
-        "duration_min": 52
+        "distance_miles": 27.4,
+        "duration_minutes": 52
       },
       "status": "pending"
     }
@@ -264,8 +264,8 @@ Retrieves all bookings for the authenticated user, sorted by creation date (newe
         "price": 444.5,
         "status": "confirmed",
         "journey": {
-          "distance_km": 64.8,
-          "duration_min": 85
+          "distance_miles": 64.8,
+          "duration_minutes": 85
         },
         "createdAt": "2025-05-10T02:25:14.180Z"
       },
@@ -283,8 +283,8 @@ Retrieves all bookings for the authenticated user, sorted by creation date (newe
         "price": 129.5,
         "status": "confirmed",
         "journey": {
-          "distance_km": 27.4,
-          "duration_min": 39
+          "distance_miles": 27.4,
+          "duration_minutes": 39
         },
         "createdAt": "2025-05-10T02:16:49.031Z"
       }
@@ -464,8 +464,8 @@ If the limit is exceeded, the API will respond with:
           "currency": "GBP"
         },
         "journey": {
-          "distance_km": 4.9,
-          "duration_min": 19
+          "distance_miles": 4.9,
+          "duration_minutes": 19
         },
         "status": "pending"
       }

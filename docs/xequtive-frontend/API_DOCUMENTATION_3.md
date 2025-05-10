@@ -126,8 +126,8 @@ Retrieves all bookings for the authenticated user, sorted by creation date (newe
         "price": 444.5,
         "status": "confirmed",
         "journey": {
-          "distance_km": 64.8,
-          "duration_min": 85
+          "distance_miles": 64.8,
+          "duration_minutes": 85
         },
         "createdAt": "2025-05-10T02:25:14.180Z"
       },
@@ -145,8 +145,8 @@ Retrieves all bookings for the authenticated user, sorted by creation date (newe
         "price": 129.5,
         "status": "cancelled",
         "journey": {
-          "distance_km": 27.4,
-          "duration_min": 39
+          "distance_miles": 27.4,
+          "duration_minutes": 39
         },
         "createdAt": "2025-05-10T02:16:49.031Z"
       }

@@ -112,8 +112,8 @@ export interface EnhancedFareEstimateResponse {
   currency: string;
   vehicleOptions: VehicleOption[];
   journey?: {
-    distance_km: number;
-    duration_min: number;
+    distance_miles: number;
+    duration_minutes: number;
   };
 }
 
@@ -127,8 +127,8 @@ export interface FareEstimateRequest {
 
 export interface FareEstimateResponse {
   fareEstimate: number;
-  distance_km: number;
-  duration_min: number;
+  distance_miles: number;
+  duration_minutes: number;
 }
 
 export interface ApiResponse<T> {
@@ -177,8 +177,8 @@ export interface VerifiedFareData {
     amount: number;
     currency: string;
   };
-  distance_km: number;
-  duration_min: number;
+  distance_miles: number;
+  duration_minutes: number;
 }
 
 export interface TemporaryBookingData {
@@ -243,8 +243,8 @@ export interface PermanentBookingData {
     };
   };
   journey: {
-    distance_km: number;
-    duration_min: number;
+    distance_miles: number;
+    duration_minutes: number;
   };
   specialRequests?: string;
   status: string;
@@ -268,8 +268,8 @@ export interface UserBookingData {
   price: number;
   status: string;
   journey?: {
-    distance_km: number;
-    duration_min: number;
+    distance_miles: number;
+    duration_minutes: number;
   };
   createdAt: string;
 }

@@ -20,6 +20,7 @@ import {
 import { EnhancedFareService } from "../services/enhancedFare.service";
 import { Query, DocumentData } from "firebase-admin/firestore";
 import { bookingLimiter } from "../middleware/rateLimiter";
+import { FareService } from "../services/fare.service";
 
 const router = Router();
 
@@ -138,8 +139,8 @@ router.post(
           price: verifiedFare.price,
         },
         journey: {
-          distance_km: verifiedFare.distance_km,
-          duration_min: verifiedFare.duration_min,
+          distance_miles: verifiedFare.distance_miles,
+          duration_minutes: verifiedFare.duration_minutes,
         },
         specialRequests: bookingData.booking.specialRequests,
         status: "pending",
@@ -165,8 +166,8 @@ router.post(
           vehicle: permanentBooking.vehicle.name,
           price: permanentBooking.vehicle.price,
           journey: {
-            distance_km: permanentBooking.journey.distance_km,
-            duration_min: permanentBooking.journey.duration_min,
+            distance_miles: permanentBooking.journey.distance_miles,
+            duration_minutes: permanentBooking.journey.duration_minutes,
           },
           status: "pending",
         },
@@ -234,8 +235,8 @@ router.get(
           price: booking.vehicle.price.amount,
           status: booking.status,
           journey: {
-            distance_km: booking.journey.distance_km,
-            duration_min: booking.journey.duration_min,
+            distance_miles: booking.journey.distance_miles,
+            duration_minutes: booking.journey.duration_minutes,
           },
           createdAt: booking.createdAt,
         });
@@ -361,9 +362,25 @@ router.get(
         ...(bookingDoc.data() as PermanentBookingData),
       };
 
+      const verifiedFare = await FareService.calculateFare({
+        pickupLocation: booking.locations.pickup.coordinates,
+        dropoffLocation: booking.locations.dropoff.coordinates,
+        additionalStops: booking.locations.additionalStops?.map(
+          (stop) => stop.coordinates
+        ),
+        vehicleType: booking.vehicle.name,
+      });
+
       return res.json({
         success: true,
-        data: booking,
+        data: {
+          ...booking,
+          journey: {
+            ...booking.journey,
+            distance_miles: verifiedFare.distance_miles,
+            duration_minutes: verifiedFare.duration_minutes,
+          },
+        },
       } as ApiResponse<typeof booking>);
     } catch (error) {
       console.error("Error fetching booking:", error);

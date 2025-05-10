@@ -147,8 +147,8 @@ export class EnhancedFareService {
       const legs = route.legs;
 
       return {
-        // Convert distance from meters to kilometers
-        distance: route.distance / 1000,
+        // Convert distance from meters to miles (1 meter = 0.000621371 miles)
+        distance: route.distance * 0.000621371,
         // Convert duration from seconds to minutes
         duration: route.duration / 60,
         legs: legs,
@@ -190,8 +190,8 @@ export class EnhancedFareService {
     timeMultiplier: number
   ): VehiclePriceInfo {
     console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
-    console.log(`Base rate: £${vehicleType.baseRate}/km`);
-    console.log(`Distance: ${distance.toFixed(2)} km`);
+    console.log(`Base rate: £${vehicleType.baseRate}/mile`);
+    console.log(`Distance: ${distance.toFixed(2)} miles`);
     console.log(`Additional stops: ${additionalStops}`);
     console.log(`Time multiplier: ${timeMultiplier}`);
 
@@ -330,7 +330,7 @@ export class EnhancedFareService {
       console.log(
         `Route details: Distance: ${routeDetails.distance.toFixed(
           2
-        )} km, Duration: ${routeDetails.duration.toFixed(1)} min`
+        )} miles, Duration: ${routeDetails.duration.toFixed(1)} min`
       );
 
       console.log(
@@ -384,8 +384,8 @@ export class EnhancedFareService {
         currency: this.DEFAULT_CURRENCY,
         vehicleOptions,
         journey: {
-          distance_km: Math.round(routeDetails.distance * 10) / 10,
-          duration_min: Math.ceil(routeDetails.duration),
+          distance_miles: Math.round(routeDetails.distance * 10) / 10,
+          duration_minutes: Math.ceil(routeDetails.duration),
         },
       };
     } catch (error) {
@@ -455,7 +455,7 @@ export class EnhancedFareService {
       console.log(
         `Distance: ${routeDetails.distance.toFixed(
           2
-        )} km, Duration: ${routeDetails.duration.toFixed(1)} min`
+        )} miles, Duration: ${routeDetails.duration.toFixed(1)} min`
       );
       console.log("=============================================\n");
 
@@ -464,8 +464,8 @@ export class EnhancedFareService {
         vehicleId: vehicleType.id,
         vehicleName: vehicleType.name,
         price: fare,
-        distance_km: Math.round(routeDetails.distance * 10) / 10,
-        duration_min: Math.ceil(routeDetails.duration),
+        distance_miles: Math.round(routeDetails.distance * 10) / 10,
+        duration_minutes: Math.ceil(routeDetails.duration),
       };
     } catch (error) {
       console.error("Error calculating single vehicle fare:", error);

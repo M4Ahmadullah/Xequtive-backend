@@ -11,7 +11,7 @@ export interface VehicleType {
   name: string;
   description: string;
   capacity: VehicleCapacity;
-  baseRate: number; // Base rate per km (in GBP)
+  baseRate: number; // Base rate per mile (in GBP)
   minimumFare: number; // Minimum fare (in GBP)
   examples: string[];
   imageUrl: string;
@@ -29,7 +29,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 4,
       luggage: 2,
     },
-    baseRate: 2.5,
+    baseRate: 4.0, // £4.00 per mile
     minimumFare: 15,
     examples: ["Toyota Prius", "Ford Mondeo"],
     imageUrl: "/images/vehicles/standard-saloon.jpg",
@@ -43,7 +43,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 4,
       luggage: 4,
     },
-    baseRate: 3.0,
+    baseRate: 4.8, // £4.80 per mile
     minimumFare: 18,
     examples: ["Volkswagen Passat Estate", "Skoda Octavia Estate"],
     imageUrl: "/images/vehicles/estate.jpg",
@@ -57,7 +57,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 6,
       luggage: 4,
     },
-    baseRate: 3.5,
+    baseRate: 5.6, // £5.60 per mile
     minimumFare: 22,
     examples: ["Ford Galaxy", "Volkswagen Sharan"],
     imageUrl: "/images/vehicles/large-mpv.jpg",
@@ -71,7 +71,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 8,
       luggage: 8,
     },
-    baseRate: 4.0,
+    baseRate: 6.4, // £6.40 per mile
     minimumFare: 25,
     examples: ["Ford Tourneo", "Volkswagen Transporter"],
     imageUrl: "/images/vehicles/xl-mpv.jpg",
@@ -85,7 +85,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 3,
       luggage: 2,
     },
-    baseRate: 4.5,
+    baseRate: 7.2, // £7.20 per mile
     minimumFare: 30,
     examples: ["Mercedes E-Class", "BMW 5-Series"],
     imageUrl: "/images/vehicles/executive-saloon.jpg",
@@ -100,7 +100,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 7,
       luggage: 7,
     },
-    baseRate: 5.5,
+    baseRate: 8.8, // £8.80 per mile
     minimumFare: 40,
     examples: ["Mercedes Vito", "Volkswagen Caravelle"],
     imageUrl: "/images/vehicles/executive-mpv.jpg",
@@ -115,7 +115,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 3,
       luggage: 2,
     },
-    baseRate: 7.0,
+    baseRate: 11.2, // £11.20 per mile
     minimumFare: 50,
     examples: ["Mercedes S-Class", "BMW 7-Series"],
     imageUrl: "/images/vehicles/vip.jpg",
@@ -135,7 +135,7 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 6,
       luggage: 6,
     },
-    baseRate: 8.5,
+    baseRate: 13.6, // £13.60 per mile
     minimumFare: 60,
     examples: ["Mercedes V-Class"],
     imageUrl: "/images/vehicles/vip-mpv.jpg",
@@ -156,7 +156,7 @@ export const vehicleTypes: VehicleType[] = [
       luggage: 2,
       wheelchair: true,
     },
-    baseRate: 3.5,
+    baseRate: 5.6, // £5.60 per mile
     minimumFare: 25,
     examples: ["Specially adapted vans"],
     imageUrl: "/images/vehicles/wav.jpg",

@@ -501,8 +501,8 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
           }
         ],
         "journey": {
-          "distance_km": 27.4,
-          "duration_min": 52
+          "distance_miles": 27.4,
+          "duration_minutes": 52
         }
       }
     }
@@ -534,58 +534,58 @@ The enhanced fare estimation endpoint calculates fares for all of the following 
 1. **Standard Saloon** - Toyota Prius, Ford Mondeo
 
    - Capacity: 4 passengers, 2 luggage items
-   - Base Rate: £2.50/km
+   - Base Rate: £2.50/mile
    - Minimum Fare: £15.00
 
 2. **Estate** - Volkswagen Passat Estate, Skoda Octavia Estate
 
    - Capacity: 4 passengers, 4 luggage items
-   - Base Rate: £3.00/km
+   - Base Rate: £3.00/mile
    - Minimum Fare: £18.00
 
 3. **Large MPV** - Ford Galaxy, Volkswagen Sharan
 
    - Capacity: 6 passengers, 4 luggage items
-   - Base Rate: £3.50/km
+   - Base Rate: £3.50/mile
    - Minimum Fare: £22.00
 
 4. **Extra Large MPV** - Ford Tourneo, Volkswagen Transporter
 
    - Capacity: 8 passengers, 8 luggage items
-   - Base Rate: £4.00/km
+   - Base Rate: £4.00/mile
    - Minimum Fare: £25.00
 
 5. **Executive Saloon** - Mercedes E-Class, BMW 5-Series
 
    - Capacity: 3 passengers, 2 luggage items
-   - Base Rate: £4.50/km
+   - Base Rate: £4.50/mile
    - Minimum Fare: £30.00
    - Features: WiFi, Bottled Water, Newspaper
 
 6. **Executive Large MPV** - Mercedes Vito, Volkswagen Caravelle
 
    - Capacity: 7 passengers, 7 luggage items
-   - Base Rate: £5.50/km
+   - Base Rate: £5.50/mile
    - Minimum Fare: £40.00
    - Features: WiFi, Bottled Water, Extra Legroom
 
 7. **VIP** - Mercedes S-Class, BMW 7-Series
 
    - Capacity: 3 passengers, 2 luggage items
-   - Base Rate: £7.00/km
+   - Base Rate: £7.00/mile
    - Minimum Fare: £50.00
    - Features: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur
 
 8. **VIP MPV** - Mercedes V-Class
 
    - Capacity: 6 passengers, 6 luggage items
-   - Base Rate: £8.50/km
+   - Base Rate: £8.50/mile
    - Minimum Fare: £60.00
    - Features: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur
 
 9. **Wheelchair Accessible Vehicle (WAV)** - Specially adapted vans
    - Capacity: 4 passengers + wheelchair, 2 luggage items
-   - Base Rate: £3.50/km
+   - Base Rate: £3.50/mile
    - Minimum Fare: £25.00
    - Features: Wheelchair Ramp, Secure Wheelchair Fastening
 
@@ -599,7 +599,7 @@ Our fare calculation system uses a sophisticated algorithm that considers multip
 - **Coordinates Processing**: All location coordinates (pickup, stops, dropoff) are formatted and sent to Mapbox
 - **Route Selection**: The optimal route is automatically selected based on distance and road conditions
 - **Multiple Destinations**: For journeys with additional stops, the route is calculated as: pickup → all stops (in order) → final destination
-- **Distance Measurement**: Total journey distance is measured in kilometers and calculated by summing all route segments
+- **Distance Measurement**: Total journey distance is measured in miles and calculated by summing all route segments
 - **Time Estimation**: Estimated journey time is calculated in minutes based on typical driving speeds and route conditions
 
 #### 2. Base Fare Calculation
@@ -607,13 +607,13 @@ Our fare calculation system uses a sophisticated algorithm that considers multip
 For each vehicle type, the initial fare is calculated as:
 
 ```
-Initial Fare = Base Rate + (Distance in km × Base Rate per km)
+Initial Fare = Base Rate + (Distance in miles × Base Rate per mile)
 ```
 
 Where:
 
 - **Base Rate**: A fixed amount charged for each journey (varies by vehicle type)
-- **Distance Charge**: The journey distance multiplied by the vehicle's per-kilometer rate
+- **Distance Charge**: The journey distance multiplied by the vehicle's per-mile rate
 
 #### 3. Time-Based Adjustments
 
@@ -661,15 +661,15 @@ Final Fare = MAX(Fare with Extras, Minimum Fare)
 
 #### 7. Examples of Fare Variations
 
-- **Short Local Trip (5 km) in Standard Saloon**:
+- **Short Local Trip (5 miles) in Standard Saloon**:
   - Off-peak: £15.00 (minimum fare applies)
   - Peak hour weekday: £18.75
   - Night hours: £16.75
-- **Airport Transfer (30 km) in Executive Saloon**:
+- **Airport Transfer (30 miles) in Executive Saloon**:
   - Off-peak: £138.00
   - Peak hour weekday: £207.00
   - Weekend: £165.60
-- **Long Distance Journey (100 km) in VIP Vehicle**:
+- **Long Distance Journey (100 miles) in VIP Vehicle**:
   - Off-peak: £707.00
   - Peak hour weekday: £1,060.50
   - Night and weekend combined: £1,103.00
