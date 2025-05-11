@@ -18,11 +18,19 @@ This directory contains the documentation for the Xequtive API endpoints to be u
    - Security features
 
 3. **API_DOCUMENTATION_3.md** - User booking management:
+
    - Booking status flow
    - Retrieving user bookings
    - Filtering bookings by status
    - Cancelling bookings
    - Frontend implementation examples
+
+4. **fare-calculation-documentation.md** - Detailed information on fare calculation:
+   - Base fare structures
+   - Distance and time calculations
+   - Time-based multipliers
+   - Special case handling
+   - Examples with distance in miles
 
 ## Using the API
 
@@ -117,3 +125,14 @@ For production, this will be your deployed API domain.
 ## Need Help?
 
 If you need help or find issues with the API, please contact the backend development team through the appropriate channels.
+
+## Recent Updates
+
+All distances in the API are now measured in miles instead of kilometers. The key changes include:
+
+1. All API responses use `distance_miles` instead of `distance_km`
+2. All duration values use `duration_minutes` instead of `duration_min`
+3. All vehicle rates are now quoted in per-mile rates
+4. All fare calculations use miles as the base unit of distance
+
+Please ensure your frontend application is updated to reflect these changes.

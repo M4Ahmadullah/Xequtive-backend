@@ -1,270 +1,411 @@
-# Xequtive Fare Calculation System Documentation
+# Xequtive Fare Calculation Documentation
 
-## Executive Summary
+## Overview
 
-Xequtive's fare calculation system is designed to provide transparent, consistent, and fair pricing for all journeys across our range of premium vehicles. This document provides a detailed overview of how fares are calculated, what factors influence pricing, and how our system handles various scenarios.
+This document details the fare calculation methodology used by Xequtive for all vehicle types. Our system ensures transparent, consistent pricing while accounting for factors such as distance, time of day, vehicle class, and additional services.
 
-## Input Parameters
+## User Input and Fare Calculation Flow
 
-The fare calculation system accepts the following parameters:
+Our fare calculation system requires the following information from users to generate accurate fare estimates:
 
-### 1. Location Information
+1. **Journey Details**:
 
-- **Pickup Location**
-  - Address (string)
-  - Coordinates (latitude, longitude)
-- **Dropoff Location**
-  - Address (string)
-  - Coordinates (latitude, longitude)
-- **Additional Stops** (optional)
-  - Array of locations with address and coordinates
-  - Each stop adds £5.00 to the fare
+   - Pickup location (address and/or coordinates)
+   - Dropoff location (address and/or coordinates)
+   - Any additional stops (addresses and/or coordinates)
+   - Date and time of pickup
 
-### 2. Journey Details
+2. **Passenger Information**:
 
-- **Date and Time**
-  - Date (YYYY-MM-DD format)
-  - Time (HH:mm format)
-  - Used to determine time-based multipliers
-- **Passenger Information**
-  - Number of passengers
-  - Number of checked luggage items
-  - Number of hand luggage items
-  - Special requirements (e.g., wheelchair access)
+   - Number of passengers
+   - Amount of luggage (checked and hand luggage)
 
-## Core Components
+3. **Vehicle Preference**:
+   - Selected vehicle type
 
-### 1. Route Planning and Distance Calculation
+### Fare Calculation Process
 
-Our system uses the Mapbox Directions API to calculate:
+Once this information is provided, our system follows these steps to calculate the fare:
 
-- Optimal routes between locations
-- Total journey distance in miles
-- Estimated journey duration in minutes
-- Route segments for multi-stop journeys
+1. **Route Calculation**: Using Mapbox API, we calculate the optimized route between all provided locations
+2. **Distance Determination**: Total journey distance in miles is measured along the calculated route
+3. **Time Estimation**: Travel duration is estimated based on the route and typical traffic conditions
+4. **Base Fare Application**: The appropriate base fare and per-mile rate is applied based on the selected vehicle
+5. **Time Multiplier**: System checks if the journey falls within peak hours, weekends, or night hours
+6. **Additional Charges**: Extra stops, waiting time, and special services are added
+7. **Location-Based Fees**: Airport and congestion zone charges are automatically detected and applied
+8. **Final Calculation**: All components are combined and rounded to provide the final fare estimate
 
-The route calculation considers:
+## Automated Location Detection for Special Zones
 
-- Road types and restrictions
-- Typical traffic patterns
-- Geographical constraints
-- All stops in the sequence provided
+Our system now includes intelligent location detection that automatically identifies when a journey involves airports or congestion charge zones, ensuring accurate pricing without requiring manual input.
 
-### 2. Vehicle Types and Base Pricing
+### Airport Detection
 
-Xequtive offers nine distinct vehicle classes:
+The system automatically detects when a pickup or dropoff location is at one of London's major airports:
 
-| Vehicle Type          | Examples                               | Capacity                    | Base Rate (per mile) | Minimum Fare |
-| --------------------- | -------------------------------------- | --------------------------- | -------------------- | ------------ |
-| Standard Saloon       | Mercedes C-Class, BMW 3 Series         | 3 passengers, 3 suitcases   | £2.50/mile           | £15.00       |
-| Estate                | Mercedes E-Class Estate, BMW 5 Touring | 4 passengers, 4 suitcases   | £3.50/mile           | £25.00       |
-| Large MPV             | Mercedes V-Class, VW Multivan          | 6 passengers, 6 suitcases   | £4.00/mile           | £30.00       |
-| Extra Large MPV       | Rolls-Royce Ghost, Bentley Flying Spur | 3 passengers, 3 suitcases   | £4.50/mile           | £35.00       |
-| Executive Saloon      | Mercedes E-Class, BMW 5 Series         | 3 passengers, 3 suitcases   | £3.00/mile           | £20.00       |
-| Executive Large MPV   | Mercedes V-Class, VW Multivan          | 6 passengers, 6 suitcases   | £4.00/mile           | £30.00       |
-| VIP                   | Mercedes S-Class, BMW 7 Series         | 3 passengers, 3 suitcases   | £4.50/mile           | £35.00       |
-| VIP MPV               | Mercedes Sprinter VIP                  | 6 passengers, 6 suitcases   | £7.00/mile           | £45.00       |
-| Wheelchair Accessible | Mercedes Sprinter WAV                  | 1 wheelchair + 5 passengers | £3.50/mile           | £25.00       |
+- **How It Works**: We maintain geofenced boundaries around Heathrow, Gatwick, Luton, Stansted, and City Airport
+- **Automatic Application**: When a pickup or dropoff point falls within these boundaries, the appropriate airport fee is automatically added
+- **User Notification**: A message is displayed to the user: "Your journey includes airport pickup/dropoff at [Airport Name]. An airport fee of £[Amount] has been added to your fare."
 
-### 3. Premium Vehicle Features
+### Congestion Charge Zone Detection
 
-Higher-tier vehicles include additional features:
+The system detects when a journey passes through London's Congestion Charge Zone (CCZ):
 
-- **Executive Vehicles**: WiFi, Bottled Water, Newspaper
-- **VIP Vehicles**: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur
-- **Wheelchair Accessible**: Wheelchair Ramp, Secure Wheelchair Fastening
+- **Route Analysis**: Our system analyzes the calculated route to determine if it passes through the CCZ
+- **Automatic Application**: If the route crosses the CCZ, the £7.50 charge is automatically added
+- **User Notification**: A message is displayed: "Your journey passes through the Congestion Charge Zone. A £7.50 charge has been added to your fare."
+- **Time-Based Application**: The charge is only applied during CCZ operating hours (Monday to Friday, 7am to 6pm)
 
-## Detailed Fare Calculation Process
+### Dartford Crossing Detection
 
-### Step 1: Base Fare Calculation
+For journeys crossing the River Thames via the Dartford Crossing:
 
-For each vehicle type, we calculate the initial fare using:
+- **Route Analysis**: The system detects if the calculated route includes the Dartford Crossing
+- **Automatic Application**: If the crossing is part of the route, the £4.00 charge is automatically added
+- **User Notification**: A message is displayed: "Your journey includes the Dartford Crossing. A £4.00 charge has been added to your fare."
 
-```
-Initial Fare = Base Rate + (Distance in miles × Base Rate per mile)
-```
+## Vehicle Types and Base Pricing
 
-For example, a 20-mile journey in a Standard Saloon would have an initial fare of:
+| Vehicle Type        | Capacity (Passengers) | Base Fare (£) | Per Mile Rate (£) |  Waiting Time   |
+| ------------------- | :-------------------: | :-----------: | :---------------: | :-------------: |
+| Standard Saloon     |           4           |     £5.00     |       £2.95       | £25.00 per hour |
+| Estate              |           4           |     £7.50     |       £3.95       | £30.00 per hour |
+| MPV (XL)            |           6           |    £12.50     |       £4.75       | £35.00 per hour |
+| MPV (XXL)           |           8           |    £20.00     |       £3.95       | £45.00 per hour |
+| Executive           |           3           |    £12.50     |       £4.95       | £45.00 per hour |
+| Executive MPV       |           8           |    £25.00     |       £5.95       | £55.00 per hour |
+| VIP Executive\*     |           3           |      N/A      |        N/A        | £75.00 per hour |
+| VIP Executive MPV\* |           6           |      N/A      |        N/A        | £95.00 per hour |
 
-```
-£2.50 + (20 miles × £2.50/mile) = £52.50
-```
+\*VIP vehicles are priced on a custom quote basis depending on specific requirements. These premium services are typically booked on an hourly basis (minimum 3-4 hours) rather than point-to-point journeys and include additional premium services by default. Please contact our team for a personalized quote.
 
-### Step 2: Time & Day Adjustments
+## Vehicle Features
 
-We apply multipliers based on the time and day of travel:
+### Standard Vehicles
 
-#### Time-Based Factors:
+- **Standard Saloon**: Toyota Prius, Ford Mondeo
 
-| Time Period                    | Multiplier | Explanation                             |
-| ------------------------------ | ---------- | --------------------------------------- |
-| Weekday Peak (7-10 AM, 4-7 PM) | 1.5        | 50% surcharge during weekday rush hours |
-| Night Hours (10 PM - 5 AM)     | 1.3        | 30% surcharge for night-time services   |
-| Weekend Peak (10 AM - 8 PM)    | 1.2        | 20% surcharge during busy weekend hours |
+  - Accommodates 4 passengers with 2 standard luggage items
+  - Economical and comfortable for city travel
+  - Ideal for individual and small group travel
 
-#### Day-Based Factors:
+- **Estate**: Mercedes E-Class Estate, Volkswagen Passat Estate
 
-| Day Type                   | Multiplier | Explanation                        |
-| -------------------------- | ---------- | ---------------------------------- |
-| Weekends (Saturday/Sunday) | 1.2        | 20% surcharge for weekend services |
-| Public Holidays            | 1.4        | 40% surcharge for holiday services |
+  - Accommodates 4 passengers with 4 standard luggage items
+  - Extra luggage space for airport transfers or shopping trips
+  - Perfect balance of comfort and capacity
 
-These multipliers are applied to the initial fare:
+- **MPV (XL)**: Ford Galaxy, Volkswagen Sharan
 
-```
-Adjusted Fare = Initial Fare × Time Multiplier
-```
+  - Accommodates 6 passengers with 4 luggage items
+  - Spacious seating arrangement for family travel
+  - Flexible interior configuration
 
-Multiple multipliers may apply. For example, a journey at 11 PM on a Saturday would have both the Night Hours (1.3) and Weekend (1.2) multipliers:
+- **MPV (XXL)**: Ford Tourneo, Mercedes Vito
+  - Accommodates 8 passengers with 6 luggage items
+  - Maximum capacity for both passengers and luggage
+  - Ideal for group travel or large families
 
-```
-Adjusted Fare = Initial Fare × 1.3 × 1.2
-```
+### Premium Vehicles
 
-### Step 3: Additional Charges
+- **Executive**: Mercedes E-Class, BMW 5-Series
 
-We add fees for additional services:
+  - Accommodates 3 passengers with 2 luggage items
+  - WiFi, bottled water, professional chauffeur, flight tracking
+  - Premium comfort for business travel and special occasions
 
-- **Additional Stops**: £5.00 per stop (beyond pickup and dropoff locations)
-- **Wait Time**: Currently not charged but planned for future implementation
+- **Executive MPV**: Mercedes V-Class, Volkswagen Caravelle
 
-```
-Fare with Extras = Adjusted Fare + (Number of Additional Stops × £5.00)
-```
+  - Accommodates up to 8 passengers with 5 luggage items
+  - WiFi, bottled water, professional chauffeur, flight tracking, extra legroom
+  - Luxury group travel with premium amenities
 
-### Step 4: Minimum Fare Protection
+- **VIP Executive**: Mercedes S-Class, BMW 7-Series
 
-To ensure driver earnings on short journeys, we apply a minimum fare:
+  - Accommodates 3 passengers with 2 luggage items
+  - WiFi, premium drinks, luxury interior, professional chauffeur, priority service, privacy partition
+  - Ultimate luxury experience for high-profile clients
 
-```
-Final Fare = MAX(Fare with Extras, Minimum Fare for Vehicle Type)
-```
+- **VIP Executive MPV**: Mercedes V-Class Luxury
+  - Accommodates 6 passengers with 4 luggage items
+  - WiFi, premium drinks, luxury interior, professional chauffeur, priority service, enhanced climate control
+  - Premium group transportation with the highest level of service
 
-For example, if a Standard Saloon journey calculates to £13.50 but the minimum fare is £15.00, the customer will be charged £15.00.
+## Fare Calculation Formula
 
-### Step 5: Final Rounding
-
-For simplicity in payment processing and communication:
+The total fare is calculated using the following formula:
 
 ```
-Final Charged Fare = ROUND UP(Final Fare to nearest £0.50)
+Total Fare = Base Fare + (Distance in miles × Per Mile Rate) + Additional Charges
 ```
 
-For example, £87.30 would be rounded to £87.50.
+Where:
 
-## Example Fare Calculations
+- Base Fare: Fixed starting fare for each vehicle type
+- Per Mile Rate: Rate charged per mile traveled
+- Additional Charges: Includes time multipliers, additional stops, waiting time, and other surcharges
 
-### Example 1: Short Local Trip
+## Additional Charges
 
-**Scenario**: Tuesday at 2 PM, 5-mile journey in a Standard Saloon with no additional stops
+### Additional Stops
 
-**Calculation**:
+| Vehicle Type      | Per Additional Stop (£) |
+| ----------------- | :---------------------: |
+| Standard Saloon   |          £2.50          |
+| Estate            |          £3.50          |
+| MPV (XL)          |          £4.50          |
+| MPV (XXL)         |          £4.50          |
+| Executive         |          £5.50          |
+| Executive MPV     |          £5.50          |
+| VIP Executive     |           N/A           |
+| VIP Executive MPV |           N/A           |
 
-1. Initial Fare = £2.50 + (5 miles × £2.50/mile) = £15.00
-2. Time Multiplier = 1.0 (off-peak)
-3. Adjusted Fare = £15.00 × 1.0 = £15.00
-4. No additional stops = £0.00
-5. Fare with Extras = £15.00
-6. Minimum Fare Check: £15.00 vs. £15.00 (equals minimum)
-7. Final Fare = £15.00
+### Waiting Time
 
-### Example 2: Airport Transfer (Peak Hour)
+Waiting time is charged at the following rates:
 
-**Scenario**: Monday at 8 AM, 30-mile journey in an Executive Saloon with one additional stop
+| Vehicle Type      | Per Minute (£) | Per Hour (£) |
+| ----------------- | :------------: | :----------: |
+| Standard Saloon   |     £0.42      |    £25.00    |
+| Estate            |     £0.58      |    £30.00    |
+| MPV (XL)          |     £0.58      |    £35.00    |
+| MPV (XXL)         |     £0.67      |    £45.00    |
+| Executive         |     £0.67      |    £45.00    |
+| Executive MPV     |     £0.75      |    £55.00    |
+| VIP Executive     |     £1.25      |    £75.00    |
+| VIP Executive MPV |     £1.58      |    £95.00    |
 
-**Calculation**:
+### Day-Trip Rates
 
-1. Initial Fare = £4.50 + (30 miles × £4.50/mile) = £139.50
-2. Time Multiplier = 1.5 (weekday peak hour)
-3. Adjusted Fare = £139.50 × 1.5 = £209.25
-4. One additional stop = £5.00
-5. Fare with Extras = £209.25 + £5.00 = £214.25
-6. Minimum Fare Check: £214.25 vs. £20.00 (exceeds minimum)
-7. Final Fare = £214.50 (rounded up)
+For extended bookings, special day-trip rates apply:
 
-### Example 3: Weekend Night Journey
+| Vehicle Type      | 4-6 Hours (per hour) | 6-12 Hours (per hour) |
+| ----------------- | :------------------: | :-------------------: |
+| Standard Saloon   |        £25.00        |        £20.00         |
+| Estate            |        £30.00        |        £25.00         |
+| MPV (XL)          |        £40.00        |        £30.00         |
+| MPV (XXL)         |        £45.00        |        £40.00         |
+| Executive         |        £45.00        |        £40.00         |
+| Executive MPV     |        £55.00        |        £50.00         |
+| VIP Executive     |         N/A          |          N/A          |
+| VIP Executive MPV |         N/A          |          N/A          |
 
-**Scenario**: Saturday at 11 PM, 15-mile journey in a VIP vehicle with no additional stops
+## Time-Based Multipliers
 
-**Calculation**:
+### Weekdays (Monday-Thursday)
 
-1. Initial Fare = £7.00 + (15 miles × £7.00/mile) = £112.00
-2. Time Multipliers = 1.3 (night) × 1.2 (weekend) = 1.56
-3. Adjusted Fare = £112.00 × 1.56 = £174.72
-4. No additional stops = £0.00
-5. Fare with Extras = £174.72
-6. Minimum Fare Check: £174.72 vs. £35.00 (exceeds minimum)
-7. Final Fare = £175.00 (rounded up)
+- **Peak Time** (3 AM - 9 AM / 3 PM - 9 PM): Additional £3.54
+- **Off-Peak** (9:01 AM - 2:59 PM / 9 PM - 4 AM): No additional charge
 
-## Special Case Handling
+### Weekend (Friday)
 
-### Very Long Journeys
+- **Peak Time** (3 AM - 9 AM / 3 PM - 11:59 PM): Special rates apply
+- **Off-Peak** (9:01 AM - 2:59 PM): Standard weekend rates
 
-For exceptionally long journeys (over 100 miles), the standard fare calculation applies without adjustments. The example below shows how the fare would be calculated for a very long journey:
+### Weekend (Saturday-Sunday)
 
-**Scenario**: 500-mile journey in a Standard Saloon during off-peak hours
+- **All Day**: Special weekend rates apply
 
-**Calculation**:
+## Additional Fees
 
-1. Initial Fare = £2.50 + (500 miles × £2.50/mile) = £1,252.50
-2. Time Multiplier = 1.0 (off-peak)
-3. Adjusted Fare = £1,252.50
-4. Final Fare = £1,252.50
+### Toll Charges
 
-### Multiple Additional Stops
+- **Congestion Charge Zone (CCZ)** - Zone 1: £7.50
+- **Dartford Crossing**: £4.00
 
-Each additional stop adds £5.00 to the fare. For journeys with multiple stops:
+### Airport Fees
 
-**Scenario**: 20-mile journey with 3 additional stops in an Estate car
+#### Airport Dropoff Fees
 
-**Calculation**:
+| Airport      | Fee (£) |
+| ------------ | :-----: |
+| Heathrow     |  £6.00  |
+| Gatwick      |  £6.00  |
+| Luton        |  £6.00  |
+| Stansted     |  £7.00  |
+| City Airport |  £6.50  |
 
-1. Initial Fare = £3.50 + (20 miles × £3.50/mile) = £63.00
-2. Assuming off-peak: £63.00
-3. Three additional stops = 3 × £5.00 = £15.00
-4. Fare with Extras = £63.00 + £15.00 = £78.00
-5. Final Fare = £78.00
+#### Airport Pickup Fees
 
-## ETA Calculation
+| Airport      | Fee (£) |
+| ------------ | :-----: |
+| Heathrow     |  £7.50  |
+| Gatwick      |  £8.00  |
+| Luton        |  £6.00  |
+| Stansted     | £10.00  |
+| City Airport |  £6.50  |
 
-Estimated Time of Arrival (ETA) is provided to customers based on:
+## Additional Services and Premium Options
 
-- A base ETA value for each vehicle type (ranging from 5-15 minutes)
-- The estimated journey duration from Mapbox (in minutes)
+### Meet and Greet Service
 
-| Vehicle Type                  | Base ETA to Pickup |
-| ----------------------------- | ------------------ |
-| Standard Saloon               | 5 minutes          |
-| Estate                        | 6 minutes          |
-| Large MPV                     | 8 minutes          |
-| Extra Large MPV               | 10 minutes         |
-| Executive Saloon              | 7 minutes          |
-| Executive Large MPV           | 9 minutes          |
-| VIP                           | 12 minutes         |
-| VIP MPV                       | 15 minutes         |
-| Wheelchair Accessible Vehicle | 10 minutes         |
+For airport pickups, we offer a professional meet and greet service:
 
-## Future Enhancements Planned
+- Driver meets customers at arrivals with a name board
+- 45 minutes of free waiting time from the actual flight arrival
+- **Additional Cost**: Included in the airport pickup fee
 
-1. **Dynamic Traffic-Based Pricing**: Adjustments based on real-time traffic conditions
-2. **Wait Time Charges**: Additional fees for waiting time at pickup or stops
-3. **Weather Condition Adjustments**: Surcharges during adverse weather
-4. **Dynamic ETA**: Calculation based on actual driver locations
-5. **Loyalty Discounts**: Reduced fares for frequent customers
+### Corporate Account Benefits
 
-## Technical Implementation
+- Priority dispatch during peak hours
+- Dedicated account manager
+- Monthly invoicing and detailed trip reports
+- Volume-based discounts available
+- Custom branded service available for larger accounts
 
-The fare calculation system is implemented as part of the Xequtive backend API:
+### Special Occasions Package
 
-- **Technology**: Node.js with Express framework
-- **External APIs**: Mapbox Directions API for route planning
-- **Security**: All fare calculations require authentication
-- **Response Time**: Fare calculations typically complete in under 2 seconds
+- Complimentary chilled water and refreshments
+- Decorative options available upon request (weddings, anniversaries)
+- Extended vehicle selection time
+- **Additional Cost**: From £25 depending on requirements
 
-## Glossary of Terms
+## Seasonal and Event Pricing Adjustments
 
-- **Base Rate**: The starting charge for a journey with a particular vehicle type
-- **Per Mile Rate**: The amount charged per mile of the journey
-- **Minimum Fare**: The lowest fare that will be charged, regardless of calculated fare
-- **Time Multiplier**: A factor applied to the fare based on time of day
-- **ETA**: Estimated Time of Arrival - the predicted time for a vehicle to reach the pickup location
+### Holiday Season Surcharges
+
+- **Christmas Eve & Christmas Day**: 50% surcharge
+- **New Year's Eve (after 6pm) & New Year's Day**: 50% surcharge
+- **Bank Holidays**: 25% surcharge
+
+### Major Event Surcharges
+
+For major sporting events, concerts and festivals:
+
+- **Standard Event Surcharge**: 15% on all fares
+- **Premium Events** (Wimbledon Finals, FA Cup Final, etc.): 25% on all fares
+
+## Example Calculations
+
+### Example 1: Standard Saloon Journey
+
+- **Distance**: 10 miles
+- **Time**: Tuesday, 8:00 AM (Peak Time)
+- **Vehicle**: Standard Saloon
+- **Additional Stops**: None
+
+Calculation:
+
+```
+Base Fare = £5.00
+Distance Charge = 10 miles × £2.95 = £29.50
+Peak Time Charge = £3.54
+Total Fare = £5.00 + £29.50 + £3.54 = £38.04
+```
+
+### Example 2: Executive Journey with Airport Pickup
+
+- **Distance**: 25 miles
+- **Time**: Friday, 6:00 PM (Weekend Peak)
+- **Vehicle**: Executive
+- **Route**: Heathrow Airport to Central London
+
+Calculation:
+
+```
+Base Fare = £12.50
+Distance Charge = 25 miles × £4.95 = £123.75
+Airport Pickup Fee = £7.50
+Weekend Peak Charge = (Applicable rate)
+Total Fare = £12.50 + £123.75 + £7.50 + (Weekend charge) = £143.75 + (Weekend charge)
+```
+
+### Example 3: MPV (XL) with Waiting Time and Additional Stops
+
+- **Distance**: 15 miles
+- **Time**: Monday, 2:00 PM (Off-Peak)
+- **Vehicle**: MPV (XL)
+- **Additional Stops**: 1
+- **Waiting Time**: 30 minutes
+
+Calculation:
+
+```
+Base Fare = £12.50
+Distance Charge = 15 miles × £4.75 = £71.25
+Additional Stop = £4.50
+Waiting Time = 30 minutes × £0.58 = £17.40
+Total Fare = £12.50 + £71.25 + £4.50 + £17.40 = £105.65
+```
+
+### Example 4: Day Trip with Executive MPV
+
+- **Distance**: Local use only
+- **Time**: Saturday, 10:00 AM - 6:00 PM (8 hours)
+- **Vehicle**: Executive MPV
+- **Service**: Wedding transportation
+
+Calculation:
+
+```
+6-12 Hours Rate = 8 hours × £50.00 = £400.00
+Special Occasions Package = £25.00
+Weekend Surcharge = (Applicable rate)
+Total Fare = £400.00 + £25.00 + (Weekend surcharge) = £425.00 + (Weekend surcharge)
+```
+
+### Example 5: Standard Saloon with Congestion Charge
+
+- **Distance**: 12 miles
+- **Time**: Wednesday, 4:00 PM (Peak Time)
+- **Vehicle**: Standard Saloon
+- **Route**: Through Congestion Charge Zone
+
+Calculation:
+
+```
+Base Fare = £5.00
+Distance Charge = 12 miles × £2.95 = £35.40
+Peak Time Charge = £3.54
+Congestion Charge = £7.50
+Total Fare = £5.00 + £35.40 + £3.54 + £7.50 = £51.44
+```
+
+### Example 6: Journey with Automated Zone Detection
+
+- **Distance**: 18 miles
+- **Time**: Monday, 10:00 AM (Off-Peak)
+- **Vehicle**: Estate
+- **Route**: Westminster to Canary Wharf via CCZ, then to Stansted Airport
+
+Calculation:
+
+```
+Base Fare = £7.50
+Distance Charge = 18 miles × £3.95 = £71.10
+Congestion Charge (automatically detected) = £7.50
+Airport Dropoff Fee (automatically detected) = £7.00
+Total Fare = £7.50 + £71.10 + £7.50 + £7.00 = £93.10
+
+User Notifications:
+- "Your route passes through the Congestion Charge Zone. A £7.50 charge has been added."
+- "Your destination is Stansted Airport. An airport dropoff fee of £7.00 has been added."
+```
+
+## Minimum Fare Protection
+
+To ensure driver earnings on very short journeys, a minimum fare is applied if the calculated fare is lower than the minimum threshold for each vehicle type.
+
+## Fare Rounding
+
+For customer convenience, all final fares are rounded up to the nearest £0.50.
+
+## Additional Notes
+
+1. All prices are inclusive of VAT where applicable.
+2. Fares may be subject to change during major public holidays or events.
+3. For journeys over 100 miles, special rates may apply.
+4. Corporate accounts may receive discounted rates according to contract terms.
+5. Pre-booked journeys more than 24 hours in advance may be eligible for off-peak rates regardless of actual journey time.
+6. For journeys requiring a toll or crossing fee not listed, the actual cost will be added to the final fare.
+7. Multiple hour waiting periods may be eligible for reduced hourly rates.
+8. All prices are effective from June 2023 and subject to periodic review.
+
+## Booking Terms
+
+1. Cancellation fees apply for bookings cancelled with less than 24 hours notice.
+2. For airport pickups, flight details must be provided at the time of booking.
+3. Child seats must be requested at the time of booking.
+4. A non-refundable deposit may be required for certain premium services or peak time bookings.
+5. Our drivers will wait up to 15 minutes beyond the scheduled pickup time for standard bookings, and 45 minutes for airport pickups (based on actual flight arrival time).
