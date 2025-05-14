@@ -11,12 +11,16 @@ export interface VehicleType {
   name: string;
   description: string;
   capacity: VehicleCapacity;
-  baseRate: number; // Base rate per mile (in GBP)
-  minimumFare: number; // Minimum fare (in GBP)
+  baseRate: number; // Base fare in GBP
+  perMileRate: number; // Rate per mile in GBP
+  minimumFare: number; // Minimum fare in GBP
   examples: string[];
   imageUrl: string;
   features?: string[];
   eta: number; // Default ETA in minutes
+  waitingRatePerHour?: number; // Waiting time rate in GBP per hour
+  waitingRatePerMinute?: number; // Waiting time rate in GBP per minute
+  additionalStopFee?: number; // Fee for each additional stop
 }
 
 // Define all available vehicle types
@@ -29,8 +33,12 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 4,
       luggage: 2,
     },
-    baseRate: 4.0, // £4.00 per mile
-    minimumFare: 15,
+    baseRate: 5.0, // £5.00 base fare
+    perMileRate: 2.95, // £2.95 per mile
+    minimumFare: 15.0,
+    waitingRatePerHour: 25.0, // £25.00 per hour
+    waitingRatePerMinute: 0.42, // £0.42 per minute
+    additionalStopFee: 2.5, // £2.50 per additional stop
     examples: ["Toyota Prius", "Ford Mondeo"],
     imageUrl: "/images/vehicles/standard-saloon.jpg",
     eta: 5,
@@ -43,80 +51,114 @@ export const vehicleTypes: VehicleType[] = [
       passengers: 4,
       luggage: 4,
     },
-    baseRate: 4.8, // £4.80 per mile
-    minimumFare: 18,
-    examples: ["Volkswagen Passat Estate", "Skoda Octavia Estate"],
+    baseRate: 7.5, // £7.50 base fare
+    perMileRate: 3.95, // £3.95 per mile
+    minimumFare: 18.0,
+    waitingRatePerHour: 30.0, // £30.00 per hour
+    waitingRatePerMinute: 0.58, // £0.58 per minute
+    additionalStopFee: 3.5, // £3.50 per additional stop
+    examples: ["Mercedes E-Class Estate", "Volkswagen Passat Estate"],
     imageUrl: "/images/vehicles/estate.jpg",
     eta: 6,
   },
   {
     id: "large-mpv",
-    name: "Large MPV",
+    name: "MPV (XL)",
     description: "Spacious vehicle for up to 6 passengers",
     capacity: {
       passengers: 6,
       luggage: 4,
     },
-    baseRate: 5.6, // £5.60 per mile
-    minimumFare: 22,
+    baseRate: 12.5, // £12.50 base fare
+    perMileRate: 4.75, // £4.75 per mile
+    minimumFare: 22.0,
+    waitingRatePerHour: 35.0, // £35.00 per hour
+    waitingRatePerMinute: 0.58, // £0.58 per minute
+    additionalStopFee: 4.5, // £4.50 per additional stop
     examples: ["Ford Galaxy", "Volkswagen Sharan"],
     imageUrl: "/images/vehicles/large-mpv.jpg",
     eta: 8,
   },
   {
     id: "extra-large-mpv",
-    name: "Extra Large MPV",
+    name: "MPV (XXL)",
     description: "Maximum capacity for passengers and luggage",
     capacity: {
       passengers: 8,
-      luggage: 8,
+      luggage: 6,
     },
-    baseRate: 6.4, // £6.40 per mile
-    minimumFare: 25,
-    examples: ["Ford Tourneo", "Volkswagen Transporter"],
+    baseRate: 20.0, // £20.00 base fare
+    perMileRate: 3.95, // £3.95 per mile
+    minimumFare: 25.0,
+    waitingRatePerHour: 45.0, // £45.00 per hour
+    waitingRatePerMinute: 0.67, // £0.67 per minute
+    additionalStopFee: 4.5, // £4.50 per additional stop
+    examples: ["Ford Tourneo", "Mercedes Vito"],
     imageUrl: "/images/vehicles/xl-mpv.jpg",
     eta: 10,
   },
   {
     id: "executive-saloon",
-    name: "Executive Saloon",
+    name: "Executive",
     description: "Premium ride in a Mercedes E-Class or equivalent",
     capacity: {
       passengers: 3,
       luggage: 2,
     },
-    baseRate: 7.2, // £7.20 per mile
-    minimumFare: 30,
+    baseRate: 12.5, // £12.50 base fare
+    perMileRate: 4.95, // £4.95 per mile
+    minimumFare: 30.0,
+    waitingRatePerHour: 45.0, // £45.00 per hour
+    waitingRatePerMinute: 0.67, // £0.67 per minute
+    additionalStopFee: 5.5, // £5.50 per additional stop
     examples: ["Mercedes E-Class", "BMW 5-Series"],
     imageUrl: "/images/vehicles/executive-saloon.jpg",
-    features: ["WiFi", "Bottled Water", "Newspaper"],
+    features: [
+      "WiFi",
+      "Bottled Water",
+      "Professional Chauffeur",
+      "Flight Tracking",
+    ],
     eta: 7,
   },
   {
     id: "executive-mpv",
-    name: "Executive Large MPV",
-    description: "Premium Mercedes-Vito or equivalent",
+    name: "Executive MPV",
+    description: "Premium Mercedes V-Class or equivalent",
     capacity: {
-      passengers: 7,
-      luggage: 7,
+      passengers: 8,
+      luggage: 5,
     },
-    baseRate: 8.8, // £8.80 per mile
-    minimumFare: 40,
-    examples: ["Mercedes Vito", "Volkswagen Caravelle"],
+    baseRate: 25.0, // £25.00 base fare
+    perMileRate: 5.95, // £5.95 per mile
+    minimumFare: 40.0,
+    waitingRatePerHour: 55.0, // £55.00 per hour
+    waitingRatePerMinute: 0.75, // £0.75 per minute
+    additionalStopFee: 5.5, // £5.50 per additional stop
+    examples: ["Mercedes V-Class", "Volkswagen Caravelle"],
     imageUrl: "/images/vehicles/executive-mpv.jpg",
-    features: ["WiFi", "Bottled Water", "Extra Legroom"],
+    features: [
+      "WiFi",
+      "Bottled Water",
+      "Professional Chauffeur",
+      "Flight Tracking",
+      "Extra Legroom",
+    ],
     eta: 9,
   },
   {
     id: "vip",
-    name: "VIP",
+    name: "VIP Executive",
     description: "Luxury Mercedes S-Class or equivalent",
     capacity: {
       passengers: 3,
       luggage: 2,
     },
-    baseRate: 11.2, // £11.20 per mile
-    minimumFare: 50,
+    baseRate: 0, // Hourly rates apply - custom quote
+    perMileRate: 0, // Hourly rates apply - custom quote
+    minimumFare: 50.0,
+    waitingRatePerHour: 75.0, // £75.00 per hour
+    waitingRatePerMinute: 1.25, // £1.25 per minute
     examples: ["Mercedes S-Class", "BMW 7-Series"],
     imageUrl: "/images/vehicles/vip.jpg",
     features: [
@@ -124,26 +166,33 @@ export const vehicleTypes: VehicleType[] = [
       "Premium Drinks",
       "Luxury Interior",
       "Professional Chauffeur",
+      "Priority Service",
+      "Privacy Partition",
     ],
     eta: 12,
   },
   {
     id: "vip-mpv",
-    name: "VIP MPV",
+    name: "VIP Executive MPV",
     description: "Luxury Mercedes V-Class or equivalent",
     capacity: {
       passengers: 6,
-      luggage: 6,
+      luggage: 4,
     },
-    baseRate: 13.6, // £13.60 per mile
-    minimumFare: 60,
-    examples: ["Mercedes V-Class"],
+    baseRate: 0, // Hourly rates apply - custom quote
+    perMileRate: 0, // Hourly rates apply - custom quote
+    minimumFare: 60.0,
+    waitingRatePerHour: 95.0, // £95.00 per hour
+    waitingRatePerMinute: 1.58, // £1.58 per minute
+    examples: ["Mercedes V-Class Luxury"],
     imageUrl: "/images/vehicles/vip-mpv.jpg",
     features: [
       "WiFi",
       "Premium Drinks",
       "Luxury Interior",
       "Professional Chauffeur",
+      "Priority Service",
+      "Enhanced Climate Control",
     ],
     eta: 15,
   },
@@ -156,8 +205,12 @@ export const vehicleTypes: VehicleType[] = [
       luggage: 2,
       wheelchair: true,
     },
-    baseRate: 5.6, // £5.60 per mile
-    minimumFare: 25,
+    baseRate: 12.5, // £12.50 base fare
+    perMileRate: 4.75, // £4.75 per mile
+    minimumFare: 25.0,
+    waitingRatePerHour: 35.0, // £35.00 per hour
+    waitingRatePerMinute: 0.58, // £0.58 per minute
+    additionalStopFee: 4.5, // £4.50 per additional stop
     examples: ["Specially adapted vans"],
     imageUrl: "/images/vehicles/wav.jpg",
     features: ["Wheelchair Ramp", "Secure Wheelchair Fastening"],

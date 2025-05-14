@@ -11,8 +11,10 @@ The booking process follows these steps:
 1. **Fare Calculation**: User receives fare estimates for all vehicle types
 2. **Vehicle Selection**: User selects a specific vehicle type
 3. **Details Entry**: User provides personal and booking details
-4. **Verification**: Backend verifies details and recalculates fare
+4. **Verification**: Backend verifies details and recalculates fare (never trusting client-provided fare values)
 5. **Completion**: Booking is created and stored in the database
+
+> **IMPORTANT SECURITY NOTE**: The backend always recalculates fares during the booking process and never accepts client-provided fare values. This prevents potential manipulation of fare prices by users. All fare calculations happen on the server using the same algorithm as the fare estimation endpoint, ensuring consistent and secure pricing.
 
 ## Booking Creation Endpoint
 
@@ -79,13 +81,24 @@ The booking process follows these steps:
         "vehicle": "Executive Saloon",
         "price": {
           "amount": 128,
-          "currency": "GBP"
+          "currency": "GBP",
+          "breakdown": {
+            "baseFare": 12.5,
+            "distanceCharge": 108.0,
+            "additionalStopFee": 0,
+            "timeMultiplier": 0,
+            "specialLocationFees": 7.5,
+            "waitingCharge": 0
+          }
         },
         "journey": {
           "distance_miles": 27.4,
           "duration_minutes": 52
         },
-        "status": "pending"
+        "status": "pending",
+        "notifications": [
+          "Your destination is Heathrow Airport. A £7.50 airport fee has been added."
+        ]
       }
     }
   }
@@ -211,13 +224,24 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
       "vehicle": "Executive Saloon",
       "price": {
         "amount": 128,
-        "currency": "GBP"
+        "currency": "GBP",
+        "breakdown": {
+          "baseFare": 12.5,
+          "distanceCharge": 108.0,
+          "additionalStopFee": 0,
+          "timeMultiplier": 0,
+          "specialLocationFees": 7.5,
+          "waitingCharge": 0
+        }
       },
       "journey": {
         "distance_miles": 27.4,
         "duration_minutes": 52
       },
-      "status": "pending"
+      "status": "pending",
+      "notifications": [
+        "Your destination is Heathrow Airport. A £7.50 airport fee has been added."
+      ]
     }
   }
 }
@@ -228,8 +252,20 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 To ensure fare integrity and prevent manipulation, the booking endpoint implements these security measures:
 
 1. **Server-side Fare Calculation**: All fares are recalculated on the server using the same algorithm as the fare estimation endpoint
-2. **Client Data Validation**: All input data is validated against strict schemas
-3. **Authentication Required**: All booking endpoints require valid user authentication
+2. **No Client-Side Fare Input**: The API never accepts fare values from the client, preventing price manipulation
+3. **Client Data Validation**: All input data is validated against strict schemas
+4. **Authentication Required**: All booking endpoints require valid user authentication
+5. **Fare Breakdown**: Detailed fare breakdown is provided in the response for transparency
+
+When the client submits a booking request, the server:
+
+1. Validates all journey details (locations, date/time, vehicle type, etc.)
+2. Recalculates the fare completely from scratch using the validated data
+3. Applies any special charges automatically (based on locations, time, etc.)
+4. Creates the booking with the server-calculated fare
+5. Returns the complete fare details including a breakdown
+
+This approach ensures that users cannot manipulate fare prices even if they modify API requests.
 
 ## Get User Bookings
 
@@ -417,7 +453,16 @@ If the limit is exceeded, the API will respond with:
           "lat": 51.5151,
           "lng": -0.1764
         }
-      }
+      },
+      "additionalStops": [
+        {
+          "address": "Baker Street, London, UK",
+          "coordinates": {
+            "lat": 51.5226,
+            "lng": -0.1571
+          }
+        }
+      ]
     },
     "datetime": {
       "date": "2024-07-20",
@@ -440,7 +485,7 @@ If the limit is exceeded, the API will respond with:
 **Notes:**
 
 - If the `customer` object is omitted, the system will use the authenticated user's profile information instead
-- Available vehicle IDs: "standard-saloon", "estate", "large-mpv", "extra-large-mpv", "executive-saloon", "executive-large-mpv", "vip", "vip-mpv", "wheelchair-accessible"
+- Available vehicle IDs: "standard-saloon", "estate", "mpv-xl", "mpv-xxl", "executive", "executive-mpv", "vip-executive", "vip-executive-mpv"
 
 #### Success Response
 
@@ -458,16 +503,26 @@ If the limit is exceeded, the API will respond with:
         "pickupTime": "14:00",
         "pickupLocation": "Kings Cross, London, UK",
         "dropoffLocation": "Paddington, London, UK",
+        "additionalStops": ["Baker Street, London, UK"],
         "vehicle": "Standard Saloon",
         "price": {
-          "amount": 27,
-          "currency": "GBP"
+          "amount": 21.5,
+          "currency": "GBP",
+          "breakdown": {
+            "baseFare": 5.0,
+            "distanceCharge": 14.75,
+            "additionalStopFee": 2.5,
+            "timeMultiplier": 0,
+            "specialLocationFees": 0,
+            "waitingCharge": 0
+          }
         },
         "journey": {
-          "distance_miles": 4.9,
-          "duration_minutes": 19
+          "distance_miles": 5.0,
+          "duration_minutes": 22
         },
-        "status": "pending"
+        "status": "pending",
+        "notifications": ["Your fare includes an additional stop fee of £2.50"]
       }
     }
   }
@@ -516,35 +571,24 @@ OR
   }
   ```
 
-OR
+## Fare Calculation Details
 
-- **Code:** 404 Not Found
-- **Content:** Returned when user profile is not found (when customer object is omitted)
-  ```json
-  {
-    "success": false,
-    "error": {
-      "code": "USER_PROFILE_NOT_FOUND",
-      "message": "User profile not found",
-      "details": "Please provide customer information or update your profile"
-    }
-  }
-  ```
+The booking API integrates with our fare calculation system. For detailed information about fare calculation methodology, vehicle types, and pricing, please refer to the main API documentation (`API_DOCUMENTATION.md`) and the dedicated fare calculation documentation (`fare-calculation-documentation.md`).
 
-OR
+When creating a booking, the system will:
 
-- **Code:** 429 Too Many Requests
-- **Content:** Returned when rate limit is exceeded
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Too many booking requests, please try again later.",
-      "code": "BOOKING_RATE_LIMIT_EXCEEDED",
-      "details": "You have exceeded the rate limit for booking creation."
-    }
-  }
-  ```
+1. Validate journey details (locations, date/time, passenger count)
+2. Calculate the fare using the same algorithm as the fare estimation endpoint
+3. Apply any applicable special charges (airport fees, congestion charge, etc.)
+4. Return the total fare with a detailed breakdown
+
+The response will include notifications about any automatically detected fees, such as:
+
+- Peak time charges
+- Additional stop fees
+- Airport pickup/dropoff fees
+- Congestion charge zone fees
+- Dartford crossing fees
 
 ## Client Implementation Example
 

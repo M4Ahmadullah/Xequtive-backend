@@ -73,14 +73,25 @@ export interface BookingPassengersData {
   handLuggage: number;
 }
 
+export interface RouteDetails {
+  distance_miles: number;
+  duration_minutes: number;
+  polyline?: any;
+}
+
 export interface EnhancedFareEstimateRequest {
-  locations: {
+  locations?: {
     pickup: BookingLocationData;
     dropoff: BookingLocationData;
     additionalStops?: BookingLocationData[];
   };
-  datetime: BookingDateTimeData;
-  passengers: BookingPassengersData;
+  datetime?: BookingDateTimeData;
+  passengers?: BookingPassengersData;
+
+  pickupLocation?: Coordinates;
+  dropoffLocation?: Coordinates;
+  additionalStops?: { location: Coordinates; [key: string]: any }[];
+  date?: string | Date;
 }
 
 export interface VehicleCapacityInfo {
@@ -92,6 +103,15 @@ export interface VehicleCapacityInfo {
 export interface VehiclePriceInfo {
   amount: number;
   currency: string;
+  message?: string; // Optional message for special cases (e.g., VIP vehicles)
+  messages?: string[]; // Optional array of messages about special charges
+  breakdown?: {
+    baseFare: number;
+    distanceFare: number;
+    timeSurcharge: number;
+    additionalStopFees: number;
+    specialFees: { name: string; amount: number }[];
+  };
 }
 
 export interface VehicleOption {
@@ -106,11 +126,14 @@ export interface VehicleOption {
 }
 
 export interface EnhancedFareEstimateResponse {
-  baseFare: number;
-  totalDistance: number;
-  estimatedTime: number;
-  currency: string;
+  baseFare?: number;
+  totalDistance?: number;
+  estimatedTime?: number;
+  currency?: string;
   vehicleOptions: VehicleOption[];
+
+  routeDetails?: RouteDetails;
+  notifications?: string[];
   journey?: {
     distance_miles: number;
     duration_minutes: number;
@@ -123,6 +146,7 @@ export interface FareEstimateRequest {
   dropoffLocation: Coordinates;
   additionalStops?: Coordinates[];
   vehicleType: string;
+  date?: string; // Optional date field for time-based pricing (ISO format)
 }
 
 export interface FareEstimateResponse {

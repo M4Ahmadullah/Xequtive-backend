@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isAdmin = exports.verifyToken = void 0;
-const auth_service_1 = require("../services/auth.service");
+const firebase_1 = require("../config/firebase");
 const verifyToken = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
@@ -15,8 +15,16 @@ const verifyToken = async (req, res, next) => {
         }
         const token = authHeader.split(" ")[1];
         try {
-            const userData = await auth_service_1.AuthService.verifyToken(token);
-            req.user = userData;
+            // Verify the Firebase ID token
+            const decodedToken = await firebase_1.auth.verifyIdToken(token);
+            const userRecord = await firebase_1.auth.getUser(decodedToken.uid);
+            // Check if user has admin role in custom claims
+            const isUserAdmin = userRecord.customClaims?.admin === true;
+            req.user = {
+                uid: userRecord.uid,
+                email: userRecord.email || "",
+                role: isUserAdmin ? "admin" : "user",
+            };
             next();
         }
         catch (error) {
@@ -24,6 +32,7 @@ const verifyToken = async (req, res, next) => {
                 success: false,
                 error: {
                     message: "Invalid or expired token",
+                    details: error instanceof Error ? error.message : "Unknown error",
                 },
             });
         }
@@ -43,8 +52,7 @@ const isAdmin = async (req, res, next) => {
                 },
             });
         }
-        const isUserAdmin = await auth_service_1.AuthService.isAdmin(req.user.uid);
-        if (!isUserAdmin) {
+        if (req.user.role !== "admin") {
             return res.status(403).json({
                 success: false,
                 error: {

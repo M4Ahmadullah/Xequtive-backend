@@ -3,473 +3,550 @@ import {
   Coordinates,
   EnhancedFareEstimateRequest,
   EnhancedFareEstimateResponse,
+  RouteDetails,
   VehicleOption,
   VehiclePriceInfo,
-  VerifiedFareData,
 } from "../types";
 import { env } from "../config/env";
 import { vehicleTypes, VehicleType } from "../config/vehicleTypes";
+import {
+  AIRPORTS,
+  SPECIAL_ZONES,
+  AIRPORT_CODES,
+  isWithinBoundaries,
+  isZoneActive,
+  getZonesForRoute,
+  getAirportsNearLocation,
+} from "../config/specialZones";
+import { getTimeMultiplier, getTimeSurcharge } from "../config/timePricing";
 
 export class EnhancedFareService {
   private static readonly BASE_URL =
     "https://api.mapbox.com/directions/v5/mapbox/driving";
 
-  // Time-based multipliers
-  private static readonly TIME_MULTIPLIERS = {
-    PEAK_HOURS: 1.5, // 50% increase during peak hours
-    OFF_PEAK: 1.0,
-    NIGHT: 1.3, // 30% increase for night rides
-    WEEKEND: 1.2, // 20% increase during weekends
-    HOLIDAY: 1.4, // 40% increase during holidays
-  };
-
-  // Additional stop fee (in GBP)
-  private static readonly STOP_FEE = 5.0; // £5.00 per additional stop
-
   // Default currency
   private static readonly DEFAULT_CURRENCY = "GBP";
 
   /**
-   * Formats coordinates for Mapbox API
-   */
-  private static formatCoordinates(coords: Coordinates): string {
-    return `${coords.lng},${coords.lat}`;
-  }
-
-  /**
-   * Format a date to ISO string without milliseconds
-   */
-  private static formatDate(date: Date): string {
-    return date.toISOString().split(".")[0] + "Z";
-  }
-
-  /**
-   * Determines if the given time is during peak hours
-   */
-  private static isPeakHour(date: Date): boolean {
-    const hour = date.getHours();
-    const day = date.getDay();
-
-    // Weekday peak hours: 7-10 AM and 4-7 PM
-    if (day >= 1 && day <= 5) {
-      return (hour >= 7 && hour <= 10) || (hour >= 16 && hour <= 19);
-    }
-
-    // Weekend peak hours: 10 AM - 8 PM
-    if (day === 0 || day === 6) {
-      return hour >= 10 && hour <= 20;
-    }
-
-    return false;
-  }
-
-  /**
-   * Determines if the given hour is night time
-   */
-  private static isNightHour(hour: number): boolean {
-    // Night hours: 10 PM - 5 AM
-    return hour >= 22 || hour <= 5;
-  }
-
-  /**
-   * Determines if the given date is a weekend
-   */
-  private static isWeekend(date: Date): boolean {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  }
-
-  /**
-   * Calculates time-based multiplier for fare
-   */
-  private static getTimeMultiplier(date: Date = new Date()): number {
-    let multiplier = this.TIME_MULTIPLIERS.OFF_PEAK;
-
-    if (this.isPeakHour(date)) {
-      multiplier = this.TIME_MULTIPLIERS.PEAK_HOURS;
-    } else if (this.isNightHour(date.getHours())) {
-      multiplier = this.TIME_MULTIPLIERS.NIGHT;
-    }
-
-    if (this.isWeekend(date)) {
-      multiplier *= this.TIME_MULTIPLIERS.WEEKEND;
-    }
-
-    return multiplier;
-  }
-
-  /**
-   * Gets route details from Mapbox API
-   */
-  private static async getRouteDetails(
-    pickupLocation: Coordinates,
-    dropoffLocation: Coordinates,
-    additionalStops?: Coordinates[],
-    departureTime?: Date
-  ): Promise<{
-    distance: number;
-    duration: number;
-    legs: any[];
-  }> {
-    try {
-      const coordinates = [
-        pickupLocation,
-        ...(additionalStops || []),
-        dropoffLocation,
-      ]
-        .map((coord) => this.formatCoordinates(coord))
-        .join(";");
-
-      console.log("Making Mapbox API request with coordinates:", coordinates);
-
-      const params: any = {
-        access_token: env.mapbox.token,
-        geometries: "geojson",
-        overview: "full",
-        annotations: "duration,distance",
-        steps: "true",
-      };
-
-      // Add departure time if provided
-      if (departureTime) {
-        params.depart_at = this.formatDate(departureTime);
-      }
-
-      const response = await axios.get(`${this.BASE_URL}/${coordinates}`, {
-        params,
-      });
-
-      if (!response.data.routes || response.data.routes.length === 0) {
-        throw new Error("No routes found between the specified locations");
-      }
-
-      const route = response.data.routes[0];
-      const legs = route.legs;
-
-      return {
-        // Convert distance from meters to miles (1 meter = 0.000621371 miles)
-        distance: route.distance * 0.000621371,
-        // Convert duration from seconds to minutes
-        duration: route.duration / 60,
-        legs: legs,
-      };
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error("Mapbox API Error:", {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
-      } else {
-        console.error("Unknown error:", error);
-      }
-      throw new Error("Failed to calculate route details");
-    }
-  }
-
-  /**
-   * Calculates ETA based on vehicle type and current conditions
-   */
-  private static calculateETA(
-    vehicleType: VehicleType,
-    baseETA: number
-  ): number {
-    // For now, just return the base ETA from the vehicle type
-    // This could be enhanced with time-of-day or traffic adjustments
-    return vehicleType.eta;
-  }
-
-  /**
-   * Calculates fare for a specific vehicle type
-   */
-  private static calculateVehicleOptionFare(
-    vehicleType: VehicleType,
-    distance: number,
-    duration: number,
-    additionalStops: number,
-    timeMultiplier: number
-  ): VehiclePriceInfo {
-    console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
-    console.log(`Base rate: £${vehicleType.baseRate}/mile`);
-    console.log(`Distance: ${distance.toFixed(2)} miles`);
-    console.log(`Additional stops: ${additionalStops}`);
-    console.log(`Time multiplier: ${timeMultiplier}`);
-
-    // Calculate base fare
-    let baseFare = vehicleType.baseRate;
-    let distanceFare = vehicleType.baseRate * distance;
-    console.log(`Base fare: £${baseFare.toFixed(2)}`);
-    console.log(`Distance charge: £${distanceFare.toFixed(2)}`);
-
-    let fareAmount = baseFare + distanceFare;
-    console.log(`Initial fare (base + distance): £${fareAmount.toFixed(2)}`);
-
-    // Apply time multiplier
-    const originalFare = fareAmount;
-    fareAmount *= timeMultiplier;
-    console.log(
-      `After time multiplier: £${fareAmount.toFixed(
-        2
-      )} (${timeMultiplier}x increase from £${originalFare.toFixed(2)})`
-    );
-
-    // Add additional stop fees
-    if (additionalStops > 0) {
-      const stopFee = additionalStops * this.STOP_FEE;
-      fareAmount += stopFee;
-      console.log(
-        `After stop fees: £${fareAmount.toFixed(2)} (added £${stopFee.toFixed(
-          2
-        )} for ${additionalStops} stops)`
-      );
-    }
-
-    // Apply minimum fare if needed
-    if (fareAmount < vehicleType.minimumFare) {
-      console.log(
-        `Fare £${fareAmount.toFixed(
-          2
-        )} is below minimum fare £${vehicleType.minimumFare.toFixed(
-          2
-        )}, using minimum fare`
-      );
-      fareAmount = vehicleType.minimumFare;
-    }
-
-    // Round to nearest 0.5
-    const roundedFare = Math.ceil(fareAmount * 2) / 2;
-    console.log(`Final rounded fare: £${roundedFare.toFixed(2)}`);
-    console.log("=============================================");
-
-    return {
-      amount: roundedFare,
-      currency: this.DEFAULT_CURRENCY,
-    };
-  }
-
-  /**
-   * Converts a VehicleType to a VehicleOption with pricing information
-   */
-  private static vehicleTypeToOption(
-    vehicleType: VehicleType,
-    distance: number,
-    duration: number,
-    additionalStops: number,
-    timeMultiplier: number
-  ): VehicleOption {
-    const price = this.calculateVehicleOptionFare(
-      vehicleType,
-      distance,
-      duration,
-      additionalStops,
-      timeMultiplier
-    );
-
-    const eta = this.calculateETA(vehicleType, vehicleType.eta);
-
-    return {
-      id: vehicleType.id,
-      name: vehicleType.name,
-      description: vehicleType.description,
-      capacity: {
-        passengers: vehicleType.capacity.passengers,
-        luggage: vehicleType.capacity.luggage,
-        wheelchair: vehicleType.capacity.wheelchair,
-      },
-      price,
-      eta,
-      imageUrl: vehicleType.imageUrl,
-      features: vehicleType.features,
-    };
-  }
-
-  /**
-   * Calculates fare estimates for all vehicle types
+   * Calculate fare estimates for different vehicle types with enhanced features
    */
   static async calculateFares(
     request: EnhancedFareEstimateRequest
   ): Promise<EnhancedFareEstimateResponse> {
     try {
-      console.log("\n\n============ ENHANCED FARE CALCULATION ============");
-      console.log("Request:", JSON.stringify(request, null, 2));
+      // Handle both old and new request formats
+      let pickupLocation: Coordinates;
+      let dropoffLocation: Coordinates;
+      let additionalStops: { location: Coordinates }[] = [];
+      let requestDate: Date;
 
-      const {
-        locations: { pickup, dropoff, additionalStops },
-        datetime,
-        passengers,
-      } = request;
+      // Parse request format
+      if (request.pickupLocation && request.dropoffLocation) {
+        // New format with direct coordinates
+        pickupLocation = request.pickupLocation;
+        dropoffLocation = request.dropoffLocation;
+        additionalStops = request.additionalStops || [];
+        requestDate = request.date ? new Date(request.date) : new Date();
+      } else if (request.locations) {
+        // Old format with location objects
+        pickupLocation = request.locations.pickup.coordinates;
+        dropoffLocation = request.locations.dropoff.coordinates;
+        additionalStops = (request.locations.additionalStops || []).map(
+          (stop) => ({
+            location: stop.coordinates,
+          })
+        );
+        requestDate = request.datetime
+          ? new Date(`${request.datetime.date}T${request.datetime.time}:00`)
+          : new Date();
+      } else {
+        throw new Error("Invalid request format - missing location data");
+      }
 
-      console.log(
-        `Calculating fares for journey from ${pickup.address} to ${dropoff.address}`
-      );
-      console.log(
-        `Passengers: ${passengers.count}, Luggage: ${
-          passengers.checkedLuggage + passengers.handLuggage
-        } items`
-      );
-
-      // Parse the datetime
-      const requestDate = datetime
-        ? new Date(`${datetime.date}T${datetime.time}:00`)
-        : new Date();
-      console.log(`Journey date/time: ${requestDate.toLocaleString()}`);
-
-      // Get time-based multiplier
-      const timeMultiplier = this.getTimeMultiplier(requestDate);
-      console.log(`Time multiplier: ${timeMultiplier}`);
-
-      // Get route details from Mapbox
-      console.log("Getting route details from Mapbox...");
+      // Call the MapBox API to get distance and duration
+      console.log("Calling MapBox API to get route details...");
       const routeDetails = await this.getRouteDetails(
-        pickup.coordinates,
-        dropoff.coordinates,
-        additionalStops?.map((stop) => stop.coordinates),
-        requestDate
+        pickupLocation,
+        dropoffLocation,
+        additionalStops.map((stop) => stop.location)
       );
 
-      console.log(
-        `Route details: Distance: ${routeDetails.distance.toFixed(
-          2
-        )} miles, Duration: ${routeDetails.duration.toFixed(1)} min`
-      );
+      // Convert distance from meters to miles
+      const distance = routeDetails.distance / 1609.34;
+      // Convert duration from seconds to minutes
+      const duration = routeDetails.duration / 60;
 
       console.log(
-        `\nCalculating fares for all ${vehicleTypes.length} vehicle types...`
+        `Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(
+          0
+        )} minutes`
       );
+
+      // Get the routing information including leg details
+      const routeLegs = routeDetails.legs;
+
+      // Detect special zones using the helper method
+      const specialZones = getZonesForRoute(routeLegs);
+
+      // Check if specific zones are present
+      const passesThroughCCZ = specialZones.includes("CONGESTION_CHARGE");
+      const hasDartfordCrossing = specialZones.includes("DARTFORD_CROSSING");
+
+      // Check for airports
+      const airportsPickup = getAirportsNearLocation(pickupLocation);
+      const airportsDropoff = getAirportsNearLocation(dropoffLocation);
+
+      const airports = {
+        pickupAirport: airportsPickup.length > 0 ? airportsPickup[0] : null,
+        dropoffAirport: airportsDropoff.length > 0 ? airportsDropoff[0] : null,
+      };
+
+      // Log special conditions
+      if (airports.pickupAirport) {
+        const airport =
+          AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
+        console.log(
+          `Detected airport pickup at ${
+            airport?.name || airports.pickupAirport
+          }`
+        );
+      }
+      if (airports.dropoffAirport) {
+        const airport =
+          AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
+        console.log(
+          `Detected airport dropoff at ${
+            airport?.name || airports.dropoffAirport
+          }`
+        );
+      }
+
+      // Compile special location notifications
+      const notifications = [];
+
+      // Airport notifications
+      if (airports.pickupAirport) {
+        const airport =
+          AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
+        if (airport) {
+          notifications.push(
+            `Your journey includes airport pickup at ${
+              airport.name
+            }. A £${airport.fees.pickup.toFixed(2)} fee has been added.`
+          );
+        }
+      }
+
+      if (airports.dropoffAirport) {
+        const airport =
+          AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
+        if (airport) {
+          notifications.push(
+            `Your journey includes airport dropoff at ${
+              airport.name
+            }. A £${airport.fees.dropoff.toFixed(2)} fee has been added.`
+          );
+        }
+      }
+
+      // Congestion charge notification
+      if (passesThroughCCZ) {
+        // Check if congestion charge is active at the requested time
+        if (isZoneActive("CONGESTION_CHARGE", requestDate)) {
+          notifications.push(
+            `Your route passes through the Congestion Charge Zone. A £${SPECIAL_ZONES.CONGESTION_CHARGE.fee.toFixed(
+              2
+            )} charge has been added.`
+          );
+        } else {
+          notifications.push(
+            "Your journey passes through the Congestion Charge Zone, but outside charging hours (Monday-Friday, 7am-6pm)."
+          );
+        }
+      }
+
+      // Add notifications for other special zones
+      for (const zoneKey of specialZones) {
+        // Skip congestion charge as it's already handled
+        if (
+          zoneKey === "CONGESTION_CHARGE" ||
+          zoneKey === "DARTFORD_CROSSING"
+        ) {
+          continue;
+        }
+
+        const zone = SPECIAL_ZONES[zoneKey as keyof typeof SPECIAL_ZONES];
+        if (zone) {
+          // Check if zone is active at requested time
+          if (!zone.operatingHours || isZoneActive(zoneKey, requestDate)) {
+            notifications.push(
+              `Your route passes through ${zone.name}. A £${zone.fee.toFixed(
+                2
+              )} charge has been added.`
+            );
+          } else {
+            notifications.push(
+              `Your route passes through ${zone.name}, but outside charging hours.`
+            );
+          }
+        }
+      }
+
+      // Dartford crossing notification
+      if (hasDartfordCrossing) {
+        notifications.push(
+          `Your journey includes the Dartford Crossing. A £${SPECIAL_ZONES.DARTFORD_CROSSING.fee.toFixed(
+            2
+          )} charge has been added.`
+        );
+      }
+
+      // Add time-based notifications
+      const day = requestDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const hour = requestDate.getHours();
+
+      // Check if it's a weekday (Monday-Friday)
+      if (day >= 1 && day <= 5) {
+        // Peak hours for weekdays
+        // Monday-Thursday: Morning Rush (3AM-9AM) and Evening Rush (3PM-9PM)
+        // Friday: Morning Rush (3AM-9AM) and Evening Rush (3PM-11:59PM)
+        if (day <= 4) {
+          // Monday-Thursday
+          if ((hour >= 3 && hour < 9) || (hour >= 15 && hour < 21)) {
+            notifications.push(
+              `Your journey is during peak hours (Weekday). A £3.54 peak time charge has been added.`
+            );
+          }
+        } else {
+          // Friday
+          if ((hour >= 3 && hour < 9) || (hour >= 15 && hour < 24)) {
+            notifications.push(
+              `Your journey is during peak hours (Friday evening). A £3.54 peak time charge has been added.`
+            );
+          }
+        }
+      } else {
+        // Weekend (Saturday and Sunday) - special rates apply
+        notifications.push(
+          `Your journey is during weekend hours. A £3.00 weekend surcharge has been added.`
+        );
+      }
+
+      // Add notification for additional stops if any
+      if (additionalStops.length > 0) {
+        notifications.push(
+          `Your journey includes ${additionalStops.length} additional stop${
+            additionalStops.length > 1 ? "s" : ""
+          }. Additional fees may apply based on vehicle type.`
+        );
+      }
 
       // Calculate fare for each vehicle type
-      const vehicleOptions = vehicleTypes.map((vehicleType) =>
-        this.vehicleTypeToOption(
-          vehicleType,
-          routeDetails.distance,
-          routeDetails.duration,
-          additionalStops?.length || 0,
-          timeMultiplier
-        )
-      );
+      const allVehicleTypes = Object.values(vehicleTypes);
+      const vehicleOptions: VehicleOption[] = [];
 
-      // Sort by price
+      for (const vehicleType of allVehicleTypes) {
+        console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
+        // Calculate fare for this vehicle type
+        const priceInfo = this.calculateVehicleOptionFare({
+          vehicleType,
+          distance,
+          duration,
+          additionalStops: additionalStops.length,
+          requestDate,
+          airports,
+          passesThroughCCZ,
+          hasDartfordCrossing,
+          routeLegs,
+          serviceZones: specialZones,
+        });
+
+        // Return vehicle option with calculated price
+        vehicleOptions.push({
+          id: vehicleType.id,
+          name: vehicleType.name,
+          description: vehicleType.description,
+          capacity: vehicleType.capacity,
+          imageUrl: vehicleType.imageUrl || "",
+          eta: Math.floor(Math.random() * 10) + 5, // Random ETA between 5-15 minutes
+          price: priceInfo,
+        });
+      }
+
+      // Sort vehicle options by price (ascending)
       vehicleOptions.sort((a, b) => a.price.amount - b.price.amount);
 
-      console.log("\n===== Fare Summary =====");
-      vehicleOptions.forEach((vehicle) => {
-        console.log(
-          `${vehicle.name}: £${vehicle.price.amount} (ETA: ${vehicle.eta} min)`
-        );
-      });
-
-      // Calculate the base fare (average of standard vehicle types)
-      const standardVehicles = vehicleOptions.filter((v) =>
-        ["standard-saloon", "estate"].includes(v.id)
-      );
-
-      const baseFare =
-        standardVehicles.length > 0
-          ? standardVehicles.reduce((sum, v) => sum + v.price.amount, 0) /
-            standardVehicles.length
-          : vehicleOptions[0].price.amount;
-
-      console.log(
-        `Base fare (avg of standard vehicles): £${baseFare.toFixed(2)}`
-      );
-      console.log("=============================================\n\n");
-
-      console.log("Fare details:", vehicleOptions);
-      console.log("=============================================\n\n");
-
+      // Return enhanced response
       return {
-        baseFare: Math.round(baseFare * 100) / 100,
-        totalDistance: Math.round(routeDetails.distance * 10) / 10,
-        estimatedTime: Math.ceil(routeDetails.duration),
-        currency: this.DEFAULT_CURRENCY,
         vehicleOptions,
+        routeDetails: {
+          distance_miles: parseFloat(distance.toFixed(2)),
+          duration_minutes: Math.ceil(duration),
+          polyline: routeDetails.geometry || null,
+        },
+        notifications,
         journey: {
-          distance_miles: Math.round(routeDetails.distance * 10) / 10,
-          duration_minutes: Math.ceil(routeDetails.duration),
+          distance_miles: parseFloat(distance.toFixed(2)),
+          duration_minutes: Math.ceil(duration),
         },
       };
     } catch (error) {
-      console.error("Error calculating fares:", error);
-      throw new Error(
-        error instanceof Error
-          ? error.message
-          : "Failed to calculate fare estimates"
-      );
+      console.error("Error calculating enhanced fares:", error);
+      throw new Error("Failed to calculate enhanced fare estimates");
     }
   }
 
   /**
-   * Calculate fare for a specific vehicle type (for booking verification)
-   * This method is used in the booking verification process to recalculate the fare
-   * for a specific vehicle type using the same algorithm as the enhanced fare calculation
+   * Get route details from MapBox API
    */
-  static async calculateSingleVehicleFare(
-    request: EnhancedFareEstimateRequest,
-    vehicleId: string
-  ): Promise<VerifiedFareData | null> {
+  private static async getRouteDetails(
+    pickup: Coordinates,
+    dropoff: Coordinates,
+    waypoints: Coordinates[] = []
+  ): Promise<any> {
     try {
-      console.log(
-        `\n============ FARE VERIFICATION FOR ${vehicleId} ============`
-      );
+      // Format coordinates
+      const coordinates = [
+        `${pickup.lng},${pickup.lat}`,
+        ...waypoints.map((wp) => `${wp.lng},${wp.lat}`),
+        `${dropoff.lng},${dropoff.lat}`,
+      ].join(";");
 
-      const {
-        locations: { pickup, dropoff, additionalStops },
-        datetime,
-      } = request;
+      const url = `${this.BASE_URL}/${coordinates}?access_token=${env.mapbox.token}&geometries=geojson&overview=full&annotations=duration,distance,speed`;
 
-      // Find the requested vehicle type
-      const vehicleType = vehicleTypes.find((v) => v.id === vehicleId);
-      if (!vehicleType) {
-        console.error(`Vehicle type not found: ${vehicleId}`);
-        return null;
-      }
-
-      // Parse the datetime
-      const requestDate = datetime
-        ? new Date(`${datetime.date}T${datetime.time}:00`)
-        : new Date();
-
-      // Get time-based multiplier
-      const timeMultiplier = this.getTimeMultiplier(requestDate);
-
-      // Get route details from Mapbox
-      const routeDetails = await this.getRouteDetails(
-        pickup.coordinates,
-        dropoff.coordinates,
-        additionalStops?.map((stop) => stop.coordinates),
-        requestDate
-      );
-
-      // Calculate fare for the specific vehicle type
-      const fare = this.calculateVehicleOptionFare(
-        vehicleType,
-        routeDetails.distance,
-        routeDetails.duration,
-        additionalStops?.length || 0,
-        timeMultiplier
-      );
-
-      console.log(
-        `Verified fare for ${vehicleType.name}: £${fare.amount.toFixed(2)}`
-      );
-      console.log(
-        `Distance: ${routeDetails.distance.toFixed(
-          2
-        )} miles, Duration: ${routeDetails.duration.toFixed(1)} min`
-      );
-      console.log("=============================================\n");
-
-      // Return the verified fare data
-      return {
-        vehicleId: vehicleType.id,
-        vehicleName: vehicleType.name,
-        price: fare,
-        distance_miles: Math.round(routeDetails.distance * 10) / 10,
-        duration_minutes: Math.ceil(routeDetails.duration),
-      };
+      const response = await axios.get(url);
+      const data = response.data;
+      // Return the selected route
+      return data.routes[0];
     } catch (error) {
-      console.error("Error calculating single vehicle fare:", error);
-      return null;
+      console.error("Error fetching route details:", error);
+      throw new Error("Failed to get route details from MapBox API");
     }
+  }
+
+  /**
+   * Calculate fare for a specific vehicle type with enhanced options
+   */
+  private static calculateVehicleOptionFare({
+    vehicleType,
+    distance,
+    duration,
+    additionalStops,
+    requestDate,
+    airports,
+    passesThroughCCZ,
+    hasDartfordCrossing,
+    routeLegs,
+    serviceZones,
+  }: {
+    vehicleType: VehicleType;
+    distance: number;
+    duration: number;
+    additionalStops: number;
+    requestDate: Date;
+    airports: { pickupAirport: string | null; dropoffAirport: string | null };
+    passesThroughCCZ: boolean;
+    hasDartfordCrossing: boolean;
+    routeLegs: any[];
+    serviceZones: string[];
+  }): VehiclePriceInfo {
+    console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
+    console.log(`Base fare: £${vehicleType.baseRate}`);
+    console.log(`Per-mile rate: £${vehicleType.perMileRate}/mile`);
+    console.log(`Distance: ${distance.toFixed(2)} miles`);
+    console.log(`Estimated duration: ${duration.toFixed(0)} minutes`);
+    console.log(`Additional stops: ${additionalStops}`);
+
+    // Initialize fare breakdown structure
+    const fareBreakdown = {
+      baseFare: vehicleType.baseRate,
+      distanceFare: 0,
+      timeSurcharge: 0,
+      additionalStopFees: 0,
+      specialFees: [] as { name: string; amount: number }[],
+    };
+
+    // STEP 1: Calculate base fare (different logic for VIP vehicles)
+    let initialFare = 0;
+
+    if (vehicleType.id === "vip" || vehicleType.id === "vip-mpv") {
+      // For VIP vehicles, calculate based on hourly rate
+      const hourlyRate = vehicleType.id === "vip" ? 75.0 : 95.0; // £75/hour for VIP, £95/hour for VIP-MPV
+
+      // Calculate hours (min 2 hours)
+      const hours = Math.max(Math.ceil(duration / 60), 2);
+      fareBreakdown.baseFare = hourlyRate * hours;
+      initialFare = fareBreakdown.baseFare;
+
+      console.log(`VIP vehicle: Using hourly rate of £${hourlyRate}/hour`);
+      console.log(
+        `Journey duration: ${duration.toFixed(
+          0
+        )} minutes (${hours} billable hours)`
+      );
+      console.log(`VIP hourly charge: £${fareBreakdown.baseFare.toFixed(2)}`);
+    } else {
+      // Standard calculation: Base Fare + (Distance × Per Mile Rate)
+      fareBreakdown.baseFare = vehicleType.baseRate;
+      fareBreakdown.distanceFare = vehicleType.perMileRate * distance;
+      initialFare = fareBreakdown.baseFare + fareBreakdown.distanceFare;
+
+      console.log(`Base fare: £${fareBreakdown.baseFare.toFixed(2)}`);
+      console.log(
+        `Distance charge (${distance.toFixed(2)} miles × £${
+          vehicleType.perMileRate
+        }/mile): £${fareBreakdown.distanceFare.toFixed(2)}`
+      );
+      console.log(`Initial fare: £${initialFare.toFixed(2)}`);
+    }
+
+    // STEP 2: Apply time-based adjustments
+    const day = requestDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const hour = requestDate.getHours();
+    let timeSurcharge = 0;
+
+    // Check if it's a weekday (Monday-Friday)
+    if (day >= 1 && day <= 5) {
+      // Peak hours for weekdays
+      // Monday-Thursday: Morning Rush (3AM-9AM) and Evening Rush (3PM-9PM)
+      // Friday: Morning Rush (3AM-9AM) and Evening Rush (3PM-11:59PM)
+      if (day <= 4) {
+        // Monday-Thursday
+        if ((hour >= 3 && hour < 9) || (hour >= 15 && hour < 21)) {
+          timeSurcharge = 3.54; // Fixed £3.54 additional charge
+          console.log(
+            `Peak hours (Weekday): Adding £${timeSurcharge.toFixed(
+              2
+            )} surcharge`
+          );
+        }
+      } else {
+        // Friday
+        if ((hour >= 3 && hour < 9) || (hour >= 15 && hour < 24)) {
+          // Special rates for Friday - using same £3.54 for consistency
+          timeSurcharge = 3.54;
+          console.log(
+            `Peak hours (Friday): Adding £${timeSurcharge.toFixed(2)} surcharge`
+          );
+        }
+      }
+    } else {
+      // Weekend (Saturday and Sunday) - special rates apply
+      // Using a 20% markup for weekend as per documentation example
+      timeSurcharge = 3.0;
+      console.log(
+        `Weekend pricing: Adding £${timeSurcharge.toFixed(2)} surcharge`
+      );
+    }
+
+    // Add time surcharge to fare
+    fareBreakdown.timeSurcharge = timeSurcharge;
+    initialFare += timeSurcharge;
+
+    // STEP 3: Add additional stop fees
+    if (additionalStops > 0 && vehicleType.additionalStopFee) {
+      const stopFee = additionalStops * vehicleType.additionalStopFee;
+      fareBreakdown.additionalStopFees = stopFee;
+      initialFare += stopFee;
+      console.log(
+        `Additional stops (${additionalStops} × £${
+          vehicleType.additionalStopFee
+        }): £${stopFee.toFixed(2)}`
+      );
+    }
+
+    // STEP 4: Add special zone charges
+    let totalFare = initialFare;
+
+    // Congestion Charge Zone
+    if (passesThroughCCZ && isZoneActive("CONGESTION_CHARGE", requestDate)) {
+      const congestionCharge = SPECIAL_ZONES.CONGESTION_CHARGE.fee;
+      fareBreakdown.specialFees.push({
+        name: "Congestion Charge",
+        amount: congestionCharge,
+      });
+      totalFare += congestionCharge;
+      console.log(
+        `Congestion Charge Zone fee: £${congestionCharge.toFixed(2)}`
+      );
+    } else if (passesThroughCCZ) {
+      console.log(
+        `Route passes through CCZ but outside charging hours - no fee applied`
+      );
+    }
+
+    // Dartford Crossing
+    if (hasDartfordCrossing) {
+      const dartfordFee = SPECIAL_ZONES.DARTFORD_CROSSING.fee;
+      fareBreakdown.specialFees.push({
+        name: "Dartford Crossing Fee",
+        amount: dartfordFee,
+      });
+      totalFare += dartfordFee;
+      console.log(`Dartford Crossing fee: £${dartfordFee.toFixed(2)}`);
+    }
+
+    // Airport fees - pickup
+    if (airports.pickupAirport) {
+      const airport = AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
+      if (airport) {
+        const pickupFee = airport.fees.pickup;
+        fareBreakdown.specialFees.push({
+          name: `${airport.name} Pickup Fee`,
+          amount: pickupFee,
+        });
+        totalFare += pickupFee;
+        console.log(
+          `Airport pickup fee (${airport.name}): £${pickupFee.toFixed(2)}`
+        );
+      }
+    }
+
+    // Airport fees - dropoff
+    if (airports.dropoffAirport) {
+      const airport =
+        AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
+      if (airport) {
+        const dropoffFee = airport.fees.dropoff;
+        fareBreakdown.specialFees.push({
+          name: `${airport.name} Dropoff Fee`,
+          amount: dropoffFee,
+        });
+        totalFare += dropoffFee;
+        console.log(
+          `Airport dropoff fee (${airport.name}): £${dropoffFee.toFixed(2)}`
+        );
+      }
+    }
+
+    // STEP 5: Apply minimum fare if needed
+    if (totalFare < vehicleType.minimumFare) {
+      console.log(
+        `Calculated fare (£${totalFare.toFixed(
+          2
+        )}) is below minimum fare (£${vehicleType.minimumFare.toFixed(2)})`
+      );
+      totalFare = vehicleType.minimumFare;
+      console.log(`Applied minimum fare: £${totalFare.toFixed(2)}`);
+    }
+
+    // STEP 6: Apply final adjustments - round up to nearest £0.50
+    const roundedFare = Math.ceil(totalFare * 2) / 2;
+    if (roundedFare !== totalFare) {
+      console.log(
+        `Rounded fare from £${totalFare.toFixed(2)} to £${roundedFare.toFixed(
+          2
+        )}`
+      );
+    }
+
+    console.log(`Final fare: £${roundedFare.toFixed(2)}`);
+
+    // Return the price info
+    return {
+      amount: roundedFare,
+      currency: this.DEFAULT_CURRENCY,
+      breakdown: fareBreakdown,
+    };
   }
 }

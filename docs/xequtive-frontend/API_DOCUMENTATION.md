@@ -390,7 +390,15 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 71.5,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 5.0,
+                "distanceCharge": 66.5,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 0,
+                "waitingCharge": 0
+              }
             },
             "eta": 5,
             "imageUrl": "/images/vehicles/standard-saloon.jpg"
@@ -405,7 +413,15 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 85.5,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 7.5,
+                "distanceCharge": 78.0,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 0,
+                "waitingCharge": 0
+              }
             },
             "eta": 6,
             "imageUrl": "/images/vehicles/estate.jpg"
@@ -420,7 +436,15 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 100,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 12.5,
+                "distanceCharge": 87.5,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 0,
+                "waitingCharge": 0
+              }
             },
             "eta": 8,
             "imageUrl": "/images/vehicles/large-mpv.jpg"
@@ -435,11 +459,19 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 128,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 12.5,
+                "distanceCharge": 108.0,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 7.5,
+                "waitingCharge": 0
+              }
             },
             "eta": 7,
             "imageUrl": "/images/vehicles/executive-saloon.jpg",
-            "features": ["WiFi", "Bottled Water", "Newspaper"]
+            "features": ["WiFi", "Bottled Water", "Professional Chauffeur"]
           },
           {
             "id": "executive-mpv",
@@ -451,7 +483,15 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 156.5,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 25.0,
+                "distanceCharge": 131.5,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 0,
+                "waitingCharge": 0
+              }
             },
             "eta": 9,
             "imageUrl": "/images/vehicles/executive-mpv.jpg",
@@ -467,7 +507,15 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 199.5,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 199.5,
+                "distanceCharge": 0,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 0,
+                "waitingCharge": 0
+              }
             },
             "eta": 12,
             "imageUrl": "/images/vehicles/vip.jpg",
@@ -488,7 +536,15 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
             },
             "price": {
               "amount": 242,
-              "currency": "GBP"
+              "currency": "GBP",
+              "breakdown": {
+                "baseFare": 242.0,
+                "distanceCharge": 0,
+                "additionalStopFee": 0,
+                "timeMultiplier": 0,
+                "specialLocationFees": 0,
+                "waitingCharge": 0
+              }
             },
             "eta": 15,
             "imageUrl": "/images/vehicles/vip-mpv.jpg",
@@ -503,11 +559,18 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
         "journey": {
           "distance_miles": 27.4,
           "duration_minutes": 52
-        }
+        },
+        "notifications": [
+          "Your destination is Heathrow Airport. A £7.50 airport fee has been added for premium vehicles.",
+          "Your journey is during peak hours (Weekday). A £3.54 peak time charge has been added.",
+          "Your route passes through the Congestion Charge Zone. A £7.50 charge has been added."
+        ]
       }
     }
   }
   ```
+
+- **Important Note**: The `journey` property is a key component of the response and is required by the frontend to display journey details to users. It must always be included in the response with both `distance_miles` and `duration_minutes` properties to ensure proper UI rendering.
 
 - **Error Response (400, 401, 500)**:
 
@@ -534,58 +597,58 @@ The enhanced fare estimation endpoint calculates fares for all of the following 
 1. **Standard Saloon** - Toyota Prius, Ford Mondeo
 
    - Capacity: 4 passengers, 2 luggage items
-   - Base Rate: £4.00/mile
+   - Base Rate: £5.00 base fare, £2.95/mile
    - Minimum Fare: £15.00
 
-2. **Estate** - Volkswagen Passat Estate, Skoda Octavia Estate
+2. **Estate** - Mercedes E-Class Estate, Volkswagen Passat Estate
 
    - Capacity: 4 passengers, 4 luggage items
-   - Base Rate: £4.80/mile
+   - Base Rate: £7.50 base fare, £3.95/mile
    - Minimum Fare: £18.00
 
-3. **Large MPV** - Ford Galaxy, Volkswagen Sharan
+3. **MPV (XL)** - Ford Galaxy, Volkswagen Sharan
 
    - Capacity: 6 passengers, 4 luggage items
-   - Base Rate: £5.60/mile
+   - Base Rate: £12.50 base fare, £4.75/mile
    - Minimum Fare: £22.00
 
-4. **Extra Large MPV** - Ford Tourneo, Volkswagen Transporter
+4. **MPV (XXL)** - Ford Tourneo, Mercedes Vito
 
-   - Capacity: 8 passengers, 8 luggage items
-   - Base Rate: £6.40/mile
+   - Capacity: 8 passengers, 6 luggage items
+   - Base Rate: £20.00 base fare, £3.95/mile
    - Minimum Fare: £25.00
 
-5. **Executive Saloon** - Mercedes E-Class, BMW 5-Series
+5. **Executive** - Mercedes E-Class, BMW 5-Series
 
    - Capacity: 3 passengers, 2 luggage items
-   - Base Rate: £7.20/mile
+   - Base Rate: £12.50 base fare, £4.95/mile
    - Minimum Fare: £30.00
-   - Features: WiFi, Bottled Water, Newspaper
+   - Features: WiFi, Bottled Water, Professional Chauffeur, Flight Tracking
 
-6. **Executive Large MPV** - Mercedes Vito, Volkswagen Caravelle
+6. **Executive MPV** - Mercedes V-Class, Volkswagen Caravelle
 
-   - Capacity: 7 passengers, 7 luggage items
-   - Base Rate: £8.80/mile
+   - Capacity: 8 passengers, 5 luggage items
+   - Base Rate: £25.00 base fare, £5.95/mile
    - Minimum Fare: £40.00
-   - Features: WiFi, Bottled Water, Extra Legroom
+   - Features: WiFi, Bottled Water, Professional Chauffeur, Flight Tracking, Extra Legroom
 
-7. **VIP** - Mercedes S-Class, BMW 7-Series
+7. **VIP Executive** - Mercedes S-Class, BMW 7-Series
 
    - Capacity: 3 passengers, 2 luggage items
-   - Base Rate: £11.20/mile
+   - Rate: Custom quotes based on hourly rates (£75.00 per hour)
    - Minimum Fare: £50.00
-   - Features: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur
+   - Features: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur, Priority Service, Privacy Partition
 
-8. **VIP MPV** - Mercedes V-Class
+8. **VIP Executive MPV** - Mercedes V-Class Luxury
 
-   - Capacity: 6 passengers, 6 luggage items
-   - Base Rate: £13.60/mile
+   - Capacity: 6 passengers, 4 luggage items
+   - Rate: Custom quotes based on hourly rates (£95.00 per hour)
    - Minimum Fare: £60.00
-   - Features: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur
+   - Features: WiFi, Premium Drinks, Luxury Interior, Professional Chauffeur, Priority Service, Enhanced Climate Control
 
 9. **Wheelchair Accessible Vehicle (WAV)** - Specially adapted vans
    - Capacity: 4 passengers + wheelchair, 2 luggage items
-   - Base Rate: £5.60/mile
+   - Base Rate: £12.50 base fare, £4.75/mile
    - Minimum Fare: £25.00
    - Features: Wheelchair Ramp, Secure Wheelchair Fastening
 
@@ -607,46 +670,73 @@ Our fare calculation system uses a sophisticated algorithm that considers multip
 For each vehicle type, the initial fare is calculated as:
 
 ```
-Initial Fare = Base Rate + (Distance in miles × Base Rate per mile)
+Initial Fare = Base Fare + (Distance in miles × Per Mile Rate)
 ```
 
 Where:
 
-- **Base Rate**: A fixed amount charged for each journey (varies by vehicle type)
-- **Distance Charge**: The journey distance multiplied by the vehicle's per-mile rate
+- **Base Fare**: A fixed amount charged for each journey (varies by vehicle type)
+- **Per Mile Rate**: The per-mile charge for the distance traveled (varies by vehicle type)
 
 #### 3. Time-Based Adjustments
 
 Fares are adjusted based on the time and day of travel:
 
-- **Peak Hours (Weekdays)**:
-  - Morning Rush: 7:00 AM - 10:00 AM (50% surcharge, 1.5× multiplier)
-  - Evening Rush: 4:00 PM - 7:00 PM (50% surcharge, 1.5× multiplier)
-- **Peak Hours (Weekends)**:
-  - 10:00 AM - 8:00 PM (20% surcharge, 1.2× multiplier)
-- **Night Hours**:
-  - 10:00 PM - 5:00 AM (30% surcharge, 1.3× multiplier)
-- **Weekends**:
-  - Saturday and Sunday (20% surcharge, 1.2× multiplier, applied in addition to any time-based multipliers)
-- **Holidays**:
-  - Major public holidays (40% surcharge, 1.4× multiplier, applied in addition to any time-based multipliers)
+- **Peak Hours (Weekdays, Monday-Thursday)**:
+  - Morning Rush: 3:00 AM - 9:00 AM (Fixed £3.54 additional charge)
+  - Evening Rush: 3:00 PM - 9:00 PM (Fixed £3.54 additional charge)
+- **Peak Hours (Friday)**:
+  - Morning Rush: 3:00 AM - 9:00 AM (Special rates apply)
+  - Evening Rush: 3:00 PM - 11:59 PM (Special rates apply)
+- **Weekend**:
+  - Saturday and Sunday (Special rates apply)
 
-These multipliers are applied to the initial fare:
+#### 4. Special Zone Detection and Charges
 
-```
-Adjusted Fare = Initial Fare × Time Multiplier
-```
+The system automatically detects and applies charges for special zones:
 
-#### 4. Additional Charges
+- **Congestion Charge Zone**: £7.50 if the route passes through London's Congestion Charge Zone
+- **Dartford Crossing**: £4.00 if the route includes the Dartford Crossing
+- **Airport Pickup Fees**: £6.00-£10.00 depending on the airport
+- **Airport Dropoff Fees**: £6.00-£7.00 depending on the airport
 
-- **Stop Fee**: £5.00 per additional stop
-- **Wait Time**: Not currently implemented, but planned for future (will charge per minute of waiting)
+##### Airport Pickup Fees
 
-```
-Fare with Extras = Adjusted Fare + (Number of Stops × Stop Fee)
-```
+| Airport      | Fee (£) |
+| ------------ | :-----: |
+| Heathrow     |  £7.50  |
+| Gatwick      |  £8.00  |
+| Luton        |  £6.00  |
+| Stansted     | £10.00  |
+| City Airport |  £6.50  |
 
-#### 5. Minimum Fare Application
+##### Airport Dropoff Fees
+
+| Airport      | Fee (£) |
+| ------------ | :-----: |
+| Heathrow     |  £6.00  |
+| Gatwick      |  £6.00  |
+| Luton        |  £6.00  |
+| Stansted     |  £7.00  |
+| City Airport |  £6.50  |
+
+#### 5. Additional Charges
+
+- **Additional Stop Fee**: Varies by vehicle type (£2.50-£5.50 per additional stop)
+- **Waiting Time**: Charged per minute or hour based on vehicle type
+
+| Vehicle Type      | Per Minute (£) | Per Hour (£) |
+| ----------------- | :------------: | :----------: |
+| Standard Saloon   |     £0.42      |    £25.00    |
+| Estate            |     £0.58      |    £30.00    |
+| MPV (XL)          |     £0.58      |    £35.00    |
+| MPV (XXL)         |     £0.67      |    £45.00    |
+| Executive         |     £0.67      |    £45.00    |
+| Executive MPV     |     £0.75      |    £55.00    |
+| VIP Executive     |     £1.25      |    £75.00    |
+| VIP Executive MPV |     £1.58      |    £95.00    |
+
+#### 6. Minimum Fare Application
 
 To ensure driver earnings for very short trips, a minimum fare is applied if the calculated fare is lower than the vehicle type's minimum fare:
 
@@ -654,45 +744,89 @@ To ensure driver earnings for very short trips, a minimum fare is applied if the
 Final Fare = MAX(Fare with Extras, Minimum Fare)
 ```
 
-#### 6. Final Adjustments
+#### 7. Final Adjustments
 
 - **Rounding**: The final fare is rounded up to the nearest £0.50 for simplicity
 - **Currency**: All fares are calculated in GBP (£)
 
-#### 7. Examples of Fare Variations
+#### 8. Examples of Fare Variations
 
 - **Short Local Trip (5 miles) in Standard Saloon**:
-  - Off-peak: £35.00 (£4.00 + 5 miles × £4.00/mile = £24.00, above minimum fare)
-  - Peak hour weekday: £36.00 (£24.00 × 1.5 = £36.00)
-  - Night hours: £31.20 (£24.00 × 1.3 = £31.20)
-- **Airport Transfer (30 miles) in Executive Saloon**:
-  - Off-peak: £246.00 (£7.20 + 30 miles × £7.20/mile = £223.20 rounded up)
-  - Peak hour weekday: £369.00 (£246.00 × 1.5 = £369.00)
-  - Weekend: £295.20 (£246.00 × 1.2 = £295.20)
-- **Long Distance Journey (100 miles) in VIP Vehicle**:
-  - Off-peak: £1,121.00 (£11.20 + 100 miles × £11.20/mile = £1,131.20 rounded down)
-  - Peak hour weekday: £1,681.50 (£1,121.00 × 1.5 = £1,681.50)
-  - Night and weekend combined: £1,748.76 (£1,121.00 × 1.3 × 1.2 = £1,748.76)
+  - Off-peak: £19.75 (£5.00 base + 5 miles × £2.95/mile = £19.75)
+  - Peak hour weekday: £23.29 (£19.75 + £3.54 peak charge = £23.29)
+- **Airport Transfer (30 miles) in Executive**:
+  - Off-peak: £160.50 (£12.50 base + 30 miles × £4.95/mile = £160.50)
+  - Peak hour weekday: £164.04 (£160.50 + £3.54 peak charge = £164.04)
+  - With airport pickup at Heathrow: £171.54 (£164.04 + £7.50 airport fee = £171.54)
+- **Long Distance Journey (100 miles) in VIP Executive**:
+  - VIP services use hourly rates, typically quoted separately
 
-#### 8. Special Circumstances
+#### 9. Automated Location Detection
 
-- **Remote Areas**: Standard rates apply, but longer ETAs may be shown
-- **Bad Weather**: Currently no automatic surcharge, but may be implemented in future versions
-- **Major Events**: No automatic surcharge, but fares may be higher due to peak hour classification
-- **Low Availability**: No dynamic pricing based on vehicle availability (fixed pricing model)
-- **Traffic Conditions**: Current version does not include traffic-based surcharges, but route timing accounts for typical traffic patterns
+Our system includes intelligent location detection that automatically identifies when a journey involves airports or congestion charge zones, ensuring accurate pricing without requiring manual input.
 
-#### 9. How ETAs Are Calculated
+- **Airport Detection**: Geofenced boundaries around major airports automatically apply appropriate fees
+- **Congestion Zone Detection**: Routes passing through London's Congestion Charge Zone automatically include the fee
+- **Dartford Crossing Detection**: Routes including the Dartford Crossing automatically include the fee
 
-- **Base ETA**: Each vehicle type has a standard ETA (time to reach the pickup location)
-- **Standard Saloon**: 5 minutes
-- **Estate**: 6 minutes
-- **Large MPV**: 8 minutes
-- **Extra Large MPV**: 10 minutes
-- **Executive Saloon**: 7 minutes
-- **Executive Large MPV**: 9 minutes
-- **VIP**: 12 minutes
-- **VIP MPV**: 15 minutes
-- **Wheelchair Accessible Vehicle**: 10 minutes
+#### 10. Response Notifications
 
-These ETAs represent the average time for a vehicle to reach the pickup location based on typical availability and are not adjusted for current driver locations or traffic conditions in the current implementation.
+The API response includes notifications about any automatically detected fees, such as:
+
+```json
+"notifications": [
+  "Your journey is during peak hours (Weekday). A £3.54 peak time charge has been added.",
+  "Your destination is Heathrow Airport. A £6.00 airport dropoff fee has been added.",
+  "Your route passes through the Congestion Charge Zone. A £7.50 charge has been added."
+]
+```
+
+### Understanding Fare Notifications
+
+The notification messages are a key element of the enhanced fare calculation response. These human-readable messages explain any special conditions or additional charges applied to the journey fare. The frontend should prominently display these notifications to provide transparency about pricing.
+
+#### Types of Notifications
+
+1. **Time-based Notifications**
+
+   - Peak hour charges: `"Your journey is during peak hours (Weekday). A £3.54 peak time charge has been added."`
+   - Weekend pricing: `"Your journey is during weekend hours. A £3.00 weekend surcharge has been added."`
+
+2. **Special Zone Notifications**
+
+   - Congestion charges: `"Your route passes through the Congestion Charge Zone. A £7.50 charge has been added."`
+   - Alternate message when outside charging hours: `"Your route passes through CCZ but outside charging hours - no fee applied."`
+   - Dartford Crossing: `"Your journey includes the Dartford Crossing. A £4.00 charge has been added."`
+
+3. **Airport Fee Notifications**
+
+   - Airport pickup: `"Your journey includes airport pickup at Heathrow. A £7.50 fee has been added."`
+   - Airport dropoff: `"Your journey includes airport dropoff at Gatwick. A £6.00 fee has been added."`
+
+4. **Other Special Circumstances**
+   - Additional stops: `"Your journey includes 2 additional stops. A fee of £5.00 has been added."`
+
+#### Implementation Guidance
+
+The frontend should:
+
+- Display these notifications prominently in the fare quote section
+- Use appropriate styling to make them noticeable (e.g., info boxes with distinctive icons)
+- Allow users to expand/collapse detailed fare breakdowns
+- Consider grouping notifications by type for journeys with multiple special conditions
+
+These notifications help users understand why certain journeys may cost more than others and reduce customer service inquiries about fare calculations.
+
+#### 11. Security Note on Fare Verification
+
+For security reasons, when a booking is created, the backend always recalculates the fare from scratch based on the provided journey details, regardless of any fare values shown to the user previously. This prevents potential fare manipulation and ensures pricing integrity. The booking process:
+
+1. Accepts journey details (locations, time, vehicle type) from the client
+2. Performs server-side validation of all inputs
+3. Recalculates the fare using the server-side algorithm
+4. Creates the booking with the verified fare
+5. Returns a detailed breakdown of the fare calculation
+
+The client application should never send fare values to the booking endpoints, as these will be ignored by the server.
+
+For more detailed information about fare calculation, including day-trip rates, holiday surcharges, and additional services, please refer to the dedicated fare calculation documentation (`fare-calculation-documentation.md`).

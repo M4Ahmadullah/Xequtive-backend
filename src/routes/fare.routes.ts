@@ -35,7 +35,7 @@ router.post(
       const fareRequest = fareEstimateSchema.parse(req.body);
 
       // Calculate fare estimate
-      const fareEstimate = await FareService.calculateFare(fareRequest);
+      const fareEstimate = await FareService.calculateFares(fareRequest);
 
       res.status(200).json({
         success: true,

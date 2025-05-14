@@ -108,22 +108,36 @@ router.post(
         passengers: bookingData.booking.passengers,
       };
 
-      // Calculate fare for the selected vehicle
-      const verifiedFare = await EnhancedFareService.calculateSingleVehicleFare(
-        fareRequest,
-        bookingData.booking.vehicle.id
+      // Calculate fares for all vehicles and find the selected one
+      const fareEstimates = await EnhancedFareService.calculateFares(
+        fareRequest
+      );
+      const selectedVehicle = fareEstimates.vehicleOptions.find(
+        (vehicle) => vehicle.id === bookingData.booking.vehicle.id
       );
 
-      if (!verifiedFare) {
+      if (!selectedVehicle) {
         return res.status(400).json({
           success: false,
           error: {
-            code: "FARE_CALCULATION_ERROR",
-            message: "Could not calculate fare for the selected vehicle",
+            code: "VEHICLE_NOT_FOUND",
+            message: "Could not find the selected vehicle type",
             details: "Please try again or select a different vehicle",
           },
         } as ApiResponse<never>);
       }
+
+      // Extract verified fare details
+      const verifiedFare = {
+        vehicleId: selectedVehicle.id,
+        vehicleName: selectedVehicle.name,
+        price: {
+          amount: selectedVehicle.price.amount,
+          currency: selectedVehicle.price.currency,
+        },
+        distance_miles: fareEstimates.routeDetails?.distance_miles || 0,
+        duration_minutes: fareEstimates.routeDetails?.duration_minutes || 0,
+      };
 
       // Create permanent booking directly
       const permanentBooking: PermanentBookingData = {
@@ -362,13 +376,13 @@ router.get(
         ...(bookingDoc.data() as PermanentBookingData),
       };
 
-      const verifiedFare = await FareService.calculateFare({
+      const fareEstimate = await FareService.calculateFares({
         pickupLocation: booking.locations.pickup.coordinates,
         dropoffLocation: booking.locations.dropoff.coordinates,
         additionalStops: booking.locations.additionalStops?.map(
           (stop) => stop.coordinates
         ),
-        vehicleType: booking.vehicle.name,
+        vehicleType: booking.vehicle.id,
       });
 
       return res.json({
@@ -377,8 +391,8 @@ router.get(
           ...booking,
           journey: {
             ...booking.journey,
-            distance_miles: verifiedFare.distance_miles,
-            duration_minutes: verifiedFare.duration_minutes,
+            distance_miles: fareEstimate.distance_miles,
+            duration_minutes: fareEstimate.duration_minutes,
           },
         },
       } as ApiResponse<typeof booking>);
