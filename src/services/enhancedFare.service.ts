@@ -19,6 +19,7 @@ import {
   getAirportsNearLocation,
 } from "../config/specialZones";
 import { getTimeMultiplier, getTimeSurcharge } from "../config/timePricing";
+import { isRouteServiceable } from "../config/serviceArea";
 
 export class EnhancedFareService {
   private static readonly BASE_URL =
@@ -61,6 +62,23 @@ export class EnhancedFareService {
           : new Date();
       } else {
         throw new Error("Invalid request format - missing location data");
+      }
+
+      // Check if the route is within our service area
+      const serviceAreaCheck = isRouteServiceable(
+        pickupLocation,
+        dropoffLocation
+      );
+      if (!serviceAreaCheck.serviceable) {
+        const error = new Error(
+          serviceAreaCheck.message || "Location is outside our service area"
+        );
+        // Add custom properties to the error object for better error handling
+        Object.assign(error, {
+          code: "LOCATION_NOT_SERVICEABLE",
+          details: serviceAreaCheck.message,
+        });
+        throw error;
       }
 
       // Call the MapBox API to get distance and duration

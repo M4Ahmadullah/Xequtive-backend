@@ -830,3 +830,111 @@ For security reasons, when a booking is created, the backend always recalculates
 The client application should never send fare values to the booking endpoints, as these will be ignored by the server.
 
 For more detailed information about fare calculation, including day-trip rates, holiday surcharges, and additional services, please refer to the dedicated fare calculation documentation (`fare-calculation-documentation.md`).
+
+## Service Area Restrictions
+
+Xequtive currently only services locations within the United Kingdom, with some additional geographical restrictions:
+
+### UK Service Boundaries
+
+All pickup and dropoff locations must be within the following boundaries:
+
+- Southwest corner: 49.9° N, 8.65° W
+- Northeast corner: 58.7° N, 1.76° E
+
+These boundaries encompass mainland United Kingdom, including England, Wales, and most of Scotland.
+
+### Excluded Areas
+
+The following areas are not serviced:
+
+1. **Northern Scottish Highlands** - Remote areas of northern Scotland are outside our service area.
+2. **Outer Hebrides** - These islands are not currently serviced.
+3. **Orkney Islands** - These islands are not currently serviced.
+4. **Shetland Islands** - These islands are not currently serviced.
+
+### Serviced Islands
+
+The following islands are included in our service area:
+
+1. **Isle of Wight**
+2. **Anglesey**
+
+### Maximum Journey Distance
+
+There is a maximum journey distance of 300 miles. Fare calculations for journeys exceeding this distance will return an error.
+
+### API Validation
+
+The API will reject requests with locations outside these service areas with appropriate error messages:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "LOCATION_NOT_SERVICEABLE",
+    "message": "Failed to calculate fare estimate",
+    "details": "Pickup location: We currently only service locations within the United Kingdom."
+  }
+}
+```
+
+#### Error Codes
+
+The API may return the following error codes related to service area restrictions:
+
+| Error Code                 | Description                                                       |
+| -------------------------- | ----------------------------------------------------------------- |
+| `LOCATION_NOT_SERVICEABLE` | Indicates that one or more locations are outside our service area |
+| `INVALID_LOCATION`         | Indicates that Mapbox couldn't find a route between the locations |
+
+#### Examples of Error Responses
+
+**Outside UK Boundaries:**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "LOCATION_NOT_SERVICEABLE",
+    "message": "Failed to calculate fare estimate",
+    "details": "Pickup location: We currently only service locations within the United Kingdom."
+  }
+}
+```
+
+**In Excluded Area:**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "LOCATION_NOT_SERVICEABLE",
+    "message": "Failed to calculate fare estimate",
+    "details": "Dropoff location: We don't currently service the Outer Hebrides islands."
+  }
+}
+```
+
+**Journey Too Long:**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "LOCATION_NOT_SERVICEABLE",
+    "message": "Failed to calculate fare estimate",
+    "details": "We don't currently support journeys longer than 300 miles. Your journey is approximately 325 miles."
+  }
+}
+```
+
+### Frontend Implementation
+
+It is recommended that frontend implementations:
+
+1. Restrict map selection to within UK boundaries
+2. Display excluded areas on the map (when applicable)
+3. Show appropriate error messages when users attempt to select non-serviceable locations
+
+Refer to the service area configuration (`src/config/serviceArea.ts`) for the exact boundaries and implementation details.

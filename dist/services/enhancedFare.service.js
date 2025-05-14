@@ -8,6 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const env_1 = require("../config/env");
 const vehicleTypes_1 = require("../config/vehicleTypes");
 const specialZones_1 = require("../config/specialZones");
+const serviceArea_1 = require("../config/serviceArea");
 class EnhancedFareService {
     /**
      * Calculate fare estimates for different vehicle types with enhanced features
@@ -40,6 +41,17 @@ class EnhancedFareService {
             }
             else {
                 throw new Error("Invalid request format - missing location data");
+            }
+            // Check if the route is within our service area
+            const serviceAreaCheck = (0, serviceArea_1.isRouteServiceable)(pickupLocation, dropoffLocation);
+            if (!serviceAreaCheck.serviceable) {
+                const error = new Error(serviceAreaCheck.message || "Location is outside our service area");
+                // Add custom properties to the error object for better error handling
+                Object.assign(error, {
+                    code: "LOCATION_NOT_SERVICEABLE",
+                    details: serviceAreaCheck.message,
+                });
+                throw error;
             }
             // Call the MapBox API to get distance and duration
             console.log("Calling MapBox API to get route details...");

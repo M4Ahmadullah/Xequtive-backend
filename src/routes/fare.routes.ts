@@ -115,7 +115,7 @@ router.post(
         error instanceof Error ? error.message : "Unknown error";
       const errorCode = errorMessage.includes("No routes found")
         ? "INVALID_LOCATION"
-        : "FARE_CALCULATION_ERROR";
+        : (error as any)?.code || "FARE_CALCULATION_ERROR";
 
       res.status(500).json({
         success: false,

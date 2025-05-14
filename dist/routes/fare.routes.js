@@ -89,7 +89,7 @@ router.post("/enhanced", authMiddleware_1.verifyToken, async (req, res) => {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         const errorCode = errorMessage.includes("No routes found")
             ? "INVALID_LOCATION"
-            : "FARE_CALCULATION_ERROR";
+            : error?.code || "FARE_CALCULATION_ERROR";
         res.status(500).json({
             success: false,
             error: {

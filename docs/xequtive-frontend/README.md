@@ -136,3 +136,44 @@ All distances in the API are now measured in miles instead of kilometers. The ke
 4. All fare calculations use miles as the base unit of distance
 
 Please ensure your frontend application is updated to reflect these changes.
+
+# Xequtive Backend
+
+Backend services for Xequtive, a luxury transport provider.
+
+## Features
+
+- User authentication and account management
+- Fare calculation based on routes, vehicle types, and special conditions
+- Booking management
+- Service area restrictions
+
+## Service Area Restrictions
+
+Xequtive services are restricted to specific areas within the United Kingdom:
+
+- All locations must be within UK boundaries
+- Some remote areas are excluded (e.g., Northern Scottish Highlands, Outer Hebrides)
+- Only specific islands are serviced (Isle of Wight, Anglesey)
+- Maximum journey distance is 300 miles
+
+The API will validate that all pickup and dropoff locations are within the service area and return appropriate error messages for locations outside our service boundaries.
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies with `npm install`
+3. Set up environment variables in `.env` file (see `.env.example`)
+4. Run the development server with `npm run dev`
+
+## API Documentation
+
+For detailed API documentation, refer to the [API Documentation](API_DOCUMENTATION.md) file.
+
+## Contributing
+
+Please follow our coding standards and submit a pull request for any changes.
+
+## License
+
+This project is proprietary and confidential.
