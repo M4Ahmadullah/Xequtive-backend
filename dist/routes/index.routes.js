@@ -7,6 +7,7 @@ const express_1 = require("express");
 const auth_routes_1 = __importDefault(require("./auth.routes"));
 const booking_routes_1 = __importDefault(require("./booking.routes"));
 const fare_routes_1 = __importDefault(require("./fare.routes"));
+const dashboard_routes_1 = __importDefault(require("./dashboard.routes"));
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = (0, express_1.Router)();
 // Basic health check - public
@@ -37,4 +38,6 @@ router.use("/auth", auth_routes_1.default);
 // Booking and fare routes
 router.use("/bookings", booking_routes_1.default);
 router.use("/fare-estimate", fare_routes_1.default);
+// Dashboard routes (admin only)
+router.use("/dashboard", dashboard_routes_1.default);
 exports.default = router;

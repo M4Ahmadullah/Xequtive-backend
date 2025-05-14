@@ -15,8 +15,8 @@ const rateLimiter_1 = require("./middleware/rateLimiter");
 // Load environment variables first
 dotenv_1.default.config();
 const app = (0, express_1.default)();
-// Get allowed origins from environment
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || ["*"];
+// Get allowed origins from environment and normalize them (remove trailing slashes)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS?.split(",") || ["*"]).map((origin) => origin.trim().replace(/\/$/, ""));
 console.log("CORS enabled for origins:", allowedOrigins);
 // Enhanced CORS configuration
 app.use((0, cors_1.default)({
@@ -24,7 +24,9 @@ app.use((0, cors_1.default)({
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin)
             return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 ||
+        // Normalize the request origin by removing trailing slash if present
+        const normalizedOrigin = origin.replace(/\/$/, "");
+        if (allowedOrigins.includes(normalizedOrigin) ||
             allowedOrigins.includes("*")) {
             callback(null, true);
         }

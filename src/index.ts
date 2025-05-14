@@ -13,8 +13,10 @@ dotenv.config();
 
 const app: Express = express();
 
-// Get allowed origins from environment
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || ["*"];
+// Get allowed origins from environment and normalize them (remove trailing slashes)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS?.split(",") || ["*"]).map(
+  (origin) => origin.trim().replace(/\/$/, "")
+);
 
 console.log("CORS enabled for origins:", allowedOrigins);
 
@@ -25,8 +27,11 @@ app.use(
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
 
+      // Normalize the request origin by removing trailing slash if present
+      const normalizedOrigin = origin.replace(/\/$/, "");
+
       if (
-        allowedOrigins.indexOf(origin) !== -1 ||
+        allowedOrigins.includes(normalizedOrigin) ||
         allowedOrigins.includes("*")
       ) {
         callback(null, true);

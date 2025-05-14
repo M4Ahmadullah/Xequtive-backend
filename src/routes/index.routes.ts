@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import authRoutes from "./auth.routes";
 import bookingRoutes from "./booking.routes";
 import fareRoutes from "./fare.routes";
+import dashboardRoutes from "./dashboard.routes";
 import { verifyToken } from "../middleware/authMiddleware";
 import { AuthenticatedRequest, ApiResponse } from "../types";
 
@@ -42,5 +43,8 @@ router.use("/auth", authRoutes);
 // Booking and fare routes
 router.use("/bookings", bookingRoutes);
 router.use("/fare-estimate", fareRoutes);
+
+// Dashboard routes (admin only)
+router.use("/dashboard", dashboardRoutes);
 
 export default router;
