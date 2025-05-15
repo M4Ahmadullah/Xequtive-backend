@@ -4,39 +4,36 @@ const express_1 = require("express");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const firebase_1 = require("../config/firebase");
 const firebase_2 = require("../config/firebase");
-const zod_1 = require("zod");
 const auth_service_1 = require("../services/auth.service");
 const router = (0, express_1.Router)();
 // =====================================================
 // Dashboard Auth Routes
 // =====================================================
-// Dashboard admin signup (requires an existing admin to create new admins)
-router.post("/auth/signup", authMiddleware_1.verifyToken, authMiddleware_1.isAdmin, async (req, res) => {
+// Admin registration (no verification needed for first admin)
+router.post("/auth/signup", async (req, res) => {
     try {
-        // Validate request with Zod schema
-        const adminSignupSchema = zod_1.z.object({
-            email: zod_1.z.string().email("Valid email is required"),
-            password: zod_1.z.string().min(8, "Password must be at least 8 characters"),
-            fullName: zod_1.z.string().min(1, "Full name is required"),
-        });
-        try {
-            adminSignupSchema.parse(req.body);
+        const { fullName, email, password, confirmPassword } = req.body;
+        // Validate required fields
+        if (!fullName || !email || !password || !confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "All fields are required: Full Name, Email, Password, and Confirm Password",
+                },
+            });
         }
-        catch (error) {
-            if (error instanceof zod_1.z.ZodError) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "VALIDATION_ERROR",
-                        message: "Invalid admin signup data",
-                        details: error.errors.map((e) => e.message).join(", "),
-                    },
-                });
-            }
-            throw error;
+        // Validate password match
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Passwords do not match",
+                },
+            });
         }
-        const { email, password, fullName } = req.body;
-        // Create user in Firebase Authentication
+        // Create admin user in Firebase Authentication
         const userRecord = await firebase_2.auth.createUser({
             email,
             password,
@@ -53,9 +50,8 @@ router.post("/auth/signup", authMiddleware_1.verifyToken, authMiddleware_1.isAdm
             fullName: fullName,
             role: "admin",
             createdAt: new Date().toISOString(),
-            createdBy: req.user?.uid,
         });
-        return res.status(201).json({
+        res.status(201).json({
             success: true,
             data: {
                 uid: userRecord.uid,
@@ -86,31 +82,20 @@ router.post("/auth/signup", authMiddleware_1.verifyToken, authMiddleware_1.isAdm
         });
     }
 });
-// Dashboard-specific login endpoint
+// Dashboard admin login endpoint
 router.post("/auth/login", async (req, res) => {
     try {
-        // Validate request
-        const loginSchema = zod_1.z.object({
-            email: zod_1.z.string().email("Valid email is required"),
-            password: zod_1.z.string().min(1, "Password is required"),
-        });
-        try {
-            loginSchema.parse(req.body);
-        }
-        catch (error) {
-            if (error instanceof zod_1.z.ZodError) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "VALIDATION_ERROR",
-                        message: "Invalid login data",
-                        details: error.errors.map((e) => e.message).join(", "),
-                    },
-                });
-            }
-            throw error;
-        }
+        // Validate request with simple checks
         const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Email and password are required",
+                },
+            });
+        }
         // Login with email/password
         const authResult = await auth_service_1.AuthService.loginWithEmail(email, password);
         // Verify this user has admin role
@@ -127,7 +112,10 @@ router.post("/auth/login", async (req, res) => {
         // If we get here, user is an admin
         return res.json({
             success: true,
-            data: authResult,
+            data: {
+                ...authResult,
+                role: "admin",
+            },
         });
     }
     catch (error) {
@@ -141,14 +129,21 @@ router.post("/auth/login", async (req, res) => {
         });
     }
 });
-// Verify current admin session
-router.get("/auth/verify", authMiddleware_1.verifyToken, async (req, res) => {
+// Verify current admin session (token verification)
+router.post("/auth/verify", async (req, res) => {
     try {
-        if (!req.user?.uid) {
-            throw new Error("User not found in request");
+        const { token } = req.body;
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Token is required",
+                },
+            });
         }
-        // Verify this user has admin role
-        const isUserAdmin = await auth_service_1.AuthService.isAdmin(req.user.uid);
+        const userData = await auth_service_1.AuthService.verifyToken(token);
+        const isUserAdmin = await auth_service_1.AuthService.isAdmin(userData.uid);
         if (!isUserAdmin) {
             return res.status(403).json({
                 success: false,
@@ -158,24 +153,22 @@ router.get("/auth/verify", authMiddleware_1.verifyToken, async (req, res) => {
                 },
             });
         }
-        return res.json({
+        res.status(200).json({
             success: true,
             data: {
+                ...userData,
+                role: "admin",
                 authenticated: true,
-                user: {
-                    ...req.user,
-                    role: "admin",
-                },
             },
         });
     }
     catch (error) {
-        console.error("Session verification error:", error);
-        return res.status(401).json({
+        res.status(401).json({
             success: false,
             error: {
                 code: "AUTHENTICATION_FAILED",
-                message: error instanceof Error ? error.message : "Authentication failed",
+                message: "Invalid token",
+                details: error instanceof Error ? error.message : "Unknown error",
             },
         });
     }

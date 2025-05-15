@@ -108,62 +108,6 @@ router.post("/register", async (req, res) => {
         });
     }
 });
-// Admin registration (no protection for now)
-router.post("/register-admin", async (req, res) => {
-    try {
-        const { fullName, email, password, confirmPassword } = req.body;
-        // Validate required fields
-        if (!fullName || !email || !password || !confirmPassword) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: "All fields are required: Full Name, Email, Password, and Confirm Password",
-                },
-            });
-        }
-        // Validate password match
-        if (password !== confirmPassword) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: "Passwords do not match",
-                },
-            });
-        }
-        // Create admin user in Firebase Authentication
-        const userRecord = await firebase_1.auth.createUser({
-            email,
-            password,
-            displayName: fullName,
-        });
-        // Set custom claims for admin
-        await firebase_1.auth.setCustomUserClaims(userRecord.uid, { role: "admin" });
-        // Create admin document in Firestore
-        await firebase_1.firestore.collection("users").doc(userRecord.uid).set({
-            email: userRecord.email,
-            role: "admin",
-            createdAt: new Date().toISOString(),
-        });
-        res.status(201).json({
-            success: true,
-            data: {
-                uid: userRecord.uid,
-                email: userRecord.email,
-                displayName: userRecord.displayName,
-                role: "admin",
-            },
-        });
-    }
-    catch (error) {
-        res.status(400).json({
-            success: false,
-            error: {
-                message: "Failed to create admin user",
-                details: error instanceof Error ? error.message : "Unknown error",
-            },
-        });
-    }
-});
 // Frontend user login verification
 router.post("/user-login", async (req, res) => {
     try {
@@ -190,46 +134,6 @@ router.post("/user-login", async (req, res) => {
         res.status(200).json({
             success: true,
             data: userData,
-        });
-    }
-    catch (error) {
-        res.status(401).json({
-            success: false,
-            error: {
-                message: "Invalid token",
-                details: error instanceof Error ? error.message : "Unknown error",
-            },
-        });
-    }
-});
-// Dashboard admin login verification
-router.post("/dashboard/admin-login", async (req, res) => {
-    try {
-        const { token } = req.body;
-        if (!token) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    message: "Token is required",
-                },
-            });
-        }
-        const userData = await auth_service_1.AuthService.verifyToken(token);
-        const isUserAdmin = await auth_service_1.AuthService.isAdmin(userData.uid);
-        if (!isUserAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: {
-                    message: "Access denied. Admin privileges required.",
-                },
-            });
-        }
-        res.status(200).json({
-            success: true,
-            data: {
-                ...userData,
-                role: "admin",
-            },
         });
     }
     catch (error) {

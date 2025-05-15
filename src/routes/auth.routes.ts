@@ -82,69 +82,6 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
-// Admin registration (no protection for now)
-router.post("/register-admin", async (req: Request, res: Response) => {
-  try {
-    const { fullName, email, password, confirmPassword } = req.body;
-
-    // Validate required fields
-    if (!fullName || !email || !password || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message:
-            "All fields are required: Full Name, Email, Password, and Confirm Password",
-        },
-      } as ApiResponse<never>);
-    }
-
-    // Validate password match
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: "Passwords do not match",
-        },
-      } as ApiResponse<never>);
-    }
-
-    // Create admin user in Firebase Authentication
-    const userRecord = await auth.createUser({
-      email,
-      password,
-      displayName: fullName,
-    });
-
-    // Set custom claims for admin
-    await auth.setCustomUserClaims(userRecord.uid, { role: "admin" });
-
-    // Create admin document in Firestore
-    await firestore.collection("users").doc(userRecord.uid).set({
-      email: userRecord.email,
-      role: "admin",
-      createdAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        uid: userRecord.uid,
-        email: userRecord.email,
-        displayName: userRecord.displayName,
-        role: "admin",
-      },
-    } as ApiResponse<UserData>);
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      error: {
-        message: "Failed to create admin user",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-    } as ApiResponse<never>);
-  }
-});
-
 // Frontend user login verification
 router.post("/user-login", async (req: Request, res: Response) => {
   try {
@@ -175,50 +112,6 @@ router.post("/user-login", async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       data: userData,
-    } as ApiResponse<UserData>);
-  } catch (error) {
-    res.status(401).json({
-      success: false,
-      error: {
-        message: "Invalid token",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-    } as ApiResponse<never>);
-  }
-});
-
-// Dashboard admin login verification
-router.post("/dashboard/admin-login", async (req: Request, res: Response) => {
-  try {
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: "Token is required",
-        },
-      } as ApiResponse<never>);
-    }
-
-    const userData = await AuthService.verifyToken(token);
-    const isUserAdmin = await AuthService.isAdmin(userData.uid);
-
-    if (!isUserAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          message: "Access denied. Admin privileges required.",
-        },
-      } as ApiResponse<never>);
-    }
-
-    res.status(200).json({
-      success: true,
-      data: {
-        ...userData,
-        role: "admin",
-      },
     } as ApiResponse<UserData>);
   } catch (error) {
     res.status(401).json({
