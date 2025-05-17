@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authMiddleware_1 = require("../middleware/authMiddleware");
@@ -51,33 +84,54 @@ router.post("/auth/signup", async (req, res) => {
             role: "admin",
             createdAt: new Date().toISOString(),
         });
-        res.status(201).json({
+        // Create token for admin
+        const customToken = await firebase_2.auth.createCustomToken(userRecord.uid, {
+            role: "admin",
+            admin: true,
+            expiresIn: 432000, // 5 days in seconds
+        });
+        // Exchange custom token for ID token using Firebase API
+        const apiKey = process.env.FIREBASE_API_KEY;
+        if (!apiKey) {
+            throw new Error("Firebase API key is missing");
+        }
+        const fetch = (await Promise.resolve().then(() => __importStar(require("node-fetch")))).default;
+        const tokenResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                token: customToken,
+                returnSecureToken: true,
+            }),
+        });
+        const tokenData = await tokenResponse.json();
+        if (!tokenResponse.ok) {
+            throw new Error(tokenData.error?.message || "Token exchange failed");
+        }
+        // Set token in cookie
+        res.cookie("token", tokenData.idToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 432000 * 1000, // 5 days in milliseconds
+        });
+        return res.status(201).json({
             success: true,
             data: {
                 uid: userRecord.uid,
                 email: userRecord.email,
-                displayName: fullName,
+                fullName: fullName,
                 role: "admin",
-                message: "Admin account created successfully",
             },
         });
     }
     catch (error) {
-        console.error("Error creating admin account:", error);
-        // Handle specific Firebase errors
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        const errorCode = errorMessage.includes("already exists")
-            ? "EMAIL_EXISTS"
-            : "ADMIN_CREATION_ERROR";
-        const statusCode = errorCode === "EMAIL_EXISTS" ? 409 : 500;
-        return res.status(statusCode).json({
+        console.error("Admin registration error:", error);
+        return res.status(400).json({
             success: false,
             error: {
-                code: errorCode,
-                message: errorCode === "EMAIL_EXISTS"
-                    ? "Email already exists"
-                    : "Failed to create admin account",
-                details: errorMessage,
+                code: "REGISTRATION_FAILED",
+                message: error instanceof Error ? error.message : "Registration failed",
             },
         });
     }
@@ -99,7 +153,8 @@ router.post("/auth/login", async (req, res) => {
         // Login with email/password
         const authResult = await auth_service_1.AuthService.loginWithEmail(email, password);
         // Verify this user has admin role
-        const isUserAdmin = await auth_service_1.AuthService.isAdmin(authResult.uid);
+        const userRecord = await firebase_2.auth.getUser(authResult.uid);
+        const isUserAdmin = userRecord.customClaims?.admin === true;
         if (!isUserAdmin) {
             return res.status(403).json({
                 success: false,
@@ -109,11 +164,21 @@ router.post("/auth/login", async (req, res) => {
                 },
             });
         }
+        // Set token in HttpOnly cookie
+        res.cookie("token", authResult.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 432000 * 1000, // 5 days in milliseconds
+        });
         // If we get here, user is an admin
         return res.json({
             success: true,
             data: {
-                ...authResult,
+                uid: authResult.uid,
+                email: authResult.email,
+                displayName: authResult.displayName,
+                phone: authResult.phone,
                 role: "admin",
             },
         });
@@ -129,45 +194,101 @@ router.post("/auth/login", async (req, res) => {
         });
     }
 });
-// Verify current admin session (token verification)
-router.post("/auth/verify", async (req, res) => {
+// Dashboard logout endpoint
+router.post("/auth/logout", async (req, res) => {
     try {
-        const { token } = req.body;
-        if (!token) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: "VALIDATION_ERROR",
-                    message: "Token is required",
-                },
-            });
-        }
-        const userData = await auth_service_1.AuthService.verifyToken(token);
-        const isUserAdmin = await auth_service_1.AuthService.isAdmin(userData.uid);
-        if (!isUserAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: {
-                    code: "INSUFFICIENT_PERMISSIONS",
-                    message: "Access denied. Admin privileges required.",
-                },
-            });
-        }
-        res.status(200).json({
+        // Clear the auth cookie
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+        });
+        return res.json({
             success: true,
             data: {
-                ...userData,
-                role: "admin",
-                authenticated: true,
+                message: "Logged out successfully",
             },
         });
     }
     catch (error) {
-        res.status(401).json({
+        console.error("Logout error:", error);
+        return res.status(500).json({
             success: false,
             error: {
-                code: "AUTHENTICATION_FAILED",
-                message: "Invalid token",
+                code: "LOGOUT_FAILED",
+                message: "Failed to logout",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Check if current user is admin
+router.get("/auth/check-admin", async (req, res) => {
+    try {
+        const token = req.cookies?.token;
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "NOT_AUTHENTICATED",
+                    message: "Not authenticated",
+                },
+            });
+        }
+        try {
+            // Verify the token
+            const decodedToken = await firebase_2.auth.verifyIdToken(token);
+            const userRecord = await firebase_2.auth.getUser(decodedToken.uid);
+            // Check if user has admin role
+            const isUserAdmin = userRecord.customClaims?.admin === true;
+            if (!isUserAdmin) {
+                return res.status(403).json({
+                    success: false,
+                    error: {
+                        code: "NOT_ADMIN",
+                        message: "User is not an admin",
+                    },
+                });
+            }
+            // Get user profile from Firestore for additional data
+            const userDoc = await firebase_1.firestore
+                .collection("users")
+                .doc(userRecord.uid)
+                .get();
+            const userData = userDoc.data();
+            return res.json({
+                success: true,
+                data: {
+                    uid: userRecord.uid,
+                    email: userRecord.email,
+                    displayName: userData?.fullName || userRecord.displayName,
+                    role: "admin",
+                },
+            });
+        }
+        catch (error) {
+            // Token is invalid - clear it and return not authenticated
+            res.clearCookie("token", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+            });
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "INVALID_TOKEN",
+                    message: "Invalid or expired token",
+                },
+            });
+        }
+    }
+    catch (error) {
+        console.error("Error checking admin status:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "SERVER_ERROR",
+                message: "Server error",
                 details: error instanceof Error ? error.message : "Unknown error",
             },
         });

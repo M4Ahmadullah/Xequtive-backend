@@ -25,6 +25,14 @@ const envSchema = z.object({
 
   // Mapbox
   MAPBOX_TOKEN: z.string(),
+
+  // Google OAuth
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  BACKEND_GOOGLE_CALLBACK_URL: z
+    .string()
+    .optional()
+    .default("http://localhost:5555/api/auth/google/callback"),
 });
 
 // Parse and validate environment variables
@@ -58,6 +66,11 @@ export const env = {
   },
   mapbox: {
     token: process.env.MAPBOX_TOKEN!,
+  },
+  googleOAuth: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: process.env.BACKEND_GOOGLE_CALLBACK_URL,
   },
 };
 

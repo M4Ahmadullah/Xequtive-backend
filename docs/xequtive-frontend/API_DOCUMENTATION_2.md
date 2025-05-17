@@ -126,7 +126,7 @@ Here's a complete example showing the booking flow from fare calculation to book
 ```bash
 curl -X POST "http://localhost:5555/api/fare-estimate/enhanced" \
 -H "Content-Type: application/json" \
--H "Authorization: Bearer [your-token]" \
+--cookie "token=[your-authentication-cookie]" \
 -d '{
   "locations": {
     "pickup": {
@@ -165,7 +165,7 @@ curl -X POST "http://localhost:5555/api/fare-estimate/enhanced" \
 ```bash
 curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 -H "Content-Type: application/json" \
--H "Authorization: Bearer [your-token]" \
+--cookie "token=[your-authentication-cookie]" \
 -d '{
   "customer": {
     "fullName": "John Smith",
@@ -267,122 +267,201 @@ When the client submits a booking request, the server:
 
 This approach ensures that users cannot manipulate fare prices even if they modify API requests.
 
-## Get User Bookings
+## User Bookings API
 
-Retrieves all bookings for the authenticated user, sorted by creation date (newest first).
+### Get User's Bookings
 
-- **URL:** `/api/bookings/user`
-- **Method:** `GET`
-- **Auth Required:** Yes
-- **Description:** Gets all bookings for the authenticated user. Results are limited to the 100 most recent bookings.
-- **Query Parameters:**
-  - `status` (optional): Filter by booking status. Multiple statuses can be comma-separated (e.g., `status=confirmed,assigned,in_progress`).
+**Endpoint:** `GET /api/bookings/user`
 
-### Success Response
+**Description:** Retrieve all bookings for the authenticated user
 
-- **Code:** 200 OK
-- **Content:**
-  ```json
-  {
-    "success": true,
-    "data": [
+**Authentication:** Required (cookie-based)
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookings": [
       {
-        "id": "Y1fyFP1CYkaF7dF1b1Sk",
-        "pickupDate": "2024-07-15",
-        "pickupTime": "10:30",
-        "pickupLocation": {
-          "address": "Westminster, London, UK"
-        },
-        "dropoffLocation": {
-          "address": "Gatwick Airport, London, UK"
-        },
-        "vehicleType": "Executive Saloon",
-        "price": 444.5,
+        "id": "booking123",
+        "userId": "user456",
+        "locationId": "location789",
+        "startTime": "2023-12-15T09:00:00.000Z",
+        "endTime": "2023-12-15T11:00:00.000Z",
         "status": "confirmed",
-        "journey": {
-          "distance_miles": 64.8,
-          "duration_minutes": 85
-        },
-        "createdAt": "2025-05-10T02:25:14.180Z"
-      },
-      {
-        "id": "pXaEDFEAjiZQ9KQCenu0",
-        "pickupDate": "2025-05-29",
-        "pickupTime": "00:40",
-        "pickupLocation": {
-          "address": "Central London"
-        },
-        "dropoffLocation": {
-          "address": "London Heathrow Airport (LHR)"
-        },
-        "vehicleType": "Large MPV",
-        "price": 129.5,
-        "status": "confirmed",
-        "journey": {
-          "distance_miles": 27.4,
-          "duration_minutes": 39
-        },
-        "createdAt": "2025-05-10T02:16:49.031Z"
+        "createdAt": "2023-12-01T12:00:00.000Z",
+        "updatedAt": "2023-12-01T12:00:00.000Z",
+        "location": {
+          "id": "location789",
+          "name": "Conference Room A",
+          "description": "10-person meeting room with projector",
+          "address": "123 Business Ave, Floor 5"
+        }
       }
-    ]
-  }
-  ```
-
-### Error Response
-
-- **Code:** 401 Unauthorized
-- **Content:**
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Authentication required"
+      // Additional bookings...
+    ],
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 3,
+      "totalItems": 25,
+      "itemsPerPage": 10
     }
   }
-  ```
+}
+```
 
-OR
+**Pagination Query Parameters:**
 
-- **Code:** 500 Internal Server Error
-- **Content:**
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Failed to fetch bookings",
-      "details": "Error details here"
+- `page`: Page number (default: 1)
+- `limit`: Number of items per page (default: 10)
+- `sortBy`: Field to sort by (default: "startTime")
+- `sortOrder`: Sort direction, either "asc" or "desc" (default: "asc")
+
+**Filtering Query Parameters:**
+
+- `status`: Filter by booking status (e.g., "confirmed", "canceled", "pending")
+- `startDate`: Filter bookings starting from this date (ISO format)
+- `endDate`: Filter bookings until this date (ISO format)
+
+**Example: Retrieving Filtered Bookings**
+
+```javascript
+// Frontend code example
+const getFilteredBookings = async (status, startDate, page = 1, limit = 10) => {
+  const queryParams = new URLSearchParams({
+    status,
+    startDate: startDate.toISOString(),
+    page,
+    limit,
+  }).toString();
+
+  const response = await fetch(`${API_URL}/api/bookings/user?${queryParams}`, {
+    credentials: "include", // This includes the auth cookie automatically
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    return data.data;
+  } else {
+    throw new Error(data.error.message);
+  }
+};
+```
+
+### Create Booking
+
+**Endpoint:** `POST /api/bookings`
+
+**Description:** Create a new booking for the authenticated user
+
+**Authentication:** Required (cookie-based)
+
+**Request Body:**
+
+```json
+{
+  "locationId": "location789",
+  "startTime": "2023-12-20T14:00:00.000Z",
+  "endTime": "2023-12-20T16:00:00.000Z",
+  "attendees": ["attendee1@example.com", "attendee2@example.com"],
+  "notes": "Quarterly planning meeting"
+}
+```
+
+**Success Response (201 Created):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "booking": {
+      "id": "newbooking123",
+      "userId": "user456",
+      "locationId": "location789",
+      "startTime": "2023-12-20T14:00:00.000Z",
+      "endTime": "2023-12-20T16:00:00.000Z",
+      "status": "confirmed",
+      "createdAt": "2023-12-05T09:30:00.000Z",
+      "updatedAt": "2023-12-05T09:30:00.000Z",
+      "attendees": ["attendee1@example.com", "attendee2@example.com"],
+      "notes": "Quarterly planning meeting",
+      "location": {
+        "id": "location789",
+        "name": "Conference Room A",
+        "description": "10-person meeting room with projector",
+        "address": "123 Business Ave, Floor 5"
+      }
     }
   }
-  ```
-
-## Booking Management Features
-
-### Filtering User Bookings by Status
-
-You can filter bookings by status to retrieve only bookings with specific statuses:
-
-**Example Request:**
-
-```bash
-GET /api/bookings/user?status=confirmed
+}
 ```
 
-This will return only confirmed bookings. You can request multiple statuses by comma-separating them:
+**Error Response (400 Bad Request):**
 
-```bash
-GET /api/bookings/user?status=confirmed,in_progress
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Location is not available during the requested time slot",
+    "code": "booking/time-slot-unavailable"
+  }
+}
 ```
 
-Common status groupings:
+### Cancel Booking
 
-1. **Active Bookings**: Use `status=confirmed,assigned,in_progress` to get only upcoming and in-progress bookings
-2. **Historical Bookings**: Use `status=completed,cancelled,no_show` to get only past bookings
+**Endpoint:** `DELETE /api/bookings/:id`
 
-### Cancelling a Booking
+**Description:** Cancel a booking for the authenticated user
 
-To cancel a booking, use the following endpoint:
+**Authentication:** Required (cookie-based)
 
-- **URL:** `/api/bookings/user/bookings/:id/cancel`
+**URL Parameters:**
+
+- `id`: The ID of the booking to cancel
+
+**Request Body:** None
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "booking123",
+    "status": "canceled",
+    "updatedAt": "2023-12-07T10:15:00.000Z"
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Booking not found",
+    "code": "booking/not-found"
+  }
+}
+```
+
+**Error Response (403 Forbidden):**
+
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Cannot cancel booking less than 24 hours before start time",
+    "code": "booking/cancellation-too-late"
+  }
+}
+```
 
 # Xequtive Booking Creation API
 
@@ -394,12 +473,23 @@ The booking creation process is designed to be secure and user-friendly, with bu
 
 ## API Security Requirements
 
-All booking endpoints are protected and require authentication. The API uses Firebase Authentication and JWT tokens.
+All booking endpoints are protected and require authentication. The API uses Firebase Authentication with secure HTTP-only cookies.
 
-Include the token in the Authorization header:
+Authentication is handled automatically when using `credentials: 'include'` in fetch/axios requests:
+
+```javascript
+fetch("/api/bookings/user", {
+  credentials: "include", // This includes the auth cookie automatically
+});
+```
+
+For curl examples, include the cookie as shown:
 
 ```
-Authorization: Bearer <firebase-id-token>
+curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
+-H "Content-Type: application/json" \
+--cookie "token=[your-authentication-cookie]" \
+-d '{ ... }'
 ```
 
 ## Rate Limiting
@@ -595,16 +685,13 @@ The response will include notifications about any automatically detected fees, s
 ```javascript
 const createBooking = async (bookingData) => {
   try {
-    // Get authentication token
-    const token = await auth.currentUser.getIdToken();
-
     // Create booking request
     const response = await fetch(`${API_URL}/api/bookings/create-enhanced`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
+      credentials: "include", // This includes the auth cookie automatically
       body: JSON.stringify(bookingData),
     });
 
@@ -669,4 +756,50 @@ const bookingWithoutCustomer = {
 // Create booking
 const confirmation = await createBooking(bookingWithCustomer);
 console.log("Booking confirmed:", confirmation);
+```
+
+**Example: Cancelling a Booking**
+
+```javascript
+// Frontend code example
+const cancelBooking = async (bookingId, reason) => {
+  const response = await fetch(`${API_URL}/api/bookings/${bookingId}/cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // This includes the auth cookie automatically
+    body: JSON.stringify({
+      cancellationReason: reason || "Cancelled by user",
+    }),
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    return data.data; // Cancellation success details
+  } else {
+    throw new Error(data.error.message);
+  }
+};
+```
+
+**Example: Retrieving Active Bookings**
+
+```javascript
+// Frontend code example
+const getActiveBookings = async () => {
+  const response = await fetch(
+    `${API_URL}/api/bookings/user?status=pending,confirmed,assigned,in_progress`,
+    {
+      credentials: "include", // This includes the auth cookie automatically
+    }
+  );
+
+  const data = await response.json();
+  if (data.success) {
+    return data.data; // Array of active bookings
+  } else {
+    throw new Error(data.error.message);
+  }
+};
 ```

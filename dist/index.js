@@ -8,6 +8,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const index_routes_1 = __importDefault(require("./routes/index.routes"));
 require("./config/firebase"); // This will initialize Firebase
@@ -38,12 +39,14 @@ app.use((0, cors_1.default)({
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Set-Cookie"],
 }));
 // Handle preflight requests explicitly
 app.options("*", (0, cors_1.default)());
 // Other middleware
 app.use((0, helmet_1.default)());
 app.use((0, morgan_1.default)("dev"));
+app.use((0, cookie_parser_1.default)()); // Parse Cookie header and populate req.cookies
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 // Apply rate limiting to all API routes

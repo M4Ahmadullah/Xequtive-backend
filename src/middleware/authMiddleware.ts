@@ -1,5 +1,4 @@
 import { Response, NextFunction } from "express";
-import { AuthService } from "../services/auth.service";
 import { AuthenticatedRequest } from "../types";
 import { auth } from "../config/firebase";
 
@@ -9,31 +8,38 @@ export const verifyToken = async (
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.headers.authorization;
+    // Check for token in cookies
+    const tokenFromCookie = req.cookies?.token;
 
-    if (!authHeader?.startsWith("Bearer ")) {
+    // For backward compatibility only (will be removed in future)
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    if (tokenFromCookie) {
+      token = tokenFromCookie;
+    } else if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         error: {
-          message: "No token provided",
+          message: "Not authenticated",
+          code: "auth/not-authenticated",
         },
       });
     }
-
-    const token = authHeader.split(" ")[1];
 
     try {
       // Verify the Firebase ID token
       const decodedToken = await auth.verifyIdToken(token);
       const userRecord = await auth.getUser(decodedToken.uid);
 
-      // Check if user has admin role in custom claims
-      const isUserAdmin = userRecord.customClaims?.admin === true;
-
       req.user = {
         uid: userRecord.uid,
         email: userRecord.email || "",
-        role: isUserAdmin ? "admin" : "user",
+        role: "user",
       };
 
       next();
@@ -41,7 +47,8 @@ export const verifyToken = async (
       return res.status(401).json({
         success: false,
         error: {
-          message: "Invalid or expired token",
+          message: "Invalid or expired session",
+          code: "auth/invalid-session",
           details: error instanceof Error ? error.message : "Unknown error",
         },
       });
@@ -51,6 +58,7 @@ export const verifyToken = async (
   }
 };
 
+// This is only for the dashboard routes
 export const isAdmin = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -61,16 +69,24 @@ export const isAdmin = async (
       return res.status(401).json({
         success: false,
         error: {
-          message: "Authentication required",
+          message: "Not authenticated",
+          code: "auth/not-authenticated",
         },
       });
     }
 
-    if (req.user.role !== "admin") {
+    // Get user from Firebase Auth
+    const userRecord = await auth.getUser(req.user.uid);
+
+    // Check admin custom claim
+    const isUserAdmin = userRecord.customClaims?.admin === true;
+
+    if (!isUserAdmin) {
       return res.status(403).json({
         success: false,
         error: {
           message: "Access denied. Admin privileges required.",
+          code: "auth/insufficient-permissions",
         },
       });
     }

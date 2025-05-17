@@ -64,36 +64,62 @@ router.post(
         createdAt: new Date().toISOString(),
       });
 
-      res.status(201).json({
+      // Create token for admin
+      const customToken = await auth.createCustomToken(userRecord.uid, {
+        role: "admin",
+        admin: true,
+        expiresIn: 432000, // 5 days in seconds
+      });
+
+      // Exchange custom token for ID token using Firebase API
+      const apiKey = process.env.FIREBASE_API_KEY;
+      if (!apiKey) {
+        throw new Error("Firebase API key is missing");
+      }
+
+      const fetch = (await import("node-fetch")).default;
+      const tokenResponse = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: customToken,
+            returnSecureToken: true,
+          }),
+        }
+      );
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) {
+        throw new Error(tokenData.error?.message || "Token exchange failed");
+      }
+
+      // Set token in cookie
+      res.cookie("token", tokenData.idToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 432000 * 1000, // 5 days in milliseconds
+      });
+
+      return res.status(201).json({
         success: true,
         data: {
           uid: userRecord.uid,
           email: userRecord.email,
-          displayName: fullName,
+          fullName: fullName,
           role: "admin",
-          message: "Admin account created successfully",
         },
       });
     } catch (error) {
-      console.error("Error creating admin account:", error);
-
-      // Handle specific Firebase errors
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      const errorCode = errorMessage.includes("already exists")
-        ? "EMAIL_EXISTS"
-        : "ADMIN_CREATION_ERROR";
-      const statusCode = errorCode === "EMAIL_EXISTS" ? 409 : 500;
-
-      return res.status(statusCode).json({
+      console.error("Admin registration error:", error);
+      return res.status(400).json({
         success: false,
         error: {
-          code: errorCode,
+          code: "REGISTRATION_FAILED",
           message:
-            errorCode === "EMAIL_EXISTS"
-              ? "Email already exists"
-              : "Failed to create admin account",
-          details: errorMessage,
+            error instanceof Error ? error.message : "Registration failed",
         },
       } as ApiResponse<never>);
     }
@@ -120,7 +146,8 @@ router.post("/auth/login", async (req: AuthenticatedRequest, res: Response) => {
     const authResult = await AuthService.loginWithEmail(email, password);
 
     // Verify this user has admin role
-    const isUserAdmin = await AuthService.isAdmin(authResult.uid);
+    const userRecord = await auth.getUser(authResult.uid);
+    const isUserAdmin = userRecord.customClaims?.admin === true;
 
     if (!isUserAdmin) {
       return res.status(403).json({
@@ -132,11 +159,22 @@ router.post("/auth/login", async (req: AuthenticatedRequest, res: Response) => {
       } as ApiResponse<never>);
     }
 
+    // Set token in HttpOnly cookie
+    res.cookie("token", authResult.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 432000 * 1000, // 5 days in milliseconds
+    });
+
     // If we get here, user is an admin
     return res.json({
       success: true,
       data: {
-        ...authResult,
+        uid: authResult.uid,
+        email: authResult.email,
+        displayName: authResult.displayName,
+        phone: authResult.phone,
         role: "admin",
       },
     });
@@ -154,50 +192,113 @@ router.post("/auth/login", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-// Verify current admin session (token verification)
+// Dashboard logout endpoint
 router.post(
-  "/auth/verify",
+  "/auth/logout",
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { token } = req.body;
+      // Clear the auth cookie
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
 
-      if (!token) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Token is required",
-          },
-        } as ApiResponse<never>);
-      }
-
-      const userData = await AuthService.verifyToken(token);
-      const isUserAdmin = await AuthService.isAdmin(userData.uid);
-
-      if (!isUserAdmin) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: "Access denied. Admin privileges required.",
-          },
-        } as ApiResponse<never>);
-      }
-
-      res.status(200).json({
+      return res.json({
         success: true,
         data: {
-          ...userData,
-          role: "admin",
-          authenticated: true,
+          message: "Logged out successfully",
         },
       });
     } catch (error) {
-      res.status(401).json({
+      console.error("Logout error:", error);
+      return res.status(500).json({
         success: false,
         error: {
-          code: "AUTHENTICATION_FAILED",
-          message: "Invalid token",
+          code: "LOGOUT_FAILED",
+          message: "Failed to logout",
+          details: error instanceof Error ? error.message : "Unknown error",
+        },
+      } as ApiResponse<never>);
+    }
+  }
+);
+
+// Check if current user is admin
+router.get(
+  "/auth/check-admin",
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const token = req.cookies?.token;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "NOT_AUTHENTICATED",
+            message: "Not authenticated",
+          },
+        } as ApiResponse<never>);
+      }
+
+      try {
+        // Verify the token
+        const decodedToken = await auth.verifyIdToken(token);
+        const userRecord = await auth.getUser(decodedToken.uid);
+
+        // Check if user has admin role
+        const isUserAdmin = userRecord.customClaims?.admin === true;
+
+        if (!isUserAdmin) {
+          return res.status(403).json({
+            success: false,
+            error: {
+              code: "NOT_ADMIN",
+              message: "User is not an admin",
+            },
+          } as ApiResponse<never>);
+        }
+
+        // Get user profile from Firestore for additional data
+        const userDoc = await firestore
+          .collection("users")
+          .doc(userRecord.uid)
+          .get();
+
+        const userData = userDoc.data();
+
+        return res.json({
+          success: true,
+          data: {
+            uid: userRecord.uid,
+            email: userRecord.email,
+            displayName: userData?.fullName || userRecord.displayName,
+            role: "admin",
+          },
+        });
+      } catch (error) {
+        // Token is invalid - clear it and return not authenticated
+        res.clearCookie("token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+        });
+
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "INVALID_TOKEN",
+            message: "Invalid or expired token",
+          },
+        } as ApiResponse<never>);
+      }
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Server error",
           details: error instanceof Error ? error.message : "Unknown error",
         },
       } as ApiResponse<never>);

@@ -3,6 +3,7 @@ import express, { Express, Request, Response, Router } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errorHandler";
 import routes from "./routes/index.routes";
 import "./config/firebase"; // This will initialize Firebase
@@ -43,6 +44,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Set-Cookie"],
   })
 );
 
@@ -52,6 +54,7 @@ app.options("*", cors());
 // Other middleware
 app.use(helmet());
 app.use(morgan("dev"));
+app.use(cookieParser()); // Parse Cookie header and populate req.cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

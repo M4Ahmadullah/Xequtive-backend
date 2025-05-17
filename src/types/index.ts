@@ -1,6 +1,7 @@
 import { Request } from "express";
 
 export type UserRole = "user" | "admin";
+export type AuthProvider = "email" | "google" | "apple";
 
 export interface UserData {
   uid: string;
@@ -8,6 +9,10 @@ export interface UserData {
   displayName?: string;
   phone?: string;
   role: UserRole;
+  profileComplete?: boolean;
+  authProvider?: AuthProvider;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AuthenticatedRequest extends Request {

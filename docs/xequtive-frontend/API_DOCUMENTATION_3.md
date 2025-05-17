@@ -4,7 +4,7 @@ This document outlines the Xequtive API endpoints for managing user bookings, in
 
 ## API Security Requirements
 
-All endpoints in this document are protected and require authentication. The API uses Firebase Authentication and JWT tokens to ensure that:
+All endpoints in this document are protected and require authentication. The API uses Firebase Authentication and secure cookies to ensure that:
 
 1. Only authenticated users can access booking data
 2. Users can only access their own bookings
@@ -12,33 +12,174 @@ All endpoints in this document are protected and require authentication. The API
 
 ### Authentication
 
-To make authenticated requests:
+To make authenticated requests, the API uses secure HTTP-only cookies:
 
-```
-Authorization: Bearer <firebase-id-token>
+- The `token` cookie is automatically set upon successful login/signup
+- All requests to protected endpoints must include this cookie
+- Use the `credentials: 'include'` option in fetch/axios requests to include cookies
+
+### Authentication Endpoints
+
+Below is a reference table of all authentication endpoints available in the API:
+
+| Endpoint                 | Method | Description                               | Sets Cookie   | Requires Auth |
+| ------------------------ | ------ | ----------------------------------------- | ------------- | ------------- |
+| `/auth/signup`           | POST   | Create a new user account                 | Yes           | No            |
+| `/auth/signin`           | POST   | Authenticate a user with email/password   | Yes           | No            |
+| `/auth/google`           | POST   | Authenticate a user with Google OAuth     | Yes           | No            |
+| `/auth/complete-profile` | POST   | Complete profile after OAuth sign-in      | No            | Yes           |
+| `/auth/signout`          | POST   | Log out the current user                  | Clears cookie | No            |
+| `/auth/me`               | GET    | Get the current user's profile            | No            | Yes           |
+| `/auth/verify-session`   | GET    | Verify the current authentication session | No            | Yes           |
+
+### Authentication Methods
+
+#### 1. Email/Password Authentication
+
+Regular email and password authentication is used when users sign up directly through the Xequtive platform.
+
+```javascript
+// Example sign-up request
+const response = await fetch("http://localhost:5555/api/auth/signup", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({
+    email: "user@example.com",
+    password: "securepassword123",
+    fullName: "John Doe",
+    phone: "+447123456789",
+  }),
+});
+
+// Example sign-in request
+const response = await fetch("http://localhost:5555/api/auth/signin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({
+    email: "user@example.com",
+    password: "securepassword123",
+  }),
+});
 ```
 
-If an invalid or expired token is provided, the API will respond with a 401 Unauthorized error:
+#### 2. Google OAuth Authentication
+
+Google OAuth authentication is a two-step process:
+
+1. Authenticate with Google and send the ID token to the server
+2. Complete the user profile with a phone number if needed (required for booking)
+
+**Step 1: Google Authentication**
+
+```javascript
+// First, authenticate with Google using Firebase client SDK
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+
+const auth = getAuth();
+const provider = new GoogleAuthProvider();
+
+// Trigger Google sign-in
+const result = await signInWithPopup(auth, provider);
+// Get the ID token
+const idToken = await result.user.getIdToken();
+
+// Send the ID token to your backend
+const response = await fetch("http://localhost:5555/api/auth/google", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ idToken }),
+});
+
+const data = await response.json();
+
+// Check if profile needs to be completed
+if (data.success && !data.data.profileComplete) {
+  // Redirect user to profile completion form
+  redirectToProfileCompletion();
+}
+```
+
+**Step 2: Complete Profile (if needed)**
+
+If the user's profile is incomplete (missing phone number), they need to complete it:
+
+```javascript
+// After user fills in the form with their phone number
+const response = await fetch(
+  "http://localhost:5555/api/auth/complete-profile",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      fullName: "John Doe",
+      phone: "+447123456789",
+    }),
+  }
+);
+
+const data = await response.json();
+if (data.success) {
+  // Profile completed successfully
+  redirectToDashboard();
+}
+```
+
+### Authentication Response
+
+All authentication endpoints return the same structure on success:
 
 ```json
 {
-  "success": false,
-  "error": {
-    "message": "Invalid or expired token"
+  "success": true,
+  "data": {
+    "uid": "user123",
+    "email": "user@example.com",
+    "displayName": "John Doe",
+    "phone": "+447123456789",
+    "role": "user",
+    "profileComplete": true,
+    "authProvider": "google"
   }
 }
 ```
 
-If no token is provided, the API will respond with:
+The `profileComplete` field indicates whether the user's profile has all required information. For Google OAuth users, this will be `false` until they provide their phone number.
 
-```json
-{
-  "success": false,
-  "error": {
-    "message": "No token provided"
-  }
-}
-```
+The `authProvider` field indicates which authentication method the user used to sign in:
+
+- `"email"` - Email/password authentication
+- `"google"` - Google OAuth
+
+### Authentication Flow
+
+The typical authentication flow for the Xequtive frontend works as follows:
+
+1. **User Registration/Login**:
+
+   - Option A: Call `/auth/signup` with user details to create a new account
+   - Option B: Call `/auth/signin` with email/password to authenticate
+   - Option C: Use Google OAuth and call `/auth/google` with the ID token
+
+2. **Profile Completion**:
+
+   - For Google OAuth users with incomplete profiles, call `/auth/complete-profile`
+
+3. **Auth Check**:
+
+   - On app initialization, call `/auth/me` to check if the user is already authenticated
+
+4. **Protected Routes**:
+
+   - For routes requiring authentication, verify auth status before rendering
+
+5. **Logout**:
+   - Call `/auth/signout` to end the user's session
+
+All authentication endpoints use cookie-based authentication where the authentication token is securely stored in an HTTP-only cookie that is automatically included in subsequent requests when using `credentials: 'include'` in fetch requests.
 
 ### Rate Limiting
 
@@ -68,14 +209,13 @@ Frontend applications should handle these errors gracefully by displaying approp
 Bookings go through the following status transitions:
 
 1. **pending** - Initial status when a booking is created
-2. **confirmed** - When administrator confirms the booking
+2. **confirmed** - When the system confirms the booking
 3. **assigned** - When a driver is assigned to the booking
 4. **in_progress** - When the journey is in progress
 5. **completed** - When the journey is completed
 
 Alternative paths:
 
-- **declined** - If administrator declines the booking request
 - **cancelled** - If user cancels the booking before it starts
 - **no_show** - If user does not show up for the booking
 
@@ -86,9 +226,7 @@ pending -> confirmed -> assigned -> in_progress -> completed
       |        |          |
       |        |          └-> no_show
       |        |
-      |        └-> cancelled
-      |
-      └-> declined
+      └-> cancelled
 ```
 
 ## Retrieving User Bookings
@@ -200,21 +338,17 @@ GET /api/bookings/user?status=pending,confirmed,in_progress
 Common status groupings:
 
 1. **Active Bookings**: Use `status=pending,confirmed,assigned,in_progress` to get only upcoming and in-progress bookings
-2. **Historical Bookings**: Use `status=completed,cancelled,declined,no_show` to get only past bookings
+2. **Historical Bookings**: Use `status=completed,cancelled,no_show` to get only past bookings
 
 **Example: Retrieving Active Bookings**
 
 ```javascript
 // Frontend code example
 const getActiveBookings = async () => {
-  const token = await auth.currentUser.getIdToken();
-
   const response = await fetch(
     `${API_URL}/api/bookings/user?status=pending,confirmed,assigned,in_progress`,
     {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      credentials: "include", // This includes the auth cookie automatically
     }
   );
 
@@ -308,14 +442,12 @@ OR
 ```javascript
 // Frontend code example
 const cancelBooking = async (bookingId, reason) => {
-  const token = await auth.currentUser.getIdToken();
-
   const response = await fetch(`${API_URL}/api/bookings/${bookingId}/cancel`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include", // This includes the auth cookie automatically
     body: JSON.stringify({
       cancellationReason: reason || "Cancelled by user",
     }),
@@ -336,13 +468,12 @@ When displaying a booking to users, use the following guidelines for showing the
 
 | Status      | Display Text | Color  | Description                              |
 | ----------- | ------------ | ------ | ---------------------------------------- |
-| pending     | Pending      | Yellow | Booking is awaiting admin confirmation   |
-| confirmed   | Confirmed    | Green  | Booking has been confirmed by admin      |
+| pending     | Pending      | Yellow | Booking is awaiting system confirmation  |
+| confirmed   | Confirmed    | Green  | Booking has been confirmed by the system |
 | assigned    | Assigned     | Blue   | Driver has been assigned to the booking  |
 | in_progress | In Progress  | Blue   | Journey is currently in progress         |
 | completed   | Completed    | Green  | Journey has been completed               |
 | cancelled   | Cancelled    | Red    | Booking was cancelled by the user        |
-| declined    | Declined     | Red    | Booking was declined by admin            |
 | no_show     | No Show      | Red    | Customer did not show up for the booking |
 
 **Example: Rendering Booking Status**
@@ -359,7 +490,6 @@ const getStatusColor = (status) => {
     case "in_progress":
       return "blue";
     case "cancelled":
-    case "declined":
     case "no_show":
       return "red";
     default:
@@ -376,7 +506,6 @@ const BookingStatusBadge = ({ status }) => {
       in_progress: "In Progress",
       completed: "Completed",
       cancelled: "Cancelled",
-      declined: "Declined",
       no_show: "No Show",
     }[status] || status;
 
@@ -388,7 +517,7 @@ const BookingStatusBadge = ({ status }) => {
 
 ## Implementation Notes
 
-1. Bookings start in the "pending" status and progress through the status flow as administrators update them
+1. Bookings start in the "pending" status and progress through the status flow as the system updates them
 2. Users can only cancel bookings before they go into "in_progress" status
 3. The frontend should refresh booking data regularly for bookings in active statuses to show updates
 4. Status filters should be used to create views like "Upcoming Journeys" and "Past Journeys"

@@ -26,6 +26,13 @@ const envSchema = zod_1.z.object({
     ALLOWED_ORIGINS: zod_1.z.string().default("http://localhost:3000"),
     // Mapbox
     MAPBOX_TOKEN: zod_1.z.string(),
+    // Google OAuth
+    GOOGLE_CLIENT_ID: zod_1.z.string().optional(),
+    GOOGLE_CLIENT_SECRET: zod_1.z.string().optional(),
+    BACKEND_GOOGLE_CALLBACK_URL: zod_1.z
+        .string()
+        .optional()
+        .default("http://localhost:5555/api/auth/google/callback"),
 });
 // Parse and validate environment variables
 // If validation fails, it will throw an error
@@ -55,6 +62,11 @@ exports.env = {
     },
     mapbox: {
         token: process.env.MAPBOX_TOKEN,
+    },
+    googleOAuth: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackUrl: process.env.BACKEND_GOOGLE_CALLBACK_URL,
     },
 };
 // Print the loaded environment configuration except for sensitive data

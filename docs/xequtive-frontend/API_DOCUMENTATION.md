@@ -2,11 +2,10 @@
 
 ## Introduction
 
-Xequtive is a premium taxi booking platform designed for executive and luxury transportation services. This backend API powers the Xequtive frontend website and admin dashboard, enabling users to:
+Xequtive is a premium taxi booking platform designed for executive and luxury transportation services. This backend API powers the Xequtive frontend website, enabling users to:
 
 - Calculate accurate fare estimates based on distance, traffic, and vehicle type
 - Book premium transportation services with various vehicle options
-- Manage bookings through an admin dashboard
 - Track booking status and history
 
 The platform focuses on providing a seamless, high-end transportation experience with transparent pricing and premium vehicle options ranging from standard saloons to luxury vehicles. Mobile application support is planned for future development.
@@ -16,8 +15,7 @@ The platform focuses on providing a seamless, high-end transportation experience
 - **Advanced Fare Calculation**: Real-time fare estimates considering distance, traffic conditions, time of day, and vehicle type
 - **Multiple Vehicle Classes**: Standard Saloon, Executive Saloon, Executive MPV, and Luxury Vehicle options
 - **Additional Stops**: Support for multi-stop journeys with accurate fare adjustments
-- **Admin Dashboard**: Comprehensive booking management for administrators
-- **Firebase Authentication**: Secure user authentication and authorization
+- **Firebase Authentication**: Secure user authentication
 - **Mapbox Integration**: Precise distance and traffic calculations
 
 ## API Security
@@ -26,9 +24,9 @@ All sensitive endpoints in this API are protected with authentication to ensure 
 
 ### Authentication Middleware
 
-- **Token Verification**: All protected endpoints use Firebase token verification
-- **Role-Based Access Control**: Admin-only endpoints require admin role verification
-- **JWT Token Format**: Tokens must be provided in the Authorization header using the Bearer scheme
+- **Cookie-Based Authentication**: All protected endpoints use secure HTTP-only cookies for authentication
+- **Token Verification**: Tokens stored in cookies are verified using Firebase verification
+- **Fallback Bearer Authentication**: For compatibility, the API also accepts Bearer tokens in the Authorization header
 
 ### Password Security Guidelines
 
@@ -45,22 +43,22 @@ The authentication system follows these security best practices:
    - User credentials are securely transmitted to the backend
    - Backend verifies credentials with Firebase Authentication
    - Firebase handles proper password hashing and security
-   - Authentication tokens are returned to the client for subsequent requests
+   - Authentication tokens are set as secure HTTP-only cookies
+   - Subsequent requests automatically include the cookie
 
-3. **Token Handling**:
-   - Store tokens securely on the client (preferably in memory or secure storage)
-   - Never store tokens in localStorage or cookies without proper security measures
-   - Include the token in the Authorization header for all authenticated requests
-   - Handle token expiration by implementing proper refresh mechanisms
-   - Tokens are valid for 5 days for all signed-in users
+3. **Cookie Security**:
+   - Tokens are stored in secure, HttpOnly cookies that can't be accessed by JavaScript
+   - Cookies use SameSite=Strict to prevent CSRF attacks
+   - Frontend doesn't need to manually store or send tokens
+   - Cookies are automatically cleared on logout
+   - Cookies expire after 5 days for all signed-in users
 
 ### Protected Resources
 
 The following resources require authentication:
 
 - **Fare Estimation**: Protected to ensure only authenticated users can get fare estimates
-- **Bookings**: All booking operations require authentication, with admin-specific operations having additional role verification
-- **User Management**: Admin privilege management endpoints are protected with admin role verification
+- **Bookings**: All booking operations require authentication
 - **Detailed Health Status**: Only authenticated users can view detailed system health information
 
 ## Base URL
@@ -71,194 +69,109 @@ http://localhost:5555/api
 
 For production, this will change to your deployed domain.
 
-## Authentication
+## Cookie Management
 
-### Sign Up
+The API uses secure HTTP-only cookies for authentication. When a user signs in or signs up, they receive a cookie that is automatically included in subsequent requests.
 
-- **URL:** `/auth/signup`
-- **Method:** `POST`
-- **Rate Limit:** 10 requests per hour per IP address
-- **Description:** Register a new user account.
-- **Request Body:**
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "password123",
-    "fullName": "John Doe",
-    "phone": "+441234567890" // Optional
-  }
-  ```
+### Cookie Format
 
-#### Success Response
+The authentication cookie:
 
-- **Code:** 201 Created
-- **Content:**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "uid": "user_id_here",
-      "email": "user@example.com",
-      "displayName": "John Doe",
-      "phone": "+441234567890",
-      "role": "user",
-      "token": "jwt_token_here",
-      "expiresIn": "432000"
+- Is named `token`
+- Has the HttpOnly flag set (cannot be accessed by JavaScript)
+- Has the Secure flag set in production environments (only sent over HTTPS)
+- Has SameSite=Strict to prevent CSRF attacks
+- Contains a Firebase authentication token
+
+### Cookie Expiration
+
+Authentication cookies expire after 5 days (432000 seconds). The frontend doesn't need to handle cookie expiration explicitly, as the browser manages this automatically. However, it should:
+
+1. Call the `/auth/me` endpoint on initial page load to check authentication status
+2. Handle 401 responses by redirecting to the login page when needed
+3. Use the `/auth/signout` endpoint to properly clear cookies on logout
+
+### CORS and Cookies
+
+For the cookies to work properly in cross-origin scenarios:
+
+1. The frontend must include credentials in requests:
+
+   ```javascript
+   fetch("/api/auth/me", {
+     credentials: "include", // This is crucial for cookies to be sent
+   });
+   ```
+
+2. The backend has been configured to:
+   - Set `Access-Control-Allow-Credentials: true`
+   - Specify exact domains in `Access-Control-Allow-Origin` (not wildcards)
+   - Include `Set-Cookie` in `Access-Control-Expose-Headers`
+
+### Example Authentication Implementation
+
+```javascript
+// Example React code using cookies for authentication
+
+// Login function
+async function login(email, password) {
+  try {
+    const response = await fetch("/api/auth/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include", // Important for cookies
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error?.message || "Login failed");
     }
+
+    // No need to store tokens, they're in the cookie
+    return data.data; // Return user data
+  } catch (error) {
+    console.error("Login error:", error);
+    throw error;
   }
-  ```
+}
 
-#### Error Response
+// Check authentication status
+async function checkAuthStatus() {
+  try {
+    const response = await fetch("/api/auth/me", {
+      credentials: "include", // Important for cookies
+    });
 
-- **Code:** 400 Bad Request
-- **Content:**
-
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Invalid signup data",
-      "details": "Password must be at least 6 characters long"
+    if (!response.ok) {
+      return null; // Not authenticated
     }
+
+    const data = await response.json();
+    return data.success ? data.data : null;
+  } catch (error) {
+    console.error("Auth check error:", error);
+    return null;
   }
-  ```
+}
 
-- **Code:** 409 Conflict
-- **Content:**
+// Logout function
+async function logout() {
+  try {
+    await fetch("/api/auth/signout", {
+      method: "POST",
+      credentials: "include", // Important for cookies
+    });
 
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "The email address is already in use by another account."
-    }
+    // Cookie is automatically cleared by the server
+    // Navigate to login page or update UI
+  } catch (error) {
+    console.error("Logout error:", error);
+    throw error;
   }
-  ```
-
-- **Code:** 429 Too Many Requests
-- **Content:**
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Too many authentication attempts, please try again later.",
-      "code": "AUTH_RATE_LIMIT_EXCEEDED",
-      "details": "You have exceeded the rate limit for authentication requests."
-    }
-  }
-  ```
-
-### Sign In
-
-- **URL:** `/auth/signin`
-- **Method:** `POST`
-- **Rate Limit:** 10 requests per hour per IP address
-- **Description:** Authenticate a user and get a token.
-- **Request Body:**
-  ```json
-  {
-    "email": "user@example.com",
-    "password": "password123"
-  }
-  ```
-
-#### Success Response
-
-- **Code:** 200 OK
-- **Content:**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "uid": "user_id_here",
-      "email": "user@example.com",
-      "displayName": "John Doe",
-      "phone": "+441234567890",
-      "role": "user",
-      "token": "jwt_token_here",
-      "expiresIn": "432000"
-    }
-  }
-  ```
-
-#### Error Response
-
-- **Code:** 400 Bad Request
-- **Content:**
-
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Invalid login data",
-      "details": "Invalid email format"
-    }
-  }
-  ```
-
-- **Code:** 401 Unauthorized
-- **Content:**
-
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Invalid email or password"
-    }
-  }
-  ```
-
-- **Code:** 429 Too Many Requests
-- **Content:**
-  ```json
-  {
-    "success": false,
-    "error": {
-      "message": "Too many authentication attempts, please try again later.",
-      "code": "AUTH_RATE_LIMIT_EXCEEDED",
-      "details": "You have exceeded the rate limit for authentication requests."
-    }
-  }
-  ```
-
-### Sign Out
-
-- **URL:** `/auth/signout`
-- **Method:** `POST`
-- **Description:** Sign out the current user.
-- **Auth Required:** No
-
-#### Success Response
-
-- **Code:** 200 OK
-- **Content:**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "message": "Signed out successfully"
-    }
-  }
-  ```
-
-## Token Management
-
-The API uses JWT tokens for authentication. When a user signs in or signs up, they receive a token that should be included in subsequent requests.
-
-### Token Format
-
-Include the token in the Authorization header:
-
+}
 ```
-Authorization: Bearer <jwt_token>
-```
-
-### Token Expiration
-
-Tokens expire after 5 days (432000 seconds). Your frontend should handle token expiration by either:
-
-1. Refreshing the token before it expires
-2. Redirecting to the login page when a 401 response is received
 
 ## Fare Estimation Endpoints
 
@@ -281,49 +194,54 @@ Tokens expire after 5 days (432000 seconds). Your frontend should handle token e
   ```javascript
   // Frontend code example (React/Next.js)
   const calculateFare = async () => {
-    // Get Firebase token (make sure user is logged in)
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("User not logged in");
-      return;
-    }
-
-    const token = await user.getIdToken();
-
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/fare-estimate/enhanced`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          locations: {
-            pickup: {
-              address: "Piccadilly Circus, London, UK",
-              coordinates: { lat: 51.51, lng: -0.1348 },
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/fare-estimate/enhanced`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // This is crucial for cookies to be sent
+          body: JSON.stringify({
+            locations: {
+              pickup: {
+                address: "Piccadilly Circus, London, UK",
+                coordinates: { lat: 51.51, lng: -0.1348 },
+              },
+              dropoff: {
+                address: "Heathrow Airport, London, UK",
+                coordinates: { lat: 51.47, lng: -0.4543 },
+              },
             },
-            dropoff: {
-              address: "Heathrow Airport, London, UK",
-              coordinates: { lat: 51.47, lng: -0.4543 },
+            datetime: {
+              date: "2024-06-20",
+              time: "14:00",
             },
-          },
-          datetime: {
-            date: "2024-06-20",
-            time: "14:00",
-          },
-          passengers: {
-            count: 2,
-            checkedLuggage: 1,
-            handLuggage: 1,
-          },
-        }),
+            passengers: {
+              count: 2,
+              checkedLuggage: 1,
+              handLuggage: 1,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        // Handle authentication errors
+        if (response.status === 401) {
+          // Redirect to login page
+          window.location.href = "/login";
+          return;
+        }
+        throw new Error("Failed to calculate fare");
       }
-    );
 
-    const data = await response.json();
-    // Handle the response
+      const data = await response.json();
+      // Handle the response
+    } catch (error) {
+      console.error("Error calculating fare:", error);
+    }
   };
   ```
 
@@ -938,3 +856,165 @@ It is recommended that frontend implementations:
 3. Show appropriate error messages when users attempt to select non-serviceable locations
 
 Refer to the service area configuration (`src/config/serviceArea.ts`) for the exact boundaries and implementation details.
+
+## Authentication
+
+### Authentication Endpoints
+
+Below is a reference table of all authentication endpoints available in the API:
+
+| Endpoint                 | Method | Description                               | Sets Cookie   | Requires Auth |
+| ------------------------ | ------ | ----------------------------------------- | ------------- | ------------- |
+| `/auth/signup`           | POST   | Create a new user account                 | Yes           | No            |
+| `/auth/signin`           | POST   | Authenticate a user with email/password   | Yes           | No            |
+| `/auth/google`           | POST   | Authenticate a user with Google OAuth     | Yes           | No            |
+| `/auth/complete-profile` | POST   | Complete profile after OAuth sign-in      | No            | Yes           |
+| `/auth/signout`          | POST   | Log out the current user                  | Clears cookie | No            |
+| `/auth/me`               | GET    | Get the current user's profile            | No            | Yes           |
+| `/auth/verify-session`   | GET    | Verify the current authentication session | No            | Yes           |
+
+### Authentication Methods
+
+#### 1. Email/Password Authentication
+
+Regular email and password authentication is used when users sign up directly through the Xequtive platform.
+
+```javascript
+// Example sign-up request
+const response = await fetch("/api/auth/signup", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({
+    email: "user@example.com",
+    password: "securepassword123",
+    fullName: "John Doe",
+    phone: "+447123456789",
+  }),
+});
+
+// Example sign-in request
+const response = await fetch("/api/auth/signin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({
+    email: "user@example.com",
+    password: "securepassword123",
+  }),
+});
+```
+
+#### 2. Google OAuth Authentication
+
+Google OAuth authentication is a two-step process:
+
+1. Authenticate with Google and send the ID token to the server
+2. Complete the user profile with a phone number if needed (required for booking)
+
+**Step 1: Google Authentication**
+
+```javascript
+// First, authenticate with Google using Firebase client SDK
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+
+const auth = getAuth();
+const provider = new GoogleAuthProvider();
+
+// Trigger Google sign-in
+const result = await signInWithPopup(auth, provider);
+// Get the ID token
+const idToken = await result.user.getIdToken();
+
+// Send the ID token to your backend
+const response = await fetch("/api/auth/google", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({ idToken }),
+});
+
+const data = await response.json();
+
+// Check if profile needs to be completed
+if (data.success && !data.data.profileComplete) {
+  // Redirect user to profile completion form
+  redirectToProfileCompletion();
+}
+```
+
+**Step 2: Complete Profile (if needed)**
+
+If the user's profile is incomplete (missing phone number), they need to complete it:
+
+```javascript
+// After user fills in the form with their phone number
+const response = await fetch("/api/auth/complete-profile", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+  body: JSON.stringify({
+    fullName: "John Doe",
+    phone: "+447123456789",
+  }),
+});
+
+const data = await response.json();
+if (data.success) {
+  // Profile completed successfully
+  redirectToDashboard();
+}
+```
+
+### Authentication Response
+
+All authentication endpoints return the same structure on success:
+
+```json
+{
+  "success": true,
+  "data": {
+    "uid": "user123",
+    "email": "user@example.com",
+    "displayName": "John Doe",
+    "phone": "+447123456789",
+    "role": "user",
+    "profileComplete": true,
+    "authProvider": "google"
+  }
+}
+```
+
+The `profileComplete` field indicates whether the user's profile has all required information. For Google OAuth users, this will be `false` until they provide their phone number.
+
+The `authProvider` field indicates which authentication method the user used to sign in:
+
+- `"email"` - Email/password authentication
+- `"google"` - Google OAuth
+
+### Authentication Flow
+
+The typical authentication flow for the Xequtive frontend works as follows:
+
+1. **User Registration/Login**:
+
+   - Option A: Call `/auth/signup` with user details to create a new account
+   - Option B: Call `/auth/signin` with email/password to authenticate
+   - Option C: Use Google OAuth and call `/auth/google` with the ID token
+
+2. **Profile Completion**:
+
+   - For Google OAuth users with incomplete profiles, call `/auth/complete-profile`
+
+3. **Auth Check**:
+
+   - On app initialization, call `/auth/me` to check if the user is already authenticated
+
+4. **Protected Routes**:
+
+   - For routes requiring authentication, verify auth status before rendering
+
+5. **Logout**:
+   - Call `/auth/signout` to end the user's session
+
+All authentication endpoints use cookie-based authentication where the authentication token is securely stored in an HTTP-only cookie that is automatically included in subsequent requests when using `credentials: 'include'` in fetch requests.

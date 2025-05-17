@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { verifyToken, isAdmin } from "../middleware/authMiddleware";
+import { verifyToken } from "../middleware/authMiddleware";
 import { AuthenticatedRequest, ApiResponse, UserData } from "../types";
 import { AuthService } from "../services/auth.service";
 import { auth, firestore } from "../config/firebase";
@@ -8,7 +8,15 @@ import * as dotenv from "dotenv";
 import path from "path";
 import { z } from "zod";
 import { authLimiter } from "../middleware/rateLimiter";
-import { loginSchema, signupSchema } from "../validation/auth.schema";
+import {
+  loginSchema,
+  signupSchema,
+  googleAuthSchema,
+  completeProfileSchema,
+  googleCallbackSchema,
+} from "../validation/auth.schema";
+import crypto from "crypto";
+import fetch from "node-fetch";
 
 // Force reload env variables for this file
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
@@ -98,17 +106,6 @@ router.post("/user-login", async (req: Request, res: Response) => {
 
     const userData = await AuthService.verifyToken(token);
 
-    // Verify this is not an admin trying to use the user login
-    const isUserAdmin = await AuthService.isAdmin(userData.uid);
-    if (isUserAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          message: "Admin users should use the admin login endpoint",
-        },
-      } as ApiResponse<never>);
-    }
-
     res.status(200).json({
       success: true,
       data: userData,
@@ -134,14 +131,12 @@ router.get(
         throw new Error("User not found in request");
       }
 
-      const isUserAdmin = await AuthService.isAdmin(req.user.uid);
-
       res.status(200).json({
         success: true,
         data: {
           user: {
             ...req.user,
-            role: isUserAdmin ? "admin" : "user",
+            role: "user",
           },
         },
       } as ApiResponse<{ user: UserData }>);
@@ -169,6 +164,7 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
           success: false,
           error: {
             message: "Invalid login data",
+            code: "auth/invalid-data",
             details: error.errors.map((e) => e.message).join(", "),
           },
         } as ApiResponse<never>);
@@ -181,10 +177,25 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
     // Signin service
     const authResult = await AuthService.loginWithEmail(email, password);
 
+    // Set the token as HttpOnly cookie instead of returning in response
+    res.cookie("token", authResult.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
+      sameSite: "strict",
+      maxAge: 432000 * 1000, // 5 days in milliseconds
+    });
+
+    // Return user data without the token
     return res.json({
       success: true,
-      data: authResult,
-    } as ApiResponse<typeof authResult>);
+      data: {
+        uid: authResult.uid,
+        email: authResult.email,
+        displayName: authResult.displayName,
+        phone: authResult.phone,
+        role: "user",
+      },
+    });
   } catch (error) {
     console.error("Login error:", error);
 
@@ -192,7 +203,9 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
     return res.status(401).json({
       success: false,
       error: {
-        message:
+        message: "Invalid email or password",
+        code: "auth/invalid-credentials",
+        details:
           error instanceof Error ? error.message : "Authentication failed",
       },
     } as ApiResponse<never>);
@@ -211,6 +224,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
           success: false,
           error: {
             message: "Invalid signup data",
+            code: "auth/invalid-data",
             details: error.errors.map((e) => e.message).join(", "),
           },
         } as ApiResponse<never>);
@@ -228,10 +242,25 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
       phone
     );
 
+    // Set the token as HttpOnly cookie
+    res.cookie("token", userData.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 432000 * 1000, // 5 days in milliseconds
+    });
+
+    // Return response without the token
     return res.status(201).json({
       success: true,
-      data: userData,
-    } as ApiResponse<typeof userData>);
+      data: {
+        uid: userData.uid,
+        email: userData.email,
+        displayName: userData.displayName,
+        phone: userData.phone,
+        role: "user",
+      },
+    });
   } catch (error) {
     console.error("Registration error:", error);
 
@@ -241,10 +270,16 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
         ? 409
         : 500;
 
+    const errorCode =
+      error instanceof Error && error.message.includes("already exists")
+        ? "auth/email-already-in-use"
+        : "auth/registration-failed";
+
     return res.status(statusCode).json({
       success: false,
       error: {
         message: error instanceof Error ? error.message : "Registration failed",
+        code: errorCode,
       },
     } as ApiResponse<never>);
   }
@@ -252,49 +287,204 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
 
 // Sign out endpoint
 router.post("/signout", async (req: Request, res: Response) => {
-  // Since Firebase authentication is token-based and stateless on the server,
-  // we just need to return a success response
-  // The actual token invalidation happens on the client side by removing the token
+  // Clear the auth cookie
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
 
   return res.status(200).json({
     success: true,
-    data: {
-      message: "Signed out successfully",
-    },
+    message: "Successfully logged out",
   });
 });
 
-// Grant admin privileges to a user (Admin only)
-router.post(
-  "/grant-admin",
-  verifyToken,
-  isAdmin,
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { uid } = req.body;
+// Get current user from cookie
+router.get("/me", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.token;
 
-      if (!uid) {
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: "Not authenticated",
+          code: "auth/not-authenticated",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Verify the token
+    try {
+      const decodedToken = await auth.verifyIdToken(token);
+      const userRecord = await auth.getUser(decodedToken.uid);
+
+      // Get user profile from Firestore for additional data
+      const userDoc = await firestore
+        .collection("users")
+        .doc(userRecord.uid)
+        .get();
+
+      const userData = userDoc.data();
+
+      return res.json({
+        success: true,
+        data: {
+          uid: userRecord.uid,
+          email: userRecord.email,
+          displayName: userData?.fullName || userRecord.displayName,
+          phone: userData?.phone || null,
+          role: "user",
+          createdAt: userData?.createdAt || null,
+          updatedAt: userData?.updatedAt || null,
+        },
+      });
+    } catch (error) {
+      // Token is invalid - clear it and return not authenticated
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: "Invalid or expired session",
+          code: "auth/invalid-session",
+        },
+      } as ApiResponse<never>);
+    }
+  } catch (error) {
+    console.error("Error verifying authentication:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to verify authentication",
+        code: "auth/server-error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
+// Google OAuth sign-in endpoint
+router.post("/google", authLimiter, async (req: Request, res: Response) => {
+  try {
+    // Validate request
+    try {
+      googleAuthSchema.parse(req.body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
           error: {
-            message: "User ID is required",
+            message: "Invalid Google auth data",
+            code: "auth/invalid-data",
+            details: error.errors.map((e) => e.message).join(", "),
+          },
+        } as ApiResponse<never>);
+      }
+      throw error;
+    }
+
+    const { idToken } = req.body;
+
+    // Process Google sign-in
+    const authResult = await AuthService.processGoogleSignIn(idToken);
+
+    // Set the token as HttpOnly cookie
+    res.cookie("token", authResult.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
+      sameSite: "strict",
+      maxAge: 432000 * 1000, // 5 days in milliseconds
+    });
+
+    // Return user data without the token
+    return res.json({
+      success: true,
+      data: {
+        uid: authResult.uid,
+        email: authResult.email,
+        displayName: authResult.displayName,
+        phone: authResult.phone,
+        role: authResult.role,
+        profileComplete: authResult.profileComplete,
+        authProvider: authResult.authProvider,
+      },
+    });
+  } catch (error) {
+    console.error("Google sign-in error:", error);
+
+    // Provide appropriate error response
+    return res.status(401).json({
+      success: false,
+      error: {
+        message: "Google authentication failed",
+        code: "auth/google-auth-failed",
+        details:
+          error instanceof Error ? error.message : "Authentication failed",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
+// Complete user profile after OAuth sign-in
+router.post(
+  "/complete-profile",
+  verifyToken,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user?.uid) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            message: "Authentication required",
           },
         } as ApiResponse<never>);
       }
 
-      await AuthService.grantAdminRole(uid);
+      // Validate request
+      try {
+        completeProfileSchema.parse(req.body);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: "Invalid profile data",
+              code: "auth/invalid-profile-data",
+              details: error.errors.map((e) => e.message).join(", "),
+            },
+          } as ApiResponse<never>);
+        }
+        throw error;
+      }
 
-      res.status(200).json({
+      const { fullName, phone } = req.body;
+
+      // Complete user profile
+      const updatedProfile = await AuthService.completeUserProfile(
+        req.user.uid,
+        fullName,
+        phone
+      );
+
+      return res.json({
         success: true,
-        data: {
-          message: "Admin privileges granted successfully",
-        },
-      } as ApiResponse<{ message: string }>);
+        data: updatedProfile,
+      });
     } catch (error) {
-      res.status(400).json({
+      console.error("Profile completion error:", error);
+
+      return res.status(500).json({
         success: false,
         error: {
-          message: "Failed to grant admin privileges",
+          message: "Failed to update profile",
+          code: "auth/profile-update-failed",
           details: error instanceof Error ? error.message : "Unknown error",
         },
       } as ApiResponse<never>);
@@ -302,42 +492,262 @@ router.post(
   }
 );
 
-// Revoke admin privileges (Admin only)
-router.post(
-  "/revoke-admin",
-  verifyToken,
-  isAdmin,
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { uid } = req.body;
+// Google OAuth Initiation
+router.get("/google/login", async (req: Request, res: Response) => {
+  try {
+    const redirectUrl = req.query.redirect_url as string;
 
-      if (!uid) {
+    if (!redirectUrl) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Missing redirect_url parameter",
+        },
+      });
+    }
+
+    // Generate a state token to prevent CSRF
+    const state = crypto.randomBytes(20).toString("hex");
+
+    // Store state in session (in a production app, you'd use Redis or similar)
+    // For simplicity, we encode the redirect URL in the state
+    const stateWithRedirect = `${state}|${redirectUrl}`;
+
+    // Construct Google OAuth URL
+    const googleOAuthUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${env.googleOAuth.clientId || ""}&` +
+      `redirect_uri=${encodeURIComponent(env.googleOAuth.callbackUrl || "")}&` +
+      `response_type=code&` +
+      `scope=email%20profile&` +
+      `state=${encodeURIComponent(stateWithRedirect)}`;
+
+    // Redirect to Google OAuth page
+    res.redirect(googleOAuthUrl);
+  } catch (error) {
+    console.error("OAuth initiation error:", error);
+
+    res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to initiate OAuth flow",
+      },
+    });
+  }
+});
+
+// Google OAuth Callback (from Google)
+router.get("/google/callback", async (req: Request, res: Response) => {
+  try {
+    const { code, state: encodedState } = req.query;
+
+    if (!code || !encodedState) {
+      return res.redirect(`/?error=invalid_request`);
+    }
+
+    const state = decodeURIComponent(encodedState as string);
+
+    // Extract redirect URL from state
+    const [stateToken, redirectUrl] = state.split("|");
+
+    // In a production app, validate the state token against stored value
+
+    // Exchange the code for tokens
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code: code as string,
+        client_id: env.googleOAuth.clientId || "",
+        client_secret: env.googleOAuth.clientSecret || "",
+        redirect_uri: env.googleOAuth.callbackUrl || "",
+        grant_type: "authorization_code",
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      return res.redirect(`${redirectUrl}?error=token_exchange_failed`);
+    }
+
+    // Get user info using the access token
+    const userInfoResponse = await fetch(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      }
+    );
+
+    const googleUser = await userInfoResponse.json();
+
+    if (!googleUser.email) {
+      return res.redirect(`${redirectUrl}?error=invalid_user_data`);
+    }
+
+    // Create or get the user in Firebase
+    let firebaseUser;
+    try {
+      // Check if user exists by email
+      firebaseUser = await auth.getUserByEmail(googleUser.email);
+    } catch (error) {
+      // User doesn't exist, create a new one
+      firebaseUser = await auth.createUser({
+        email: googleUser.email,
+        displayName: googleUser.name,
+        photoURL: googleUser.picture,
+      });
+
+      // Set custom claims for regular user
+      await auth.setCustomUserClaims(firebaseUser.uid, { role: "user" });
+    }
+
+    // Create or update user document in Firestore
+    const userDoc = firestore.collection("users").doc(firebaseUser.uid);
+    const userSnapshot = await userDoc.get();
+
+    // Check if profile data needs to be completed (e.g., phone number)
+    const profileComplete = userSnapshot.exists && userSnapshot.data()?.phone;
+
+    if (!userSnapshot.exists) {
+      // Create new user document
+      await userDoc.set({
+        email: firebaseUser.email,
+        fullName: googleUser.name,
+        phone: null,
+        role: "user",
+        profileComplete: false,
+        authProvider: "google",
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // Generate a temporary code for the frontend
+    const tempCode = await AuthService.storeTemporaryCode(
+      firebaseUser.uid,
+      firebaseUser.email || ""
+    );
+
+    // Redirect to frontend with temp code
+    res.redirect(`${redirectUrl}?code=${tempCode}`);
+  } catch (error) {
+    console.error("OAuth callback error:", error);
+
+    // Extract the redirect URL from state or use default
+    const redirectUrl = req.query.state
+      ? decodeURIComponent(req.query.state as string).split("|")[1]
+      : "/";
+
+    // Redirect to frontend with error
+    res.redirect(`${redirectUrl}?error=auth_failed`);
+  }
+});
+
+// Frontend Code Exchange Endpoint
+router.post("/google/callback", async (req: Request, res: Response) => {
+  try {
+    // Validate request
+    try {
+      googleCallbackSchema.parse(req.body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
           error: {
-            message: "User ID is required",
+            message: "Invalid callback data",
+            code: "auth/invalid-data",
+            details: error.errors.map((e) => e.message).join(", "),
           },
-        } as ApiResponse<never>);
+        });
       }
+      throw error;
+    }
 
-      await AuthService.revokeAdminRole(uid);
+    const { code } = req.body;
 
-      res.status(200).json({
-        success: true,
-        data: {
-          message: "Admin privileges revoked successfully",
-        },
-      } as ApiResponse<{ message: string }>);
-    } catch (error) {
-      res.status(400).json({
+    // Validate the temporary code
+    const userData = await AuthService.validateTemporaryCode(code);
+
+    if (!userData) {
+      return res.status(401).json({
         success: false,
         error: {
-          message: "Failed to revoke admin privileges",
-          details: error instanceof Error ? error.message : "Unknown error",
+          message: "Invalid or expired code",
         },
-      } as ApiResponse<never>);
+      });
     }
+
+    // Get user data
+    const userRecord = await auth.getUser(userData.uid);
+    const userDoc = await firestore.collection("users").doc(userData.uid).get();
+    const userProfile = userDoc.data();
+
+    // Create a custom token with extended expiration
+    const customToken = await auth.createCustomToken(userRecord.uid, {
+      role: userProfile?.role || "user",
+      expiresIn: 432000, // 5 days in seconds
+    });
+
+    // Exchange custom token for ID token
+    const idTokenResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: customToken,
+          returnSecureToken: true,
+        }),
+      }
+    );
+
+    const tokenData = await idTokenResponse.json();
+
+    if (!tokenData.idToken) {
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to generate authentication token",
+        },
+      });
+    }
+
+    // Set cookie with the ID token
+    res.cookie("token", tokenData.idToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 432000 * 1000, // 5 days in milliseconds
+    });
+
+    // Return user data
+    return res.json({
+      success: true,
+      data: {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userProfile?.fullName || userRecord.displayName,
+        phone: userProfile?.phone || null,
+        role: userProfile?.role || "user",
+        profileComplete: !!userProfile?.profileComplete,
+        authProvider: userProfile?.authProvider || "google",
+      },
+    });
+  } catch (error) {
+    console.error("Code exchange error:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Authentication failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    });
   }
-);
+});
 
 export default router;

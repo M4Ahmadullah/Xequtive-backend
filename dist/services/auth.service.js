@@ -32,9 +32,13 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const firebase_1 = require("../config/firebase");
+const crypto_1 = __importDefault(require("crypto"));
 class AuthService {
     /**
      * Verify Firebase ID token and get user data
@@ -186,25 +190,6 @@ class AuthService {
         }
     }
     /**
-     * Check if a user has admin privileges
-     */
-    static async isAdmin(uid) {
-        const user = await firebase_1.auth.getUser(uid);
-        return user.customClaims?.admin === true;
-    }
-    /**
-     * Grant admin privileges to a user
-     */
-    static async grantAdminRole(uid) {
-        await firebase_1.auth.setCustomUserClaims(uid, { admin: true });
-    }
-    /**
-     * Revoke admin privileges from a user
-     */
-    static async revokeAdminRole(uid) {
-        await firebase_1.auth.setCustomUserClaims(uid, { admin: false });
-    }
-    /**
      * Get user by email
      */
     static async getUserByEmail(email) {
@@ -215,6 +200,179 @@ class AuthService {
      */
     static async getUserByUid(uid) {
         return firebase_1.auth.getUser(uid);
+    }
+    /**
+     * Process Google OAuth sign-in
+     * @param idToken The ID token from Google
+     */
+    static async processGoogleSignIn(idToken) {
+        try {
+            // Verify the Google ID token
+            const decodedToken = await firebase_1.auth.verifyIdToken(idToken);
+            // Check if user exists already in our system
+            let userRecord;
+            try {
+                userRecord = await firebase_1.auth.getUser(decodedToken.uid);
+            }
+            catch (error) {
+                // User doesn't exist in our system yet, but may exist in Firebase Auth
+                // This would be rare but is handled for completeness
+                console.log("User not found in system, but might exist in Firebase Auth");
+            }
+            // Get user profile from Firestore if it exists
+            const userDoc = await firebase_1.firestore
+                .collection("users")
+                .doc(decodedToken.uid)
+                .get();
+            const userData = userDoc.data();
+            // If user doesn't have a Firestore record, create one with available data
+            let profileComplete = true;
+            if (!userData) {
+                // Create basic user document in Firestore
+                const newUserData = {
+                    email: decodedToken.email || "",
+                    fullName: decodedToken.name || "",
+                    // Phone is missing for Google OAuth
+                    phone: null,
+                    role: "user",
+                    createdAt: new Date().toISOString(),
+                    profileComplete: false, // Mark profile as incomplete
+                    authProvider: "google", // Track authentication provider
+                };
+                await firebase_1.firestore
+                    .collection("users")
+                    .doc(decodedToken.uid)
+                    .set(newUserData);
+                profileComplete = false;
+            }
+            else {
+                // Check if existing user has phone number (required field)
+                profileComplete = !!userData.phone;
+            }
+            // Set custom claims for regular user if needed
+            try {
+                const currentClaims = (await firebase_1.auth.getUser(decodedToken.uid)).customClaims || {};
+                if (!currentClaims.role) {
+                    await firebase_1.auth.setCustomUserClaims(decodedToken.uid, {
+                        ...currentClaims,
+                        role: "user",
+                    });
+                }
+            }
+            catch (error) {
+                console.error("Error setting custom claims:", error);
+            }
+            // Generate a custom token with extended expiration (5 days)
+            const customToken = await firebase_1.auth.createCustomToken(decodedToken.uid, {
+                role: "user",
+                expiresIn: 432000, // 5 days in seconds
+            });
+            // Exchange the custom token for an ID token
+            const apiKey = process.env.FIREBASE_API_KEY;
+            if (!apiKey) {
+                throw new Error("Firebase API key is missing");
+            }
+            const fetch = (await Promise.resolve().then(() => __importStar(require("node-fetch")))).default;
+            const tokenResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token: customToken,
+                    returnSecureToken: true,
+                }),
+            });
+            const tokenData = await tokenResponse.json();
+            if (!tokenResponse.ok) {
+                throw new Error(tokenData.error?.message || "Token exchange failed");
+            }
+            return {
+                uid: decodedToken.uid,
+                email: decodedToken.email || "",
+                displayName: userData?.fullName || decodedToken.name || "",
+                phone: userData?.phone || null,
+                role: "user",
+                token: tokenData.idToken,
+                expiresIn: "432000", // 5 days in seconds
+                profileComplete: profileComplete,
+                authProvider: "google",
+            };
+        }
+        catch (error) {
+            console.error("Google sign-in error:", error);
+            throw error;
+        }
+    }
+    /**
+     * Complete user profile after OAuth sign-in
+     */
+    static async completeUserProfile(uid, fullName, phone) {
+        try {
+            // Update user in Firebase Auth
+            await firebase_1.auth.updateUser(uid, {
+                displayName: fullName,
+                phoneNumber: phone,
+            });
+            // Update user document in Firestore
+            await firebase_1.firestore.collection("users").doc(uid).update({
+                fullName,
+                phone,
+                profileComplete: true,
+                updatedAt: new Date().toISOString(),
+            });
+            // Get updated user record
+            const userDoc = await firebase_1.firestore.collection("users").doc(uid).get();
+            const userData = userDoc.data();
+            return {
+                uid,
+                email: userData?.email,
+                displayName: fullName,
+                phone,
+                role: "user",
+                profileComplete: true,
+            };
+        }
+        catch (error) {
+            console.error("Error completing user profile:", error);
+            throw error;
+        }
+    }
+    // Helper methods for Google OAuth temporary codes
+    static async storeTemporaryCode(uid, email) {
+        const tempCode = crypto_1.default.randomBytes(32).toString("hex");
+        await firebase_1.firestore
+            .collection("tempAuthCodes")
+            .doc(tempCode)
+            .set({
+            uid,
+            email,
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+        });
+        return tempCode;
+    }
+    static async validateTemporaryCode(code) {
+        const tempAuthDoc = await firebase_1.firestore
+            .collection("tempAuthCodes")
+            .doc(code)
+            .get();
+        if (!tempAuthDoc.exists) {
+            return null;
+        }
+        const tempAuthData = tempAuthDoc.data();
+        if (!tempAuthData) {
+            return null;
+        }
+        // Check if code has expired
+        if (new Date(tempAuthData.expiresAt) < new Date()) {
+            // Delete expired code
+            await firebase_1.firestore.collection("tempAuthCodes").doc(code).delete();
+            return null;
+        }
+        // Delete the code, it's no longer needed after validation
+        await firebase_1.firestore.collection("tempAuthCodes").doc(code).delete();
+        return {
+            uid: tempAuthData.uid,
+            email: tempAuthData.email,
+        };
     }
 }
 exports.AuthService = AuthService;
