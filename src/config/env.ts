@@ -21,7 +21,7 @@ const envSchema = z.object({
 
   // Security
   JWT_SECRET: z.string(),
-  ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
+  ALLOWED_ORIGINS: z.string(),
 
   // Mapbox
   MAPBOX_TOKEN: z.string(),
@@ -29,10 +29,18 @@ const envSchema = z.object({
   // Google OAuth
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-  BACKEND_GOOGLE_CALLBACK_URL: z
+  BACKEND_GOOGLE_CALLBACK_URL: z.string(),
+
+  // Resend (Email)
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_SENDER_ADDRESS: z
     .string()
     .optional()
-    .default("http://localhost:5555/api/auth/google/callback"),
+    .default("Xequtive <onboarding@resend.dev>"),
+
+  // Frontend URLs for email templates
+  FRONTEND_URL: z.string(),
+  LOGO_URL: z.string(),
 });
 
 // Parse and validate environment variables
@@ -62,7 +70,7 @@ export const env = {
   },
   security: {
     jwtSecret: process.env.JWT_SECRET!,
-    allowedOrigins: (process.env.ALLOWED_ORIGINS || "").split(","),
+    allowedOrigins: process.env.ALLOWED_ORIGINS!.split(","),
   },
   mapbox: {
     token: process.env.MAPBOX_TOKEN!,
@@ -70,7 +78,13 @@ export const env = {
   googleOAuth: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackUrl: process.env.BACKEND_GOOGLE_CALLBACK_URL,
+    callbackUrl: process.env.BACKEND_GOOGLE_CALLBACK_URL!,
+  },
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY,
+    senderAddress: process.env.EMAIL_SENDER_ADDRESS,
+    frontendUrl: process.env.FRONTEND_URL!,
+    logoUrl: process.env.LOGO_URL!,
   },
 };
 
@@ -86,4 +100,9 @@ console.log("Environment configuration loaded:", {
     // Omit secrets
   },
   mapbox: { token: "***" }, // Redact token
+  email: {
+    senderAddress: env.email.senderAddress,
+    frontendUrl: env.email.frontendUrl,
+    // Omit API key
+  },
 });

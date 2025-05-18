@@ -30,9 +30,16 @@ export const googleCallbackSchema = z.object({
   code: z.string().min(1, "Code is required"),
 });
 
+// Email verification request schema
+export const verifyEmailSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  fullName: z.string().min(2, "Full name must be at least 2 characters long"),
+});
+
 // Types for the schema
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type SignupRequest = z.infer<typeof signupSchema>;
 export type GoogleAuthRequest = z.infer<typeof googleAuthSchema>;
 export type CompleteProfileRequest = z.infer<typeof completeProfileSchema>;
 export type GoogleCallbackRequest = z.infer<typeof googleCallbackSchema>;
+export type VerifyEmailRequest = z.infer<typeof verifyEmailSchema>;

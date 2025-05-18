@@ -15,9 +15,9 @@ dotenv.config();
 const app: Express = express();
 
 // Get allowed origins from environment and normalize them (remove trailing slashes)
-const allowedOrigins = (process.env.ALLOWED_ORIGINS?.split(",") || ["*"]).map(
-  (origin) => origin.trim().replace(/\/$/, "")
-);
+const allowedOrigins = process.env
+  .ALLOWED_ORIGINS!.split(",")
+  .map((origin) => origin.trim().replace(/\/$/, ""));
 
 console.log("CORS enabled for origins:", allowedOrigins);
 
@@ -31,10 +31,7 @@ app.use(
       // Normalize the request origin by removing trailing slash if present
       const normalizedOrigin = origin.replace(/\/$/, "");
 
-      if (
-        allowedOrigins.includes(normalizedOrigin) ||
-        allowedOrigins.includes("*")
-      ) {
+      if (allowedOrigins.includes(normalizedOrigin)) {
         callback(null, true);
       } else {
         console.warn(`CORS blocked request from origin: ${origin}`);

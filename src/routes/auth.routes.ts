@@ -14,9 +14,11 @@ import {
   googleAuthSchema,
   completeProfileSchema,
   googleCallbackSchema,
+  verifyEmailSchema,
 } from "../validation/auth.schema";
 import crypto from "crypto";
 import fetch from "node-fetch";
+import { EmailService } from "../services/email.service";
 
 // Force reload env variables for this file
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
@@ -517,7 +519,7 @@ router.get("/google/login", async (req: Request, res: Response) => {
     const googleOAuthUrl =
       `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${env.googleOAuth.clientId || ""}&` +
-      `redirect_uri=${encodeURIComponent(env.googleOAuth.callbackUrl || "")}&` +
+      `redirect_uri=${encodeURIComponent(env.googleOAuth.callbackUrl)}&` +
       `response_type=code&` +
       `scope=email%20profile&` +
       `state=${encodeURIComponent(stateWithRedirect)}`;
@@ -562,7 +564,7 @@ router.get("/google/callback", async (req: Request, res: Response) => {
         code: code as string,
         client_id: env.googleOAuth.clientId || "",
         client_secret: env.googleOAuth.clientSecret || "",
-        redirect_uri: env.googleOAuth.callbackUrl || "",
+        redirect_uri: env.googleOAuth.callbackUrl,
         grant_type: "authorization_code",
       }),
     });
@@ -749,5 +751,359 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     });
   }
 });
+
+// Email verification request
+router.post(
+  "/verify-email",
+  authLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      try {
+        verifyEmailSchema.parse(req.body);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              message: "Invalid email verification data",
+              code: "auth/invalid-data",
+              details: error.errors.map((e) => e.message).join(", "),
+            },
+          } as ApiResponse<never>);
+        }
+        throw error;
+      }
+
+      const { email, fullName } = req.body;
+
+      // Check if the email is already registered
+      try {
+        await auth.getUserByEmail(email);
+
+        // If no error, the email already exists
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Email is already registered",
+            code: "auth/email-already-in-use",
+          },
+        } as ApiResponse<never>);
+      } catch (error: any) {
+        // If error code is auth/user-not-found, the email is not registered
+        // which is what we want
+        if (error.code !== "auth/user-not-found") {
+          throw error;
+        }
+      }
+
+      // Send verification email
+      const success = await AuthService.sendVerificationEmail(email, fullName);
+
+      if (!success) {
+        return res.status(500).json({
+          success: false,
+          error: {
+            message: "Failed to send verification email",
+            code: "auth/email-send-failed",
+          },
+        } as ApiResponse<never>);
+      }
+
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: "Verification email sent successfully",
+          email,
+        },
+      });
+    } catch (error) {
+      console.error("Email verification error:", error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to process email verification",
+          code: "auth/server-error",
+          details: error instanceof Error ? error.message : "Unknown error",
+        },
+      } as ApiResponse<never>);
+    }
+  }
+);
+
+// Verify email token
+router.get("/verify-token", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Token is required",
+          code: "auth/missing-token",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Validate the token
+    const verificationData =
+      await AuthService.validateEmailVerificationToken(token);
+
+    if (!verificationData) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Invalid or expired token",
+          code: "auth/invalid-token",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Return the verification data
+    return res.status(200).json({
+      success: true,
+      data: {
+        email: verificationData.email,
+        fullName: verificationData.fullName,
+      },
+    });
+  } catch (error) {
+    console.error("Token verification error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to verify token",
+        code: "auth/server-error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
+// Forgot password endpoint - sends password reset link
+router.post(
+  "/forgot-password",
+  authLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+
+      // Basic validation
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Email is required",
+            code: "auth/missing-email",
+          },
+        } as ApiResponse<never>);
+      }
+
+      // Check if the email is registered
+      try {
+        await auth.getUserByEmail(email);
+      } catch (error: any) {
+        // Don't reveal if email exists or not for security
+        // Just return success regardless
+        return res.status(200).json({
+          success: true,
+          data: {
+            message: "If the email exists, a password reset link has been sent",
+          },
+        });
+      }
+
+      // Generate a password reset token that expires in 1 hour
+      const resetToken = crypto.randomBytes(32).toString("hex");
+
+      // Store the token in Firestore with expiration
+      await firestore
+        .collection("passwordResetTokens")
+        .doc(resetToken)
+        .set({
+          email,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+        });
+
+      // Create the reset URL with the token
+      const resetUrl = `${env.email.frontendUrl}/reset-password?token=${resetToken}`;
+
+      // Send the password reset email
+      const success = await EmailService.sendForgotPasswordEmail(
+        email,
+        resetUrl
+      );
+
+      if (!success) {
+        // If email fails to send, delete the token
+        await firestore
+          .collection("passwordResetTokens")
+          .doc(resetToken)
+          .delete();
+
+        return res.status(500).json({
+          success: false,
+          error: {
+            message: "Failed to send password reset email",
+            code: "auth/email-send-failed",
+          },
+        } as ApiResponse<never>);
+      }
+
+      // Return success regardless of outcome for security
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: "If the email exists, a password reset link has been sent",
+        },
+      });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to process password reset request",
+          code: "auth/server-error",
+          details: error instanceof Error ? error.message : "Unknown error",
+        },
+      } as ApiResponse<never>);
+    }
+  }
+);
+
+// Reset password endpoint - verifies token and sets new password
+router.post(
+  "/reset-password",
+  authLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body;
+
+      // Basic validation
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Reset token is required",
+            code: "auth/missing-token",
+          },
+        } as ApiResponse<never>);
+      }
+
+      if (!password || typeof password !== "string" || password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Password must be at least 6 characters",
+            code: "auth/invalid-password",
+          },
+        } as ApiResponse<never>);
+      }
+
+      // Get token document from Firestore
+      const tokenDoc = await firestore
+        .collection("passwordResetTokens")
+        .doc(token)
+        .get();
+
+      if (!tokenDoc.exists) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Invalid or expired token",
+            code: "auth/invalid-token",
+          },
+        } as ApiResponse<never>);
+      }
+
+      const tokenData = tokenDoc.data();
+      if (!tokenData) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Invalid token data",
+            code: "auth/invalid-token-data",
+          },
+        } as ApiResponse<never>);
+      }
+
+      // Check if token has expired
+      const expiresAt = new Date(tokenData.expiresAt);
+      if (expiresAt < new Date()) {
+        // Token expired, delete it
+        await firestore.collection("passwordResetTokens").doc(token).delete();
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Password reset token has expired",
+            code: "auth/token-expired",
+          },
+        } as ApiResponse<never>);
+      }
+
+      // Get the user by email
+      try {
+        const userRecord = await auth.getUserByEmail(tokenData.email);
+
+        // Update the user's password
+        await auth.updateUser(userRecord.uid, {
+          password,
+        });
+
+        // Get user profile for name
+        const userDoc = await firestore
+          .collection("users")
+          .doc(userRecord.uid)
+          .get();
+        const userData = userDoc.data();
+        const name = userData?.fullName || userRecord.displayName || "User";
+
+        // Delete the token as it's now been used
+        await firestore.collection("passwordResetTokens").doc(token).delete();
+
+        // Send password reset confirmation email (non-blocking)
+        EmailService.sendPasswordResetConfirmationEmail(
+          tokenData.email,
+          name
+        ).catch((error) => {
+          console.error(
+            "Failed to send password reset confirmation email:",
+            error
+          );
+        });
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            message: "Password has been reset successfully",
+          },
+        });
+      } catch (error) {
+        console.error("Error resetting password:", error);
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Failed to reset password",
+            code: "auth/reset-failed",
+            details: error instanceof Error ? error.message : "Unknown error",
+          },
+        } as ApiResponse<never>);
+      }
+    } catch (error) {
+      console.error("Password reset error:", error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to process password reset",
+          code: "auth/server-error",
+          details: error instanceof Error ? error.message : "Unknown error",
+        },
+      } as ApiResponse<never>);
+    }
+  }
+);
 
 export default router;

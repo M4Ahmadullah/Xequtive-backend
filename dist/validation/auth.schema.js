@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.googleCallbackSchema = exports.completeProfileSchema = exports.googleAuthSchema = exports.signupSchema = exports.loginSchema = void 0;
+exports.verifyEmailSchema = exports.googleCallbackSchema = exports.completeProfileSchema = exports.googleAuthSchema = exports.signupSchema = exports.loginSchema = void 0;
 const zod_1 = require("zod");
 // Schema for login validation
 exports.loginSchema = zod_1.z.object({
@@ -26,4 +26,9 @@ exports.completeProfileSchema = zod_1.z.object({
 // Add Google callback schema
 exports.googleCallbackSchema = zod_1.z.object({
     code: zod_1.z.string().min(1, "Code is required"),
+});
+// Email verification request schema
+exports.verifyEmailSchema = zod_1.z.object({
+    email: zod_1.z.string().email("Invalid email format"),
+    fullName: zod_1.z.string().min(2, "Full name must be at least 2 characters long"),
 });

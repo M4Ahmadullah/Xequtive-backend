@@ -7,6 +7,7 @@ const firebase_1 = require("../config/firebase");
 const booking_schema_1 = require("../validation/booking.schema");
 const enhancedFare_service_1 = require("../services/enhancedFare.service");
 const rateLimiter_1 = require("../middleware/rateLimiter");
+const email_service_1 = require("../services/email.service");
 const router = (0, express_1.Router)();
 // Submit Booking - Single Step with Fare Verification
 router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.bookingLimiter, async (req, res) => {
@@ -129,6 +130,19 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
         const bookingDoc = await firebase_1.firestore
             .collection("bookings")
             .add(permanentBooking);
+        // Send booking confirmation email (non-blocking)
+        email_service_1.EmailService.sendBookingConfirmationEmail(permanentBooking.customer.email, {
+            id: bookingDoc.id,
+            fullName: permanentBooking.customer.fullName,
+            pickupDate: permanentBooking.pickupDate,
+            pickupTime: permanentBooking.pickupTime,
+            pickupLocation: permanentBooking.locations.pickup.address,
+            dropoffLocation: permanentBooking.locations.dropoff.address,
+            vehicleType: permanentBooking.vehicle.name,
+            price: permanentBooking.vehicle.price.amount,
+        }).catch((error) => {
+            console.error("Failed to send booking confirmation email:", error);
+        });
         // Prepare confirmation response
         const confirmationResponse = {
             bookingId: bookingDoc.id,
@@ -321,6 +335,16 @@ router.post("/user/bookings/:id/cancel", authMiddleware_1.verifyToken, async (re
             cancellationReason: cancellationData.cancellationReason || "User cancelled",
             cancelledAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+        });
+        // Send booking cancellation email (non-blocking)
+        email_service_1.EmailService.sendBookingCancellationEmail(booking.customer.email, {
+            id: bookingId,
+            fullName: booking.customer.fullName,
+            pickupDate: booking.pickupDate,
+            pickupTime: booking.pickupTime,
+            cancellationReason: cancellationData.cancellationReason || "User cancelled",
+        }).catch((error) => {
+            console.error("Failed to send booking cancellation email:", error);
         });
         // Prepare the response
         const response = {

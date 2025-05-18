@@ -23,16 +23,22 @@ const envSchema = zod_1.z.object({
     FIREBASE_API_KEY: zod_1.z.string(),
     // Security
     JWT_SECRET: zod_1.z.string(),
-    ALLOWED_ORIGINS: zod_1.z.string().default("http://localhost:3000"),
+    ALLOWED_ORIGINS: zod_1.z.string(),
     // Mapbox
     MAPBOX_TOKEN: zod_1.z.string(),
     // Google OAuth
     GOOGLE_CLIENT_ID: zod_1.z.string().optional(),
     GOOGLE_CLIENT_SECRET: zod_1.z.string().optional(),
-    BACKEND_GOOGLE_CALLBACK_URL: zod_1.z
+    BACKEND_GOOGLE_CALLBACK_URL: zod_1.z.string(),
+    // Resend (Email)
+    RESEND_API_KEY: zod_1.z.string().optional(),
+    EMAIL_SENDER_ADDRESS: zod_1.z
         .string()
         .optional()
-        .default("http://localhost:5555/api/auth/google/callback"),
+        .default("Xequtive <onboarding@resend.dev>"),
+    // Frontend URLs for email templates
+    FRONTEND_URL: zod_1.z.string(),
+    LOGO_URL: zod_1.z.string(),
 });
 // Parse and validate environment variables
 // If validation fails, it will throw an error
@@ -58,7 +64,7 @@ exports.env = {
     },
     security: {
         jwtSecret: process.env.JWT_SECRET,
-        allowedOrigins: (process.env.ALLOWED_ORIGINS || "").split(","),
+        allowedOrigins: process.env.ALLOWED_ORIGINS.split(","),
     },
     mapbox: {
         token: process.env.MAPBOX_TOKEN,
@@ -67,6 +73,12 @@ exports.env = {
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackUrl: process.env.BACKEND_GOOGLE_CALLBACK_URL,
+    },
+    email: {
+        resendApiKey: process.env.RESEND_API_KEY,
+        senderAddress: process.env.EMAIL_SENDER_ADDRESS,
+        frontendUrl: process.env.FRONTEND_URL,
+        logoUrl: process.env.LOGO_URL,
     },
 };
 // Print the loaded environment configuration except for sensitive data
@@ -81,4 +93,9 @@ console.log("Environment configuration loaded:", {
         // Omit secrets
     },
     mapbox: { token: "***" }, // Redact token
+    email: {
+        senderAddress: exports.env.email.senderAddress,
+        frontendUrl: exports.env.email.frontendUrl,
+        // Omit API key
+    },
 });

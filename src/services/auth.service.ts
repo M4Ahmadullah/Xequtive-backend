@@ -1,6 +1,8 @@
 import { auth, firestore } from "../config/firebase";
 import { UserData, AuthProvider } from "../types";
 import crypto from "crypto";
+import { EmailService } from "./email.service";
+import { env } from "../config/env";
 
 export class AuthService {
   /**
@@ -13,6 +15,104 @@ export class AuthService {
       email: decodedToken.email || "",
       role: (decodedToken.role as UserData["role"]) || "user",
     };
+  }
+
+  /**
+   * Generate and store email verification token
+   * @param email The email to verify
+   * @param fullName The user's full name
+   * @returns The verification token
+   */
+  static async generateEmailVerificationToken(
+    email: string,
+    fullName: string
+  ): Promise<string> {
+    // Generate a random token
+    const token = crypto.randomBytes(32).toString("hex");
+
+    // Store the token in Firestore with expiration (30 minutes from now)
+    await firestore
+      .collection("emailVerifications")
+      .doc(token)
+      .set({
+        email,
+        fullName,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
+      });
+
+    return token;
+  }
+
+  /**
+   * Send verification email with token
+   * @param email The email to verify
+   * @param fullName The user's full name
+   * @returns Success status
+   */
+  static async sendVerificationEmail(
+    email: string,
+    fullName: string
+  ): Promise<boolean> {
+    try {
+      // Generate verification token
+      const token = await this.generateEmailVerificationToken(email, fullName);
+
+      // Create verification URL with the token
+      const verificationUrl = `${env.email.frontendUrl}/auth/signup?token=${token}&email=${encodeURIComponent(email)}`;
+
+      // Send the verification email
+      return await EmailService.sendVerificationEmail(
+        email,
+        fullName,
+        verificationUrl
+      );
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Validate an email verification token
+   * @param token The verification token
+   * @returns The verification data if valid, null otherwise
+   */
+  static async validateEmailVerificationToken(
+    token: string
+  ): Promise<{ email: string; fullName: string } | null> {
+    try {
+      // Get token document from Firestore
+      const tokenDoc = await firestore
+        .collection("emailVerifications")
+        .doc(token)
+        .get();
+
+      if (!tokenDoc.exists) {
+        return null; // Token doesn't exist
+      }
+
+      const tokenData = tokenDoc.data();
+      if (!tokenData) {
+        return null;
+      }
+
+      // Check if token has expired
+      const expiresAt = new Date(tokenData.expiresAt);
+      if (expiresAt < new Date()) {
+        // Token expired, delete it
+        await firestore.collection("emailVerifications").doc(token).delete();
+        return null;
+      }
+
+      return {
+        email: tokenData.email,
+        fullName: tokenData.fullName,
+      };
+    } catch (error) {
+      console.error("Error validating email verification token:", error);
+      return null;
+    }
   }
 
   /**
@@ -176,6 +276,11 @@ export class AuthService {
         throw new Error(tokenData.error?.message || "Token exchange failed");
       }
 
+      // Send welcome email (non-blocking)
+      EmailService.sendWelcomeEmail(email, fullName).catch((error) => {
+        console.error("Failed to send welcome email:", error);
+      });
+
       return {
         uid: userRecord.uid,
         email: userRecord.email,
@@ -334,6 +439,10 @@ export class AuthService {
         phoneNumber: phone,
       });
 
+      // Get user email from Firebase
+      const userRecord = await auth.getUser(uid);
+      const email = userRecord.email || "";
+
       // Update user document in Firestore
       await firestore.collection("users").doc(uid).update({
         fullName,
@@ -345,6 +454,20 @@ export class AuthService {
       // Get updated user record
       const userDoc = await firestore.collection("users").doc(uid).get();
       const userData = userDoc.data();
+
+      // Send welcome email if this is a new user (non-blocking)
+      if (userData?.authProvider === "google") {
+        EmailService.sendWelcomeEmail(email, fullName).catch((error: Error) => {
+          console.error("Failed to send welcome email:", error);
+        });
+      }
+
+      // Send profile completion email (non-blocking)
+      EmailService.sendProfileCompletionEmail(email, fullName).catch(
+        (error: Error) => {
+          console.error("Failed to send profile completion email:", error);
+        }
+      );
 
       return {
         uid,

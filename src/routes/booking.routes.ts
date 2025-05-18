@@ -21,6 +21,7 @@ import { EnhancedFareService } from "../services/enhancedFare.service";
 import { Query, DocumentData } from "firebase-admin/firestore";
 import { bookingLimiter } from "../middleware/rateLimiter";
 import { FareService } from "../services/fare.service";
+import { EmailService } from "../services/email.service";
 
 const router = Router();
 
@@ -109,9 +110,8 @@ router.post(
       };
 
       // Calculate fares for all vehicles and find the selected one
-      const fareEstimates = await EnhancedFareService.calculateFares(
-        fareRequest
-      );
+      const fareEstimates =
+        await EnhancedFareService.calculateFares(fareRequest);
       const selectedVehicle = fareEstimates.vehicleOptions.find(
         (vehicle) => vehicle.id === bookingData.booking.vehicle.id
       );
@@ -166,6 +166,23 @@ router.post(
       const bookingDoc = await firestore
         .collection("bookings")
         .add(permanentBooking);
+
+      // Send booking confirmation email (non-blocking)
+      EmailService.sendBookingConfirmationEmail(
+        permanentBooking.customer.email,
+        {
+          id: bookingDoc.id,
+          fullName: permanentBooking.customer.fullName,
+          pickupDate: permanentBooking.pickupDate,
+          pickupTime: permanentBooking.pickupTime,
+          pickupLocation: permanentBooking.locations.pickup.address,
+          dropoffLocation: permanentBooking.locations.dropoff.address,
+          vehicleType: permanentBooking.vehicle.name,
+          price: permanentBooking.vehicle.price.amount,
+        }
+      ).catch((error) => {
+        console.error("Failed to send booking confirmation email:", error);
+      });
 
       // Prepare confirmation response
       const confirmationResponse = {
@@ -389,6 +406,18 @@ router.post(
           cancellationData.cancellationReason || "User cancelled",
         cancelledAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+      });
+
+      // Send booking cancellation email (non-blocking)
+      EmailService.sendBookingCancellationEmail(booking.customer.email, {
+        id: bookingId,
+        fullName: booking.customer.fullName,
+        pickupDate: booking.pickupDate,
+        pickupTime: booking.pickupTime,
+        cancellationReason:
+          cancellationData.cancellationReason || "User cancelled",
+      }).catch((error: Error) => {
+        console.error("Failed to send booking cancellation email:", error);
       });
 
       // Prepare the response

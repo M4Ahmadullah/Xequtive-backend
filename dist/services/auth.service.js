@@ -39,6 +39,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const firebase_1 = require("../config/firebase");
 const crypto_1 = __importDefault(require("crypto"));
+const email_service_1 = require("./email.service");
+const env_1 = require("../config/env");
 class AuthService {
     /**
      * Verify Firebase ID token and get user data
@@ -50,6 +52,83 @@ class AuthService {
             email: decodedToken.email || "",
             role: decodedToken.role || "user",
         };
+    }
+    /**
+     * Generate and store email verification token
+     * @param email The email to verify
+     * @param fullName The user's full name
+     * @returns The verification token
+     */
+    static async generateEmailVerificationToken(email, fullName) {
+        // Generate a random token
+        const token = crypto_1.default.randomBytes(32).toString("hex");
+        // Store the token in Firestore with expiration (30 minutes from now)
+        await firebase_1.firestore
+            .collection("emailVerifications")
+            .doc(token)
+            .set({
+            email,
+            fullName,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
+        });
+        return token;
+    }
+    /**
+     * Send verification email with token
+     * @param email The email to verify
+     * @param fullName The user's full name
+     * @returns Success status
+     */
+    static async sendVerificationEmail(email, fullName) {
+        try {
+            // Generate verification token
+            const token = await this.generateEmailVerificationToken(email, fullName);
+            // Create verification URL with the token
+            const verificationUrl = `${env_1.env.email.frontendUrl}/auth/signup?token=${token}&email=${encodeURIComponent(email)}`;
+            // Send the verification email
+            return await email_service_1.EmailService.sendVerificationEmail(email, fullName, verificationUrl);
+        }
+        catch (error) {
+            console.error("Error sending verification email:", error);
+            return false;
+        }
+    }
+    /**
+     * Validate an email verification token
+     * @param token The verification token
+     * @returns The verification data if valid, null otherwise
+     */
+    static async validateEmailVerificationToken(token) {
+        try {
+            // Get token document from Firestore
+            const tokenDoc = await firebase_1.firestore
+                .collection("emailVerifications")
+                .doc(token)
+                .get();
+            if (!tokenDoc.exists) {
+                return null; // Token doesn't exist
+            }
+            const tokenData = tokenDoc.data();
+            if (!tokenData) {
+                return null;
+            }
+            // Check if token has expired
+            const expiresAt = new Date(tokenData.expiresAt);
+            if (expiresAt < new Date()) {
+                // Token expired, delete it
+                await firebase_1.firestore.collection("emailVerifications").doc(token).delete();
+                return null;
+            }
+            return {
+                email: tokenData.email,
+                fullName: tokenData.fullName,
+            };
+        }
+        catch (error) {
+            console.error("Error validating email verification token:", error);
+            return null;
+        }
     }
     /**
      * Login with email and password
@@ -175,6 +254,10 @@ class AuthService {
             if (!tokenResponse.ok) {
                 throw new Error(tokenData.error?.message || "Token exchange failed");
             }
+            // Send welcome email (non-blocking)
+            email_service_1.EmailService.sendWelcomeEmail(email, fullName).catch((error) => {
+                console.error("Failed to send welcome email:", error);
+            });
             return {
                 uid: userRecord.uid,
                 email: userRecord.email,
@@ -312,6 +395,9 @@ class AuthService {
                 displayName: fullName,
                 phoneNumber: phone,
             });
+            // Get user email from Firebase
+            const userRecord = await firebase_1.auth.getUser(uid);
+            const email = userRecord.email || "";
             // Update user document in Firestore
             await firebase_1.firestore.collection("users").doc(uid).update({
                 fullName,
@@ -322,6 +408,16 @@ class AuthService {
             // Get updated user record
             const userDoc = await firebase_1.firestore.collection("users").doc(uid).get();
             const userData = userDoc.data();
+            // Send welcome email if this is a new user (non-blocking)
+            if (userData?.authProvider === "google") {
+                email_service_1.EmailService.sendWelcomeEmail(email, fullName).catch((error) => {
+                    console.error("Failed to send welcome email:", error);
+                });
+            }
+            // Send profile completion email (non-blocking)
+            email_service_1.EmailService.sendProfileCompletionEmail(email, fullName).catch((error) => {
+                console.error("Failed to send profile completion email:", error);
+            });
             return {
                 uid,
                 email: userData?.email,

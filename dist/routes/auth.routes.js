@@ -48,6 +48,7 @@ const rateLimiter_1 = require("../middleware/rateLimiter");
 const auth_schema_1 = require("../validation/auth.schema");
 const crypto_1 = __importDefault(require("crypto"));
 const node_fetch_1 = __importDefault(require("node-fetch"));
+const email_service_1 = require("../services/email.service");
 // Force reload env variables for this file
 dotenv.config({ path: path_1.default.resolve(process.cwd(), ".env") });
 const router = (0, express_1.Router)();
@@ -482,7 +483,7 @@ router.get("/google/login", async (req, res) => {
         // Construct Google OAuth URL
         const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${env_1.env.googleOAuth.clientId || ""}&` +
-            `redirect_uri=${encodeURIComponent(env_1.env.googleOAuth.callbackUrl || "")}&` +
+            `redirect_uri=${encodeURIComponent(env_1.env.googleOAuth.callbackUrl)}&` +
             `response_type=code&` +
             `scope=email%20profile&` +
             `state=${encodeURIComponent(stateWithRedirect)}`;
@@ -520,7 +521,7 @@ router.get("/google/callback", async (req, res) => {
                 code: code,
                 client_id: env_1.env.googleOAuth.clientId || "",
                 client_secret: env_1.env.googleOAuth.clientSecret || "",
-                redirect_uri: env_1.env.googleOAuth.callbackUrl || "",
+                redirect_uri: env_1.env.googleOAuth.callbackUrl,
                 grant_type: "authorization_code",
             }),
         });
@@ -671,6 +672,311 @@ router.post("/google/callback", async (req, res) => {
             success: false,
             error: {
                 message: "Authentication failed",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Email verification request
+router.post("/verify-email", rateLimiter_1.authLimiter, async (req, res) => {
+    try {
+        // Validate request body
+        try {
+            auth_schema_1.verifyEmailSchema.parse(req.body);
+        }
+        catch (error) {
+            if (error instanceof zod_1.z.ZodError) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: "Invalid email verification data",
+                        code: "auth/invalid-data",
+                        details: error.errors.map((e) => e.message).join(", "),
+                    },
+                });
+            }
+            throw error;
+        }
+        const { email, fullName } = req.body;
+        // Check if the email is already registered
+        try {
+            await firebase_1.auth.getUserByEmail(email);
+            // If no error, the email already exists
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Email is already registered",
+                    code: "auth/email-already-in-use",
+                },
+            });
+        }
+        catch (error) {
+            // If error code is auth/user-not-found, the email is not registered
+            // which is what we want
+            if (error.code !== "auth/user-not-found") {
+                throw error;
+            }
+        }
+        // Send verification email
+        const success = await auth_service_1.AuthService.sendVerificationEmail(email, fullName);
+        if (!success) {
+            return res.status(500).json({
+                success: false,
+                error: {
+                    message: "Failed to send verification email",
+                    code: "auth/email-send-failed",
+                },
+            });
+        }
+        // Return success response
+        return res.status(200).json({
+            success: true,
+            data: {
+                message: "Verification email sent successfully",
+                email,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Email verification error:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to process email verification",
+                code: "auth/server-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Verify email token
+router.get("/verify-token", async (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token || typeof token !== "string") {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Token is required",
+                    code: "auth/missing-token",
+                },
+            });
+        }
+        // Validate the token
+        const verificationData = await auth_service_1.AuthService.validateEmailVerificationToken(token);
+        if (!verificationData) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Invalid or expired token",
+                    code: "auth/invalid-token",
+                },
+            });
+        }
+        // Return the verification data
+        return res.status(200).json({
+            success: true,
+            data: {
+                email: verificationData.email,
+                fullName: verificationData.fullName,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Token verification error:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to verify token",
+                code: "auth/server-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Forgot password endpoint - sends password reset link
+router.post("/forgot-password", rateLimiter_1.authLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+        // Basic validation
+        if (!email || typeof email !== "string") {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Email is required",
+                    code: "auth/missing-email",
+                },
+            });
+        }
+        // Check if the email is registered
+        try {
+            await firebase_1.auth.getUserByEmail(email);
+        }
+        catch (error) {
+            // Don't reveal if email exists or not for security
+            // Just return success regardless
+            return res.status(200).json({
+                success: true,
+                data: {
+                    message: "If the email exists, a password reset link has been sent",
+                },
+            });
+        }
+        // Generate a password reset token that expires in 1 hour
+        const resetToken = crypto_1.default.randomBytes(32).toString("hex");
+        // Store the token in Firestore with expiration
+        await firebase_1.firestore
+            .collection("passwordResetTokens")
+            .doc(resetToken)
+            .set({
+            email,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+        });
+        // Create the reset URL with the token
+        const resetUrl = `${env_1.env.email.frontendUrl}/reset-password?token=${resetToken}`;
+        // Send the password reset email
+        const success = await email_service_1.EmailService.sendForgotPasswordEmail(email, resetUrl);
+        if (!success) {
+            // If email fails to send, delete the token
+            await firebase_1.firestore
+                .collection("passwordResetTokens")
+                .doc(resetToken)
+                .delete();
+            return res.status(500).json({
+                success: false,
+                error: {
+                    message: "Failed to send password reset email",
+                    code: "auth/email-send-failed",
+                },
+            });
+        }
+        // Return success regardless of outcome for security
+        return res.status(200).json({
+            success: true,
+            data: {
+                message: "If the email exists, a password reset link has been sent",
+            },
+        });
+    }
+    catch (error) {
+        console.error("Password reset error:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to process password reset request",
+                code: "auth/server-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Reset password endpoint - verifies token and sets new password
+router.post("/reset-password", rateLimiter_1.authLimiter, async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        // Basic validation
+        if (!token || typeof token !== "string") {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Reset token is required",
+                    code: "auth/missing-token",
+                },
+            });
+        }
+        if (!password || typeof password !== "string" || password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Password must be at least 6 characters",
+                    code: "auth/invalid-password",
+                },
+            });
+        }
+        // Get token document from Firestore
+        const tokenDoc = await firebase_1.firestore
+            .collection("passwordResetTokens")
+            .doc(token)
+            .get();
+        if (!tokenDoc.exists) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Invalid or expired token",
+                    code: "auth/invalid-token",
+                },
+            });
+        }
+        const tokenData = tokenDoc.data();
+        if (!tokenData) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Invalid token data",
+                    code: "auth/invalid-token-data",
+                },
+            });
+        }
+        // Check if token has expired
+        const expiresAt = new Date(tokenData.expiresAt);
+        if (expiresAt < new Date()) {
+            // Token expired, delete it
+            await firebase_1.firestore.collection("passwordResetTokens").doc(token).delete();
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Password reset token has expired",
+                    code: "auth/token-expired",
+                },
+            });
+        }
+        // Get the user by email
+        try {
+            const userRecord = await firebase_1.auth.getUserByEmail(tokenData.email);
+            // Update the user's password
+            await firebase_1.auth.updateUser(userRecord.uid, {
+                password,
+            });
+            // Get user profile for name
+            const userDoc = await firebase_1.firestore
+                .collection("users")
+                .doc(userRecord.uid)
+                .get();
+            const userData = userDoc.data();
+            const name = userData?.fullName || userRecord.displayName || "User";
+            // Delete the token as it's now been used
+            await firebase_1.firestore.collection("passwordResetTokens").doc(token).delete();
+            // Send password reset confirmation email (non-blocking)
+            email_service_1.EmailService.sendPasswordResetConfirmationEmail(tokenData.email, name).catch((error) => {
+                console.error("Failed to send password reset confirmation email:", error);
+            });
+            return res.status(200).json({
+                success: true,
+                data: {
+                    message: "Password has been reset successfully",
+                },
+            });
+        }
+        catch (error) {
+            console.error("Error resetting password:", error);
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Failed to reset password",
+                    code: "auth/reset-failed",
+                    details: error instanceof Error ? error.message : "Unknown error",
+                },
+            });
+        }
+    }
+    catch (error) {
+        console.error("Password reset error:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to process password reset",
+                code: "auth/server-error",
                 details: error instanceof Error ? error.message : "Unknown error",
             },
         });
