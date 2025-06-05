@@ -21,7 +21,6 @@ exports.vehicleTypes = [
         additionalStopFee: 2.5, // £2.50 per additional stop
         examples: ["Toyota Prius", "Ford Mondeo"],
         imageUrl: "/images/vehicles/standard-saloon.jpg",
-        eta: 5,
     },
     {
         id: "estate",
@@ -39,11 +38,10 @@ exports.vehicleTypes = [
         additionalStopFee: 3.5, // £3.50 per additional stop
         examples: ["Mercedes E-Class Estate", "Volkswagen Passat Estate"],
         imageUrl: "/images/vehicles/estate.jpg",
-        eta: 6,
     },
     {
         id: "large-mpv",
-        name: "MPV (XL)",
+        name: "MPV-6",
         description: "Spacious vehicle for up to 6 passengers",
         capacity: {
             passengers: 6,
@@ -57,11 +55,10 @@ exports.vehicleTypes = [
         additionalStopFee: 4.5, // £4.50 per additional stop
         examples: ["Ford Galaxy", "Volkswagen Sharan"],
         imageUrl: "/images/vehicles/large-mpv.jpg",
-        eta: 8,
     },
     {
         id: "extra-large-mpv",
-        name: "MPV (XXL)",
+        name: "MPV-8",
         description: "Maximum capacity for passengers and luggage",
         capacity: {
             passengers: 8,
@@ -75,11 +72,10 @@ exports.vehicleTypes = [
         additionalStopFee: 4.5, // £4.50 per additional stop
         examples: ["Ford Tourneo", "Mercedes Vito"],
         imageUrl: "/images/vehicles/xl-mpv.jpg",
-        eta: 10,
     },
     {
         id: "executive-saloon",
-        name: "Executive",
+        name: "Executive Saloon",
         description: "Premium ride in a Mercedes E-Class or equivalent",
         capacity: {
             passengers: 3,
@@ -93,42 +89,10 @@ exports.vehicleTypes = [
         additionalStopFee: 5.5, // £5.50 per additional stop
         examples: ["Mercedes E-Class", "BMW 5-Series"],
         imageUrl: "/images/vehicles/executive-saloon.jpg",
-        features: [
-            "WiFi",
-            "Bottled Water",
-            "Professional Chauffeur",
-            "Flight Tracking",
-        ],
-        eta: 7,
-    },
-    {
-        id: "executive-mpv",
-        name: "Executive MPV",
-        description: "Premium Mercedes V-Class or equivalent",
-        capacity: {
-            passengers: 8,
-            luggage: 5,
-        },
-        baseRate: 25.0, // £25.00 base fare
-        perMileRate: 5.95, // £5.95 per mile
-        minimumFare: 40.0,
-        waitingRatePerHour: 55.0, // £55.00 per hour
-        waitingRatePerMinute: 0.75, // £0.75 per minute
-        additionalStopFee: 5.5, // £5.50 per additional stop
-        examples: ["Mercedes V-Class", "Volkswagen Caravelle"],
-        imageUrl: "/images/vehicles/executive-mpv.jpg",
-        features: [
-            "WiFi",
-            "Bottled Water",
-            "Professional Chauffeur",
-            "Flight Tracking",
-            "Extra Legroom",
-        ],
-        eta: 9,
     },
     {
         id: "vip",
-        name: "VIP Executive",
+        name: "VIP Executive Saloon",
         description: "Luxury Mercedes S-Class or equivalent",
         capacity: {
             passengers: 3,
@@ -141,19 +105,10 @@ exports.vehicleTypes = [
         waitingRatePerMinute: 1.25, // £1.25 per minute
         examples: ["Mercedes S-Class", "BMW 7-Series"],
         imageUrl: "/images/vehicles/vip.jpg",
-        features: [
-            "WiFi",
-            "Premium Drinks",
-            "Luxury Interior",
-            "Professional Chauffeur",
-            "Priority Service",
-            "Privacy Partition",
-        ],
-        eta: 12,
     },
     {
         id: "vip-mpv",
-        name: "VIP Executive MPV",
+        name: "VIP Executive MPV-8",
         description: "Luxury Mercedes V-Class or equivalent",
         capacity: {
             passengers: 6,
@@ -166,19 +121,10 @@ exports.vehicleTypes = [
         waitingRatePerMinute: 1.58, // £1.58 per minute
         examples: ["Mercedes V-Class Luxury"],
         imageUrl: "/images/vehicles/vip-mpv.jpg",
-        features: [
-            "WiFi",
-            "Premium Drinks",
-            "Luxury Interior",
-            "Professional Chauffeur",
-            "Priority Service",
-            "Enhanced Climate Control",
-        ],
-        eta: 15,
     },
     {
         id: "wav",
-        name: "Wheelchair Accessible Vehicle",
+        name: "Wheelchair Accessible Vehicle (WAV)",
         description: "Specially adapted vehicle for wheelchair users",
         capacity: {
             passengers: 4,
@@ -193,8 +139,6 @@ exports.vehicleTypes = [
         additionalStopFee: 4.5, // £4.50 per additional stop
         examples: ["Specially adapted vans"],
         imageUrl: "/images/vehicles/wav.jpg",
-        features: ["Wheelchair Ramp", "Secure Wheelchair Fastening"],
-        eta: 10,
     },
 ];
 // Helper function to get a vehicle type by ID

@@ -627,8 +627,34 @@ If the limit is exceeded, the API will respond with:
     "success": false,
     "error": {
       "code": "VALIDATION_ERROR",
-      "message": "Invalid booking data",
-      "details": "Full name is required, Invalid email format"
+      "message": "Invalid request format",
+      "details": {
+        "summary": "The request contains validation errors. Please check the error details below.",
+        "receivedData": {}, // The data that was sent
+        "missingFields": {
+          "locations": "Missing entirely",
+          "datetime": {
+            "date": "Missing date",
+            "time": "Missing time"
+          },
+          "passengers": {
+            "count": "Missing passenger count",
+            "checkedLuggage": "Missing checked luggage count",
+            "handLuggage": "Missing hand luggage count"
+          }
+        },
+        "validationErrors": {
+          "locations": [
+            {
+              "field": "locations.pickup.address",
+              "message": "Pickup address is required",
+              "expected": "string",
+              "received": null,
+              "suggestion": "Please provide a valid pickup address"
+            }
+          ]
+        }
+      }
     }
   }
   ```
@@ -636,14 +662,29 @@ If the limit is exceeded, the API will respond with:
 OR
 
 - **Code:** 400 Bad Request
-- **Content:** Returned when fare calculation fails
+- **Content:** Returned when location is not serviceable
   ```json
   {
     "success": false,
     "error": {
-      "code": "FARE_CALCULATION_ERROR",
-      "message": "Could not calculate fare for the selected vehicle",
-      "details": "Please try again or select a different vehicle"
+      "code": "LOCATION_NOT_SERVICEABLE",
+      "message": "Failed to calculate fare estimate",
+      "details": "We currently only service locations within the United Kingdom."
+    }
+  }
+  ```
+
+OR
+
+- **Code:** 400 Bad Request
+- **Content:** Returned when route cannot be found
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "INVALID_LOCATION",
+      "message": "Failed to calculate fare estimate",
+      "details": "No routes found between the provided locations."
     }
   }
   ```
@@ -656,6 +697,7 @@ OR
   {
     "success": false,
     "error": {
+      "code": "AUTH_REQUIRED",
       "message": "Authentication required"
     }
   }
@@ -803,3 +845,275 @@ const getActiveBookings = async () => {
   }
 };
 ```
+
+### Additional Request Charges
+
+The following additional charges apply when requested:
+
+1. **Luggage Options**
+
+   - Hand Luggage: No additional charge
+   - Medium Luggage: Every 2 medium bags charged as 1 large bag at £10.00
+   - Checked Luggage: Standard rates apply
+
+2. **Child Safety Equipment**
+
+   - Baby Seat (0-18 Months): £10.00 each
+   - Child Seat (18 Months - 4 Years): £10.00 each
+   - Booster Seat (4-6 Years): £10.00 each
+
+3. **Accessibility Equipment**
+   - Foldable Wheelchair: £25.00 each
+
+### Response Messages
+
+The API will include messages for each additional charge in the response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "fare": {
+      "amount": 125.5,
+      "currency": "GBP",
+      "messages": [
+        "2 medium bags charged as 1 large bag at £10.00",
+        "1 baby seat at £10.00",
+        "1 booster seat at £10.00"
+      ],
+      "breakdown": {
+        "baseFare": 85.5,
+        "distanceFare": 20.0,
+        "additionalRequestFees": [
+          { "name": "Medium Luggage", "amount": 10.0 },
+          { "name": "Baby Seat (0-18 Months)", "amount": 10.0 },
+          { "name": "Booster Seat (4-6 Years)", "amount": 10.0 }
+        ]
+      }
+    }
+  }
+}
+```
+
+# API Documentation - Part 2
+
+## Booking Endpoints
+
+### Create Enhanced Booking
+
+**Endpoint**: `POST /api/bookings/create-enhanced`
+
+**Authentication**: Required (Bearer token or cookie)
+
+**Request Format**:
+
+```json
+{
+  "customer": {
+    "fullName": "John Smith",
+    "email": "john.smith@example.com",
+    "phone": "+447700900123"
+  },
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "Piccadilly Circus, London, UK",
+        "coordinates": {
+          "lat": 51.51,
+          "lng": -0.1348
+        }
+      },
+      "dropoff": {
+        "address": "Heathrow Airport, London, UK",
+        "coordinates": {
+          "lat": 51.47,
+          "lng": -0.4543
+        }
+      },
+      "additionalStops": [
+        {
+          "address": "789 Baker St, London, UK",
+          "coordinates": {
+            "lat": 51.5144,
+            "lng": -0.1275
+          }
+        }
+      ]
+    },
+    "datetime": {
+      "date": "2024-04-20", // Format: YYYY-MM-DD
+      "time": "14:00" // Format: HH:mm (24-hour)
+    },
+    "passengers": {
+      "count": 2, // Min: 1, Max: 8
+      "checkedLuggage": 1, // Min: 0, Max: 8
+      "handLuggage": 1, // Min: 0, Max: 8
+      "mediumLuggage": 2, // Min: 0, Max: 8
+      "babySeat": 1, // Min: 0, Max: 4
+      "boosterSeat": 1, // Min: 0, Max: 4
+      "childSeat": 0, // Min: 0, Max: 4
+      "wheelchair": 0 // Min: 0, Max: 2
+    },
+    "vehicle": {
+      "id": "standard-saloon",
+      "name": "Standard Saloon"
+    },
+    "specialRequests": "Please ensure baby seat and booster seat are properly installed."
+  }
+}
+```
+
+**Response Format**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": "XQ-123456",
+    "verificationToken": "abc123xyz789",
+    "verifiedFare": {
+      "vehicleId": "standard-saloon",
+      "vehicleName": "Standard Saloon",
+      "price": {
+        "amount": 85.5,
+        "currency": "GBP"
+      },
+      "distance_miles": 15.5,
+      "duration_minutes": 45
+    },
+    "expiresIn": 300 // seconds until verification expires
+  }
+}
+```
+
+**Error Response**:
+
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Validation error",
+    "code": "VALIDATION_ERROR",
+    "details": "booking.locations.pickup.address: Pickup address is required"
+  }
+}
+```
+
+### Confirm Booking
+
+**Endpoint**: `POST /api/bookings/confirm`
+
+**Authentication**: Required (Bearer token or cookie)
+
+**Request Format**:
+
+```json
+{
+  "bookingId": "XQ-123456",
+  "verificationToken": "abc123xyz789",
+  "customerConsent": true
+}
+```
+
+**Response Format**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": "XQ-123456",
+    "message": "Booking confirmed successfully",
+    "details": {
+      "fullName": "John Smith",
+      "pickupDate": "2024-04-20",
+      "pickupTime": "14:00",
+      "pickupLocation": "Piccadilly Circus, London, UK",
+      "dropoffLocation": "Heathrow Airport, London, UK",
+      "vehicle": "Standard Saloon",
+      "price": {
+        "amount": 85.5,
+        "currency": "GBP"
+      },
+      "status": "confirmed"
+    }
+  }
+}
+```
+
+### Cancel Booking
+
+**Endpoint**: `POST /api/bookings/{bookingId}/cancel`
+
+**Authentication**: Required (Bearer token or cookie)
+
+**Request Format**:
+
+```json
+{
+  "cancellationReason": "Change of plans" // Optional
+}
+```
+
+**Response Format**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Booking cancelled successfully",
+    "id": "XQ-123456",
+    "status": "cancelled"
+  }
+}
+```
+
+## Vehicle Types
+
+The following vehicle types are available for bookings:
+
+1. **Standard Saloon** (`standard-saloon`)
+
+   - Capacity: 4 passengers, 2 luggage
+   - Examples: Toyota Prius, Ford Mondeo
+
+2. **Estate** (`estate`)
+
+   - Capacity: 4 passengers, 4 luggage
+   - Examples: Mercedes E-Class Estate, Volkswagen Passat Estate
+
+3. **MPV-6** (`large-mpv`)
+
+   - Capacity: 6 passengers, 4 luggage
+   - Examples: Ford Galaxy, Volkswagen Sharan
+
+4. **MPV-8** (`extra-large-mpv`)
+
+   - Capacity: 8 passengers, 6 luggage
+   - Examples: Ford Tourneo, Mercedes Vito
+
+5. **Executive Saloon** (`executive-saloon`)
+
+   - Capacity: 3 passengers, 2 luggage
+   - Examples: Mercedes E-Class, BMW 5-Series
+
+6. **VIP Executive** (`vip`)
+
+   - Capacity: 3 passengers, 2 luggage
+   - Examples: Mercedes S-Class, BMW 7-Series
+
+7. **VIP Executive MPV** (`vip-mpv`)
+
+   - Capacity: 6 passengers, 4 luggage
+   - Examples: Mercedes V-Class Luxury
+
+8. **Wheelchair Accessible** (`wav`)
+   - Capacity: 4 passengers + wheelchair, 2 luggage
+   - Examples: Specially adapted vans
+
+## Booking Process Flow
+
+1. Get fare estimate using `POST /api/fare-estimate/enhanced`
+2. Create booking using `POST /api/bookings/create-enhanced`
+3. Confirm booking using `POST /api/bookings/confirm`
+
+The booking process includes a verification step to ensure fare accuracy and prevent price manipulation. The verification token expires after 5 minutes (300 seconds).

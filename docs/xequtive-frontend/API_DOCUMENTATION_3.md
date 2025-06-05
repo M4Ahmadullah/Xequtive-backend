@@ -6,7 +6,7 @@ This document outlines the Xequtive API endpoints for managing user bookings, in
 
 All endpoints in this document are protected and require authentication. The API uses Firebase Authentication and secure cookies to ensure that:
 
-1. Only authenticated users can access booking data
+1. Only authenticated users can access booking data=
 2. Users can only access their own bookings
 3. Booking operations are secure and properly validated
 
@@ -522,3 +522,487 @@ const BookingStatusBadge = ({ status }) => {
 3. The frontend should refresh booking data regularly for bookings in active statuses to show updates
 4. Status filters should be used to create views like "Upcoming Journeys" and "Past Journeys"
 5. The booking response includes all necessary details for displaying in the user interface, including pick-up and drop-off locations, vehicle type, price, and journey details
+
+## Travel Information for Bookings
+
+### Overview
+
+For bookings involving airports or train stations, users can optionally provide detailed travel information. This helps drivers better coordinate pickup and ensures a smooth travel experience.
+
+### Supported Travel Types
+
+- Flight Information
+- Train Information
+
+### When to Add Travel Information
+
+Travel information can be added ONLY when the pickup or dropoff location is an airport or train station. The frontend should:
+
+- Detect airport/train station locations using geocoding or predefined location lists
+- Conditionally show travel information input fields
+- Validate and format travel information before submission
+
+### Flight Information Schema
+
+```typescript
+interface FlightInformation {
+  airline: string; // Required: Name of the airline
+  flightNumber: string; // Required: Flight number
+  departureAirport?: string; // Optional: Departure airport name
+  arrivalAirport?: string; // Optional: Arrival airport name
+  scheduledDeparture: string; // Required: ISO datetime of scheduled departure
+  actualDeparture?: string; // Optional: ISO datetime of actual departure
+  status?: "on-time" | "delayed" | "cancelled"; // Optional: Current flight status
+}
+```
+
+### Train Information Schema
+
+```typescript
+interface TrainInformation {
+  trainOperator: string; // Required: Name of the train operator
+  trainNumber: string; // Required: Train number
+  departureStation?: string; // Optional: Departure station name
+  arrivalStation?: string; // Optional: Arrival station name
+  scheduledDeparture: string; // Required: ISO datetime of scheduled departure
+  actualDeparture?: string; // Optional: ISO datetime of actual departure
+  status?: "on-time" | "delayed" | "cancelled"; // Optional: Current train status
+}
+```
+
+### Booking Request Example with Flight Information
+
+```json
+{
+  "customer": {
+    "fullName": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+447123456789"
+  },
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "London Heathrow Airport",
+        "coordinates": {
+          "lat": 51.47,
+          "lng": -0.4543
+        }
+      },
+      "dropoff": {
+        "address": "Central London",
+        "coordinates": {
+          "lat": 51.5074,
+          "lng": -0.1278
+        }
+      }
+    },
+    "datetime": {
+      "date": "2024-07-15",
+      "time": "10:30"
+    },
+    "passengers": {
+      "count": 1,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
+    },
+    "vehicle": {
+      "id": "standard-saloon",
+      "name": "Standard Saloon"
+    },
+    "travelInformation": {
+      "type": "flight",
+      "details": {
+        "airline": "British Airways",
+        "flightNumber": "BA1440",
+        "departureAirport": "London Heathrow",
+        "scheduledDeparture": "2024-07-15T10:30:00+01:00",
+        "status": "on-time"
+      }
+    }
+  }
+}
+```
+
+### Booking Request Example with Train Information
+
+```json
+{
+  "customer": {
+    "fullName": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "phone": "+447987654321"
+  },
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "London King's Cross Station",
+        "coordinates": {
+          "lat": 51.5305,
+          "lng": -0.1229
+        }
+      },
+      "dropoff": {
+        "address": "Manchester City Centre",
+        "coordinates": {
+          "lat": 53.4808,
+          "lng": -2.2426
+        }
+      }
+    },
+    "datetime": {
+      "date": "2024-08-20",
+      "time": "09:15"
+    },
+    "passengers": {
+      "count": 1,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
+    },
+    "vehicle": {
+      "id": "standard-saloon",
+      "name": "Standard Saloon"
+    },
+    "travelInformation": {
+      "type": "train",
+      "details": {
+        "trainOperator": "LNER",
+        "trainNumber": "91",
+        "departureStation": "London King's Cross",
+        "scheduledDeparture": "2024-08-20T09:15:00+01:00",
+        "status": "on-time"
+      }
+    }
+  }
+}
+```
+
+### Validation Rules
+
+1. `type` must be either "flight" or "train"
+2. `scheduledDeparture` must be a valid ISO datetime with timezone offset
+3. `airline`/`trainOperator` and `flightNumber`/`trainNumber` are required
+4. All other fields are optional
+5. Travel information is completely optional during booking
+
+### Frontend Implementation Guidelines
+
+1. **Location Detection**
+
+   - Use geocoding or predefined lists to detect airport/train station locations
+   - Show travel information fields only when relevant locations are selected
+
+2. **Dynamic Form Handling**
+
+   ```typescript
+   const handleLocationChange = (location) => {
+     const isAirportOrStation = checkIfAirportOrStation(location);
+     setShowTravelInfo(isAirportOrStation);
+   };
+   ```
+
+3. **Validation Example**
+
+   ```typescript
+   const validateTravelInfo = (travelInfo) => {
+     if (travelInfo.type === "flight") {
+       // Validate flight-specific fields
+       if (!travelInfo.details.airline || !travelInfo.details.flightNumber) {
+         throw new Error("Airline and Flight Number are required");
+       }
+     } else if (travelInfo.type === "train") {
+       // Validate train-specific fields
+       if (
+         !travelInfo.details.trainOperator ||
+         !travelInfo.details.trainNumber
+       ) {
+         throw new Error("Train Operator and Train Number are required");
+       }
+     }
+   };
+   ```
+
+4. **Status Handling**
+   - Provide clear UI indicators for different travel statuses
+   - Allow manual status updates or integration with real-time flight/train tracking APIs
+
+### Use Cases
+
+1. **Airport Pickups**
+
+   - Help drivers track potential flight delays
+   - Ensure precise pickup timing
+   - Provide additional context about the traveler's journey
+
+2. **Train Station Transfers**
+
+   - Coordinate pickup based on train arrival times
+   - Handle potential train delays or schedule changes
+
+3. **Flexible Travel Tracking**
+   - Optional status updates for smoother coordination
+   - Enhanced communication between driver and passenger
+
+### Best Practices
+
+- Always validate travel information before submission
+- Provide clear, user-friendly input fields
+- Handle optional fields gracefully
+- Give users the option to skip travel information if not applicable
+- Consider integrating with external flight/train tracking APIs for real-time updates
+
+### Multiple Travel Information Entries
+
+The booking system supports adding travel information for multiple locations when the route involves multiple airports, train stations, or a combination of both.
+
+#### Supported Scenarios
+
+1. Pickup at an airport, dropoff at a train station
+2. Multiple airport stops
+3. Multiple train station stops
+4. Mixed transportation modes
+
+#### Travel Information Structure
+
+```typescript
+interface BookingTravelInformation {
+  locations: {
+    [locationKey: string]: {
+      type: "flight" | "train";
+      details: FlightInformation | TrainInformation;
+    };
+  };
+}
+```
+
+#### Example: Multiple Airport Stops
+
+```json
+{
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "Heathrow Airport",
+        "coordinates": {
+          "lat": 51.47,
+          "lng": -0.4543
+        }
+      },
+      "intermediateStop1": {
+        "address": "Gatwick Airport",
+        "coordinates": {
+          "lat": 51.1537,
+          "lng": -0.1821
+        }
+      },
+      "dropoff": {
+        "address": "London City Airport",
+        "coordinates": {
+          "lat": 51.505,
+          "lng": 0.05
+        }
+      }
+    },
+    "travelInformation": {
+      "locations": {
+        "pickup": {
+          "type": "flight",
+          "details": {
+            "airline": "British Airways",
+            "flightNumber": "BA1440",
+            "departureAirport": "Heathrow Airport",
+            "scheduledDeparture": "2024-07-15T10:30:00+01:00",
+            "status": "on-time"
+          }
+        },
+        "intermediateStop1": {
+          "type": "flight",
+          "details": {
+            "airline": "EasyJet",
+            "flightNumber": "U21234",
+            "departureAirport": "Gatwick Airport",
+            "scheduledDeparture": "2024-07-15T12:45:00+01:00",
+            "status": "on-time"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Example: Mixed Transportation Modes
+
+```json
+{
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "Heathrow Airport",
+        "coordinates": {
+          "lat": 51.47,
+          "lng": -0.4543
+        }
+      },
+      "intermediateStop1": {
+        "address": "London Paddington Station",
+        "coordinates": {
+          "lat": 51.5167,
+          "lng": -0.175
+        }
+      },
+      "dropoff": {
+        "address": "Manchester Piccadilly Station",
+        "coordinates": {
+          "lat": 53.4075,
+          "lng": -2.2746
+        }
+      }
+    },
+    "travelInformation": {
+      "locations": {
+        "pickup": {
+          "type": "flight",
+          "details": {
+            "airline": "British Airways",
+            "flightNumber": "BA1440",
+            "departureAirport": "Heathrow Airport",
+            "scheduledDeparture": "2024-07-15T10:30:00+01:00",
+            "status": "on-time"
+          }
+        },
+        "intermediateStop1": {
+          "type": "train",
+          "details": {
+            "trainOperator": "Great Western Railway",
+            "trainNumber": "GWR123",
+            "departureStation": "London Paddington",
+            "scheduledDeparture": "2024-07-15T12:45:00+01:00",
+            "status": "on-time"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Frontend Implementation for Multiple Travel Locations
+
+```typescript
+interface TravelLocationInfo {
+  type: "flight" | "train";
+  details: {
+    // Dynamically populated based on type
+    airline?: string;
+    flightNumber?: string;
+    trainOperator?: string;
+    trainNumber?: string;
+    // ... other common and type-specific fields
+  };
+}
+
+const handleTravelInfoChange = (
+  locationKey: string,
+  travelInfo: TravelLocationInfo
+) => {
+  // Update travel information for a specific location
+  setBookingData((prevData) => ({
+    ...prevData,
+    travelInformation: {
+      ...prevData.travelInformation,
+      locations: {
+        ...prevData.travelInformation?.locations,
+        [locationKey]: travelInfo,
+      },
+    },
+  }));
+};
+
+const validateMultiLocationTravelInfo = (travelInfo) => {
+  // Validate each location's travel information
+  Object.entries(travelInfo.locations || {}).forEach(
+    ([locationKey, locationTravel]) => {
+      if (locationTravel.type === "flight") {
+        if (
+          !locationTravel.details.airline ||
+          !locationTravel.details.flightNumber
+        ) {
+          throw new Error(
+            `Missing airline or flight number for ${locationKey}`
+          );
+        }
+      } else if (locationTravel.type === "train") {
+        if (
+          !locationTravel.details.trainOperator ||
+          !locationTravel.details.trainNumber
+        ) {
+          throw new Error(
+            `Missing train operator or train number for ${locationKey}`
+          );
+        }
+      }
+    }
+  );
+};
+```
+
+### Validation and Business Rules
+
+1. **Location Matching**
+
+   - Travel information keys must correspond to location keys in the booking
+   - Not all locations require travel information
+   - Users can add travel info for some locations and leave others blank
+
+2. **Type Consistency**
+
+   - Each location's travel information must match its transportation type
+   - Airports require flight information
+   - Train stations require train information
+
+3. **Optional Detailed Information**
+   - All fields except type and basic details remain optional
+   - Encourage users to provide as much information as possible
+
+### Use Cases for Multiple Travel Locations
+
+1. **Complex Multi-Stop Journeys**
+
+   - Airport transfers with multiple stops
+   - Combining air and rail transportation
+   - Business or leisure trips with intricate travel plans
+
+2. **Group Travel Coordination**
+
+   - Different travelers arriving from different locations
+   - Synchronized pickup for multiple transportation modes
+
+3. **Connecting Flights and Trains**
+   - Precise tracking of interconnected travel segments
+   - Ensuring smooth transitions between different transportation methods
+
+### Best Practices
+
+- Provide a clear, intuitive UI for adding multiple travel information entries
+- Use dynamic form generation based on location types
+- Implement real-time validation
+- Allow easy addition and removal of travel information for each location
+- Consider integrating with external flight and train tracking APIs
+- Provide helpful tooltips and guidance for users
+
+### Performance and Data Considerations
+
+- Keep the travel information payload lightweight
+- Use efficient data structures for storing and processing multiple entries
+- Implement client-side and server-side validation
+- Consider caching and performance optimization techniques

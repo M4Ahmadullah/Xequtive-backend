@@ -56,7 +56,6 @@ router.post("/register", async (req: Request, res: Response) => {
       email,
       password,
       displayName: fullName,
-      phoneNumber: phone,
     });
 
     // Set custom claims for regular user

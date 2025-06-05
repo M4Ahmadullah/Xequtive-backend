@@ -37,20 +37,32 @@ class EmailService {
                 logger_1.default.info(`Email sending skipped (no API key): ${to}, ${subject}`);
                 return false;
             }
+            // DEVELOPMENT MODE: Simulate email sending without actually sending
+            // This helps us test the email flow without hitting Resend's limitations
+            logger_1.default.info(`[DEV MODE] Simulating email to: ${to}`);
+            logger_1.default.info(`[DEV MODE] Email subject: ${subject}`);
+            logger_1.default.info(`[DEV MODE] Email content: ${text || html.substring(0, 100)}...`);
+            // Return true to simulate success
+            return true;
+            // COMMENTED OUT FOR NOW - Uncomment this for production use
+            /*
             const resend = this.initializeResend();
             const { data, error } = await resend.emails.send({
-                from: this.senderAddress,
-                to,
-                subject,
-                html,
-                text: text || "",
+              from: this.senderAddress,
+              to,
+              subject,
+              html,
+              text: text || "",
             });
+      
             if (error) {
-                logger_1.default.error(`Failed to send email: ${error.message}`);
-                return false;
+              logger.error(`Failed to send email: ${error.message}`);
+              return false;
             }
-            logger_1.default.info(`Email sent successfully: ${data?.id}`);
+      
+            logger.info(`Email sent successfully: ${data?.id}`);
             return true;
+            */
         }
         catch (error) {
             logger_1.default.error(`Error sending email: ${error.message}`);
@@ -450,5 +462,5 @@ exports.EmailService = EmailService;
 EmailService.resend = null;
 EmailService.senderAddress = process.env.EMAIL_SENDER_ADDRESS || "Xequtive <onboarding@resend.dev>";
 EmailService.resendApiKey = process.env.RESEND_API_KEY || "";
-EmailService.frontendUrl = env_1.env.email.frontendUrl || "http://localhost:3000";
-EmailService.logoUrl = env_1.env.email.logoUrl || "http://localhost:3000/logo.png";
+EmailService.frontendUrl = env_1.env.email.frontendUrl || "";
+EmailService.logoUrl = env_1.env.email.logoUrl || "";

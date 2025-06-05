@@ -19,6 +19,15 @@ import {
   isAtAirport,
 } from "../config/specialZones";
 import { getTimeMultiplier, getTimeSurcharge } from "../config/timePricing";
+import { isPeakHour, isWeekend, isHoliday } from "../config/timePricing";
+
+// Additional equipment fees
+const EQUIPMENT_FEES = {
+  BABY_SEAT: 10.0, // Baby Seat (0-18 Months)
+  CHILD_SEAT: 10.0, // Child Seat (18 Months - 4 Years)
+  BOOSTER_SEAT: 10.0, // Booster Seat (4-6 Years)
+  WHEELCHAIR: 25.0, // Foldable Wheelchair
+};
 
 export class FareService {
   private static readonly BASE_URL =
@@ -75,26 +84,6 @@ export class FareService {
         dropoffAirport: airportsDropoff.length > 0 ? airportsDropoff[0] : null,
       };
 
-      // Log special conditions
-      if (airports.pickupAirport) {
-        const airport =
-          AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
-        console.log(
-          `Detected airport pickup at ${
-            airport?.name || airports.pickupAirport
-          }`
-        );
-      }
-      if (airports.dropoffAirport) {
-        const airport =
-          AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
-        console.log(
-          `Detected airport dropoff at ${
-            airport?.name || airports.dropoffAirport
-          }`
-        );
-      }
-
       // Calculate fare for each vehicle type
       const allVehicleTypes = Object.values(vehicleTypes);
       const vehicleOptions: VehicleOption[] = [];
@@ -111,7 +100,8 @@ export class FareService {
           airports,
           hasCongeistionCharge &&
             isZoneActive("CONGESTION_CHARGE", requestDate),
-          hasDartfordCrossing
+          hasDartfordCrossing,
+          request.passengers
         );
 
         // Return vehicle option with calculated price
@@ -128,86 +118,6 @@ export class FareService {
 
       // Sort vehicle options by price (ascending)
       vehicleOptions.sort((a, b) => a.price.amount - b.price.amount);
-
-      // Compile special location notifications
-      const notifications = [];
-
-      // Airport notifications
-      if (airports.pickupAirport) {
-        const airport =
-          AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
-        if (airport) {
-          notifications.push(
-            `Your journey includes airport pickup at ${
-              airport.name
-            }. A £${airport.fees.pickup.toFixed(2)} fee has been added.`
-          );
-        }
-      }
-
-      if (airports.dropoffAirport) {
-        const airport =
-          AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
-        if (airport) {
-          notifications.push(
-            `Your journey includes airport dropoff at ${
-              airport.name
-            }. A £${airport.fees.dropoff.toFixed(2)} fee has been added.`
-          );
-        }
-      }
-
-      // Congestion charge notification
-      if (hasCongeistionCharge) {
-        // Check if congestion charge is active at the requested time
-        if (isZoneActive("CONGESTION_CHARGE", requestDate)) {
-          notifications.push(
-            `Your route passes through the Congestion Charge Zone. A £${SPECIAL_ZONES.CONGESTION_CHARGE.fee.toFixed(
-              2
-            )} charge has been added.`
-          );
-        } else {
-          notifications.push(
-            "Your journey passes through the Congestion Charge Zone, but outside charging hours (Monday-Friday, 7am-6pm)."
-          );
-        }
-      }
-
-      // Add notifications for other special zones
-      for (const zoneKey of specialZones) {
-        // Skip congestion charge as it's already handled
-        if (
-          zoneKey === "CONGESTION_CHARGE" ||
-          zoneKey === "DARTFORD_CROSSING"
-        ) {
-          continue;
-        }
-
-        const zone = SPECIAL_ZONES[zoneKey as keyof typeof SPECIAL_ZONES];
-        if (zone) {
-          // Check if zone is active at requested time
-          if (!zone.operatingHours || isZoneActive(zoneKey, requestDate)) {
-            notifications.push(
-              `Your route passes through ${zone.name}. A £${zone.fee.toFixed(
-                2
-              )} charge has been added.`
-            );
-          } else {
-            notifications.push(
-              `Your route passes through ${zone.name}, but outside charging hours.`
-            );
-          }
-        }
-      }
-
-      // Dartford crossing notification
-      if (hasDartfordCrossing) {
-        notifications.push(
-          `Your journey includes the Dartford Crossing. A £${SPECIAL_ZONES.DARTFORD_CROSSING.fee.toFixed(
-            2
-          )} charge has been added.`
-        );
-      }
 
       // Return just what the FareEstimateResponse interface expects
       return {
@@ -254,7 +164,17 @@ export class FareService {
     requestDate: Date,
     airports: { pickupAirport: string | null; dropoffAirport: string | null },
     hasCongestionCharge: boolean,
-    hasDartfordCrossing: boolean
+    hasDartfordCrossing: boolean,
+    passengers?: {
+      count: number;
+      checkedLuggage: number;
+      mediumLuggage: number;
+      handLuggage: number;
+      babySeat: number;
+      childSeat: number;
+      boosterSeat: number;
+      wheelchair: number;
+    }
   ): VehiclePriceInfo {
     console.log(`Base fare: £${vehicleType.baseRate}`);
     console.log(`Per-mile rate: £${vehicleType.perMileRate}/mile`);
@@ -265,9 +185,8 @@ export class FareService {
     const timeMultiplier = getTimeMultiplier(requestDate);
     console.log(`Time multiplier: ${timeMultiplier}`);
 
-    // Get time-based surcharge using the new configuration
+    // Get time-based surcharge (silently applied)
     const timeSurcharge = getTimeSurcharge(requestDate);
-    console.log(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
 
     // Calculate base fare
     const baseFare = vehicleType.baseRate;
@@ -281,37 +200,53 @@ export class FareService {
       `Time-adjusted distance charge: £${timeAdjustedDistanceFare.toFixed(2)}`
     );
 
-    // Calculate initial fare
+    // Calculate initial fare (including time surcharge)
     let fareAmount = baseFare + timeAdjustedDistanceFare + timeSurcharge;
     console.log(`Initial fare: £${fareAmount.toFixed(2)}`);
 
-    // Add additional stop fees
-    if (additionalStops > 0 && vehicleType.additionalStopFee) {
-      const stopFee = additionalStops * vehicleType.additionalStopFee;
-      fareAmount += stopFee;
-      console.log(
-        `After stop fees: £${fareAmount.toFixed(2)} (added £${stopFee.toFixed(
-          2
-        )} for ${additionalStops} stops)`
-      );
+    const specialLocationMessages: string[] = [];
+    const specialFees: { name: string; amount: number }[] = [];
+    const additionalRequestFees: { name: string; amount: number }[] = [];
+
+    // Add special equipment fees if requested
+    if (passengers) {
+      // Add special equipment fees
+      if (passengers.babySeat > 0) {
+        const fee = passengers.babySeat * EQUIPMENT_FEES.BABY_SEAT;
+        fareAmount += fee;
+        additionalRequestFees.push({ name: "Baby Seats", amount: fee });
+      }
+
+      if (passengers.childSeat > 0) {
+        const fee = passengers.childSeat * EQUIPMENT_FEES.CHILD_SEAT;
+        fareAmount += fee;
+        additionalRequestFees.push({ name: "Child Seats", amount: fee });
+      }
+
+      if (passengers.boosterSeat > 0) {
+        const fee = passengers.boosterSeat * EQUIPMENT_FEES.BOOSTER_SEAT;
+        fareAmount += fee;
+        additionalRequestFees.push({ name: "Booster Seats", amount: fee });
+      }
+
+      if (passengers.wheelchair > 0) {
+        const fee = passengers.wheelchair * EQUIPMENT_FEES.WHEELCHAIR;
+        fareAmount += fee;
+        additionalRequestFees.push({ name: "Wheelchairs", amount: fee });
+      }
     }
 
-    // Add special charges and location fees
-    const specialLocationMessages = [];
-
-    // Check for airports
+    // Add special location fees
     if (airports.pickupAirport) {
       const airport = AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
       if (airport) {
-        const pickupFee = airport.fees.pickup;
-        fareAmount += pickupFee;
-        console.log(
-          `Airport pickup fee for ${airport.name}: £${pickupFee.toFixed(2)}`
-        );
+        fareAmount += airport.fees.pickup;
+        specialFees.push({
+          name: "Airport Pickup",
+          amount: airport.fees.pickup,
+        });
         specialLocationMessages.push(
-          `Your journey includes airport pickup at ${
-            airport.name
-          }. A £${pickupFee.toFixed(2)} fee has been added.`
+          `Airport pickup at ${airport.name}: £${airport.fees.pickup.toFixed(2)}`
         );
       }
     }
@@ -320,51 +255,53 @@ export class FareService {
       const airport =
         AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
       if (airport) {
-        const dropoffFee = airport.fees.dropoff;
-        fareAmount += dropoffFee;
-        console.log(
-          `Airport dropoff fee for ${airport.name}: £${dropoffFee.toFixed(2)}`
-        );
+        fareAmount += airport.fees.dropoff;
+        specialFees.push({
+          name: "Airport Dropoff",
+          amount: airport.fees.dropoff,
+        });
         specialLocationMessages.push(
-          `Your journey includes airport dropoff at ${
-            airport.name
-          }. A £${dropoffFee.toFixed(2)} fee has been added.`
+          `Airport dropoff at ${airport.name}: £${airport.fees.dropoff.toFixed(2)}`
         );
       }
     }
 
-    // Add congestion charge
     if (hasCongestionCharge) {
-      const congestionCharge = SPECIAL_ZONES.CONGESTION_CHARGE.fee;
-      fareAmount += congestionCharge;
-      console.log(`Added congestion charge: £${congestionCharge.toFixed(2)}`);
+      fareAmount += SPECIAL_ZONES.CONGESTION_CHARGE.fee;
+      specialFees.push({
+        name: "Congestion Charge",
+        amount: SPECIAL_ZONES.CONGESTION_CHARGE.fee,
+      });
       specialLocationMessages.push(
-        `Your route passes through the Congestion Charge Zone. A £${congestionCharge.toFixed(
-          2
-        )} charge has been added.`
+        `Congestion charge: £${SPECIAL_ZONES.CONGESTION_CHARGE.fee.toFixed(2)}`
       );
     }
 
-    // Add Dartford Crossing fee
     if (hasDartfordCrossing) {
-      const dartfordFee = SPECIAL_ZONES.DARTFORD_CROSSING.fee;
-      fareAmount += dartfordFee;
-      console.log(`Added Dartford Crossing fee: £${dartfordFee.toFixed(2)}`);
+      fareAmount += SPECIAL_ZONES.DARTFORD_CROSSING.fee;
+      specialFees.push({
+        name: "Dartford Crossing",
+        amount: SPECIAL_ZONES.DARTFORD_CROSSING.fee,
+      });
       specialLocationMessages.push(
-        `Your journey includes the Dartford Crossing. A £${dartfordFee.toFixed(
-          2
-        )} charge has been added.`
+        `Dartford crossing fee: £${SPECIAL_ZONES.DARTFORD_CROSSING.fee.toFixed(2)}`
+      );
+    }
+
+    // Add additional stop fees
+    let additionalStopFees = 0;
+    if (additionalStops > 0 && vehicleType.additionalStopFee) {
+      additionalStopFees = additionalStops * vehicleType.additionalStopFee;
+      fareAmount += additionalStopFees;
+      specialLocationMessages.push(
+        `Additional stop fees: £${additionalStopFees.toFixed(2)}`
       );
     }
 
     // Apply minimum fare if needed
     if (fareAmount < vehicleType.minimumFare) {
       console.log(
-        `Fare £${fareAmount.toFixed(
-          2
-        )} is below minimum fare £${vehicleType.minimumFare.toFixed(
-          2
-        )}, using minimum fare`
+        `Fare £${fareAmount.toFixed(2)} is below minimum fare £${vehicleType.minimumFare.toFixed(2)}, using minimum fare`
       );
       fareAmount = vehicleType.minimumFare;
     }
@@ -380,6 +317,13 @@ export class FareService {
         specialLocationMessages.length > 0
           ? specialLocationMessages
           : undefined,
+      breakdown: {
+        baseFare,
+        distanceFare: timeAdjustedDistanceFare,
+        additionalStopFees,
+        specialFees,
+        additionalRequestFees,
+      },
     };
   }
 }

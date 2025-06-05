@@ -37,12 +37,7 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
             address: zod_1.z.string().min(1, "Dropoff address is required"),
             coordinates: coordinatesSchema,
         }),
-        additionalStops: zod_1.z
-            .array(zod_1.z.object({
-            address: zod_1.z.string().min(1, "Additional stop address is required"),
-            coordinates: coordinatesSchema,
-        }))
-            .optional(),
+        stops: zod_1.z.array(zod_1.z.string()).optional(),
     }),
     datetime: zod_1.z.object({
         date: zod_1.z
@@ -53,9 +48,14 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
             .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
     }),
     passengers: zod_1.z.object({
-        count: zod_1.z.number().int().min(1).max(8),
+        count: zod_1.z.number().int().min(1).max(16),
         checkedLuggage: zod_1.z.number().int().min(0).max(8),
         handLuggage: zod_1.z.number().int().min(0).max(8),
+        mediumLuggage: zod_1.z.number().int().min(0).max(8),
+        babySeat: zod_1.z.number().int().min(0).max(5),
+        boosterSeat: zod_1.z.number().int().min(0).max(5),
+        childSeat: zod_1.z.number().int().min(0).max(5),
+        wheelchair: zod_1.z.number().int().min(0).max(2),
     }),
 });
 // Booking validation
@@ -79,7 +79,27 @@ exports.bookingSchema = zod_1.z.object({
     specialRequests: zod_1.z.string().optional(),
     fareEstimate: zod_1.z.number().positive(),
 });
-// Enhanced booking request validation for first step
+// Flight information validation
+const flightInformationSchema = zod_1.z.object({
+    airline: zod_1.z.string().min(1, "Airline name is required"),
+    flightNumber: zod_1.z.string().min(1, "Flight number is required"),
+    departureAirport: zod_1.z.string().optional(),
+    arrivalAirport: zod_1.z.string().optional(),
+    scheduledDeparture: zod_1.z.string().datetime({ offset: true }),
+    actualDeparture: zod_1.z.string().datetime({ offset: true }).optional(),
+    status: zod_1.z.enum(["on-time", "delayed", "cancelled"]).optional(),
+});
+// Train information validation
+const trainInformationSchema = zod_1.z.object({
+    trainOperator: zod_1.z.string().min(1, "Train operator is required"),
+    trainNumber: zod_1.z.string().min(1, "Train number is required"),
+    departureStation: zod_1.z.string().optional(),
+    arrivalStation: zod_1.z.string().optional(),
+    scheduledDeparture: zod_1.z.string().datetime({ offset: true }),
+    actualDeparture: zod_1.z.string().datetime({ offset: true }).optional(),
+    status: zod_1.z.enum(["on-time", "delayed", "cancelled"]).optional(),
+});
+// Update the enhanced booking create schema to include optional travel information
 exports.enhancedBookingCreateSchema = zod_1.z.object({
     customer: zod_1.z.object({
         fullName: zod_1.z.string().min(1, "Full name is required"),
@@ -114,15 +134,29 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
                 .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
         }),
         passengers: zod_1.z.object({
-            count: zod_1.z.number().int().min(1).max(8),
+            count: zod_1.z.number().int().min(1).max(16),
             checkedLuggage: zod_1.z.number().int().min(0).max(8),
             handLuggage: zod_1.z.number().int().min(0).max(8),
+            mediumLuggage: zod_1.z.number().int().min(0).max(8),
+            babySeat: zod_1.z.number().int().min(0).max(5),
+            childSeat: zod_1.z.number().int().min(0).max(5),
+            boosterSeat: zod_1.z.number().int().min(0).max(5),
+            wheelchair: zod_1.z.number().int().min(0).max(2),
         }),
         vehicle: zod_1.z.object({
             id: zod_1.z.string().min(1, "Vehicle ID is required"),
             name: zod_1.z.string().min(1, "Vehicle name is required"),
         }),
         specialRequests: zod_1.z.string().optional(),
+        travelInformation: zod_1.z
+            .object({
+            type: zod_1.z.enum(["flight", "train"]),
+            details: zod_1.z.discriminatedUnion("type", [
+                flightInformationSchema.extend({ type: zod_1.z.literal("flight") }),
+                trainInformationSchema.extend({ type: zod_1.z.literal("train") }),
+            ]),
+        })
+            .optional(),
     }),
 });
 // Booking confirmation validation for second step

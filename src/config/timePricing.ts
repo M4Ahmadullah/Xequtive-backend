@@ -43,13 +43,13 @@ export interface TimeMultipliers {
   holiday: number; // Holiday multiplier
 }
 
-// Pricing surcharges for different time periods (fixed amounts)
+// Pricing surcharges for different time periods
 export interface TimeSurcharges {
-  weekdayPeak: number; // Fixed amount added during weekday peak hours
-  weekdayOffPeak: number; // Fixed amount added during weekday off-peak hours
-  weekendPeak: number; // Fixed amount added during weekend peak hours
-  weekendStandard: number; // Fixed amount added during weekend standard hours
-  holiday: number; // Fixed amount added on holidays
+  weekdayPeak: number; // Weekday peak hours surcharge
+  weekdayOffPeak: number; // Weekday off-peak hours surcharge
+  weekendPeak: number; // Weekend peak hours surcharge
+  weekendStandard: number; // Weekend standard hours surcharge
+  holiday: number; // Holiday surcharge
 }
 
 // Define peak hours for weekdays
@@ -148,7 +148,7 @@ export const DEFAULT_MULTIPLIERS: TimeMultipliers = {
   holiday: 1.5, // 50% increase on holidays
 };
 
-// Define pricing surcharges (fixed amounts)
+// Define pricing surcharges
 export const DEFAULT_SURCHARGES: TimeSurcharges = {
   weekdayPeak: 3.54, // £3.54 additional during peak weekday
   weekdayOffPeak: 0, // No additional charge
@@ -206,7 +206,7 @@ export function isWeekend(date: Date): boolean {
 }
 
 /**
- * Checks if a given date is during peak hours
+ * Checks if a given date falls within peak hours
  * @param date The date to check
  * @returns Boolean indicating if the date is during peak hours
  */
@@ -214,89 +214,103 @@ export function isPeakHour(date: Date): boolean {
   const day = date.getDay();
   const hour = date.getHours();
 
-  // Check if it's a weekday
-  if (day >= DayOfWeek.MONDAY && day <= DayOfWeek.FRIDAY) {
-    // Check against weekday peak hours
-    return WEEKDAY_PEAK_HOURS.some(
-      (slot) => hour >= slot.startHour && hour < slot.endHour
-    );
+  // Check weekday peak hours
+  if (
+    [
+      DayOfWeek.MONDAY,
+      DayOfWeek.TUESDAY,
+      DayOfWeek.WEDNESDAY,
+      DayOfWeek.THURSDAY,
+      DayOfWeek.FRIDAY,
+    ].includes(day)
+  ) {
+    for (const slot of WEEKDAY_PEAK_HOURS) {
+      if (hour >= slot.startHour && hour < slot.endHour) {
+        return true;
+      }
+    }
   }
-  // Otherwise it's a weekend
-  else {
-    // Check against weekend peak hours
-    return WEEKEND_PEAK_HOURS.some(
-      (slot) => hour >= slot.startHour && hour < slot.endHour
-    );
+
+  // Check weekend peak hours
+  if (day === DayOfWeek.SATURDAY || day === DayOfWeek.SUNDAY) {
+    for (const slot of WEEKEND_PEAK_HOURS) {
+      if (hour >= slot.startHour && hour < slot.endHour) {
+        return true;
+      }
+    }
   }
+
+  return false;
 }
 
 /**
  * Gets the time-based multiplier for a given date
- * @param date The date to check
- * @returns The appropriate multiplier for the date
+ * @param date The date to get the multiplier for
+ * @returns The applicable multiplier for the given date and time
  */
 export function getTimeMultiplier(date: Date): number {
-  // First check if it's a holiday
+  // Check holidays first
   if (isHoliday(date)) {
     return DEFAULT_MULTIPLIERS.holiday;
   }
 
-  // Check if it's a weekend
-  if (isWeekend(date)) {
-    // Check if it's peak weekend hours
-    return isPeakHour(date)
+  // Check weekend status
+  const weekend = isWeekend(date);
+  const peak = isPeakHour(date);
+
+  if (weekend) {
+    return peak
       ? DEFAULT_MULTIPLIERS.weekendPeak
       : DEFAULT_MULTIPLIERS.weekendStandard;
   }
 
-  // It's a weekday, check if it's peak hours
-  return isPeakHour(date)
+  return peak
     ? DEFAULT_MULTIPLIERS.weekdayPeak
     : DEFAULT_MULTIPLIERS.weekdayOffPeak;
 }
 
 /**
  * Gets the time-based surcharge for a given date
- * @param date The date to check
- * @returns The appropriate surcharge for the date
+ * @param date The date to get the surcharge for
+ * @returns The applicable surcharge for the given date and time
  */
 export function getTimeSurcharge(date: Date): number {
-  // First check if it's a holiday
+  // Check holidays first
   if (isHoliday(date)) {
     return DEFAULT_SURCHARGES.holiday;
   }
 
-  // Check if it's a weekend
-  if (isWeekend(date)) {
-    // Check if it's peak weekend hours
-    return isPeakHour(date)
+  // Check weekend status
+  const weekend = isWeekend(date);
+  const peak = isPeakHour(date);
+
+  if (weekend) {
+    return peak
       ? DEFAULT_SURCHARGES.weekendPeak
       : DEFAULT_SURCHARGES.weekendStandard;
   }
 
-  // It's a weekday, check if it's peak hours
-  return isPeakHour(date)
+  return peak
     ? DEFAULT_SURCHARGES.weekdayPeak
     : DEFAULT_SURCHARGES.weekdayOffPeak;
 }
 
 /**
- * Updates holiday dates for a specific year
- * This should be called at the beginning of each year or when holiday dates are known
+ * Updates the holiday list for a specific year
  * @param year The year to update holidays for
- * @param holidayUpdates Array of holidays with their updated dates
+ * @param holidayUpdates The updated holiday list
  */
 export function updateHolidays(year: number, holidayUpdates: Holiday[]): void {
-  // Filter out non-fixed holidays from the current list
+  // Filter out non-fixed holidays from the current year
   const fixedHolidays = UK_HOLIDAYS.filter((h) => h.fixedDate);
 
-  // Add the updated non-fixed holidays for the specified year
-  const updatedHolidays = [
-    ...fixedHolidays,
-    ...holidayUpdates.map((h) => ({ ...h, year })),
-  ];
+  // Add the updated holidays for the specified year
+  const yearSpecificHolidays = holidayUpdates.map((h) => ({
+    ...h,
+    year: year,
+  }));
 
-  // Replace the current holidays with the updated list
-  UK_HOLIDAYS.length = 0;
-  UK_HOLIDAYS.push(...updatedHolidays);
+  // Combine fixed and year-specific holidays
+  UK_HOLIDAYS.length = 0; // Clear the array
+  UK_HOLIDAYS.push(...fixedHolidays, ...yearSpecificHolidays);
 }

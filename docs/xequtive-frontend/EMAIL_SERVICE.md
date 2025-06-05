@@ -4,13 +4,25 @@
 
 Xequtive uses [Resend](https://resend.com) for sending transactional emails. The email sending functionality is fully implemented in the backend, and the frontend only needs to make API calls that trigger email sending when appropriate.
 
-## Configuration Status
+## Current Development Status
 
-The email service is **fully configured in the backend** and ready to use. The backend handles:
+> **IMPORTANT NOTE FOR FRONTEND TEAM**:
+>
+> The email service is currently running in **development simulation mode**. This means:
+>
+> - Email API endpoints will return success responses
+> - Verification tokens and reset links are still generated and work correctly
+> - No actual emails are being sent to users
+> - Backend logs show what would have been sent
+>
+> This allows frontend development to proceed without needing real email delivery.
+> When we acquire and verify our domain, we'll switch to actually sending emails.
+
+The email service is **fully implemented in the backend** and ready to use. The backend handles:
 
 - API key management via environment variables
 - Email template rendering
-- Sending logic and retries
+- Sending logic and retries (currently simulated)
 - Error handling and logging
 
 All configuration is done through environment variables in the `.env` file. These are **required**:
@@ -29,6 +41,7 @@ LOGO_URL=http://localhost:3000/logo.png
 
 - The `FRONTEND_URL` and `LOGO_URL` environment variables are **required** and control where all email links point to and the logo image displayed in all email templates.
 - The system is currently configured to use `"Xequtive <onboarding@resend.dev>"` as the sender email address, which is the free onboarding address provided by Resend that doesn't require domain verification.
+- Full email functionality will be enabled once we purchase and verify our domain with Resend.
 
 There are no hardcoded URLs in the backend - everything is controlled through these environment variables.
 
@@ -40,8 +53,8 @@ The application supports the following email-based authentication flows:
 
 This is a two-step process:
 
-1. **Request Verification Email**: User enters email and name, backend validates and sends verification email
-2. **Complete Signup**: User clicks link in email, completes registration with password
+1. **Request Verification Email**: User enters email and name, backend validates and generates verification token
+2. **Complete Signup**: User clicks link in the verification URL, completes registration with password
 
 #### API Endpoints:
 
@@ -72,7 +85,8 @@ Response:
 }
 ```
 
-The email contains a link with format: `${FRONTEND_URL}/auth/signup?token=VERIFICATION_TOKEN&email=user@example.com`
+In development mode, the verification URL is logged in the backend console but not actually emailed.
+The URL format is: `${FRONTEND_URL}/auth/signup?token=VERIFICATION_TOKEN&email=user@example.com`
 
 **Step 2: Verify Token**
 
@@ -113,7 +127,7 @@ Request body:
 
 Also a two-step process:
 
-1. **Request Password Reset**: User enters email, backend sends reset link
+1. **Request Password Reset**: User enters email, backend generates reset token
 2. **Reset Password**: User clicks link and enters new password
 
 #### API Endpoints:
@@ -143,7 +157,8 @@ Response:
 }
 ```
 
-The email contains a link with format: `${FRONTEND_URL}/reset-password?token=RESET_TOKEN`
+In development mode, the reset URL is logged in the backend console but not actually emailed.
+The URL format is: `${FRONTEND_URL}/reset-password?token=RESET_TOKEN`
 
 **Step 2: Reset Password**
 
@@ -171,186 +186,36 @@ Response:
 }
 ```
 
-## How Emails Are Sent
+## Development Testing
 
-Emails are sent automatically by the backend in response to various events:
+During development, the frontend team should:
 
-1. **User Registration**: Welcome emails are sent when users complete registration
-2. **Email Verification**: Verification emails sent when users start the signup process
-3. **OAuth Sign-up**: Welcome emails are sent after OAuth sign-up is completed
-4. **Profile Completion**: Confirmation emails when users complete their profile
-5. **Password Management**: Emails for password reset requests and confirmations
-6. **Booking Flow**: Confirmation and cancellation emails during the booking process
+1. Use the backend endpoints normally
+2. Check with the backend team to get verification tokens and URLs from the backend logs
+3. For testing registration flows, use the verification token from logs to proceed
+4. For testing password reset, use the reset token from logs to proceed
 
-## Frontend Integration Points
+This approach allows complete testing of all flows without actual email delivery.
 
-Here are the key points where the frontend interacts with the backend that trigger emails.
+## Frontend Implementation Guidelines
 
-**Important Note**: Always use environment variables in your frontend code for API URLs. Don't hardcode `localhost` or other domains. Configure your frontend `.env` file with:
+When implementing features that trigger emails:
 
-```
-REACT_APP_API_BASE_URL=http://localhost:5555/api
-# or for production
-# REACT_APP_API_BASE_URL=https://api.xequtive.com/api
-```
+1. **Environment Variables**: Always use environment variables for API URLs and other configuration
+2. **Error Handling**: Don't show errors to users if email sending fails (the backend handles this gracefully)
+3. **User Feedback**: Provide appropriate feedback for actions that trigger emails (e.g., "Check your email for a reset link")
+4. **Testing**: In development, coordinate with backend to get tokens from backend logs
+5. **Retry Handling**: Provide UI options for users to request another verification or reset email if needed
 
-Then in your API calls:
+## Future Email Plans
 
-### User Authentication
+Once we purchase and verify our domain:
 
-- **Email Verification**: When a user begins signup, to verify their email
+1. We will update the EMAIL_SENDER_ADDRESS to use our domain
+2. Enable actual email sending in the backend
+3. No frontend changes will be needed - everything will just start working
 
-  ```typescript
-  // This API call will trigger a verification email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/auth/verify-email`,
-    {
-      email,
-      fullName,
-    }
-  );
-  ```
-
-- **User Registration**: When a user completes signup with verified email, a welcome email is sent
-
-  ```typescript
-  // This API call will trigger a welcome email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/auth/signup`,
-    {
-      email,
-      password,
-      fullName,
-      phone,
-    }
-  );
-  ```
-
-- **Profile Completion**: After OAuth login when completing profile
-
-  ```typescript
-  // This API call will trigger a profile completion email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/auth/complete-profile`,
-    {
-      fullName,
-      phone,
-    },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  ```
-
-- **Password Reset**: When requesting a password reset
-
-  ```typescript
-  // This API call will trigger a password reset email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/auth/forgot-password`,
-    {
-      email,
-    }
-  );
-  ```
-
-- **Password Reset Completion**: When the user sets a new password, a confirmation email is sent
-  ```typescript
-  // This API call will trigger a password reset confirmation email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/auth/reset-password`,
-    {
-      token,
-      password,
-    }
-  );
-  ```
-
-### Booking Management
-
-- **Booking Creation**: When a booking is confirmed
-
-  ```typescript
-  // This API call will trigger a booking confirmation email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/bookings/create-enhanced`,
-    bookingData,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  ```
-
-- **Booking Cancellation**: When a booking is cancelled
-  ```typescript
-  // This API call will trigger a booking cancellation email:
-  const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE_URL}/bookings/user/bookings/${bookingId}/cancel`,
-    { cancellationReason: reason },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  ```
-
-## Email URLs and Links
-
-All URLs in emails (links to verify email, reset password, go to dashboard, etc.) use the `FRONTEND_URL` environment variable. This means:
-
-- In development, links will point to your local frontend (e.g., `http://localhost:3000/verify?token=123`)
-- In production, links will point to your production frontend (e.g., `https://xequtive.com/verify?token=123`)
-
-The correct URL is determined by the backend environment variable, not hardcoded. This ensures emails work correctly in all environments.
-
-## Email Types and Templates
-
-All emails use responsive HTML templates with consistent branding. Here are the supported email types:
-
-### 1. Account Verification Email
-
-Sent when a user needs to verify their email address.
-
-### 2. Welcome Email
-
-Sent after a user creates an account to welcome them to the platform.
-
-### 3. Forgot Password Email
-
-Sent when a user requests a password reset.
-
-### 4. Password Reset Confirmation Email
-
-Sent when a user successfully resets their password.
-
-### 5. Profile Completion Email
-
-Sent when a user completes their profile with required information.
-
-### 6. Booking Confirmation Email
-
-Sent when a user successfully books a ride.
-
-### 7. Booking Cancellation Email
-
-Sent when a booking is cancelled.
-
-### 8. Booking Reminder Email
-
-Sent to remind users of upcoming bookings.
-
-## Testing Emails in Development
-
-During development, you can test the email sending functionality using the backend test endpoint:
-
-```typescript
-// Example of testing email sending from the frontend during development:
-const testEmail = async () => {
-  try {
-    await axios.post(`${process.env.REACT_APP_API_BASE_URL}/test-email`, {
-      to: "test@example.com",
-      name: "Test User",
-      type: "welcome", // One of: welcome, booking, cancel, reminder, profile, verify, password-reset, password-reset-confirm
-    });
-    console.log("Test email sent successfully");
-  } catch (error) {
-    console.error("Error sending test email:", error);
-  }
-};
-```
+This separation ensures the frontend can be developed and tested independently of the actual email delivery mechanism.
 
 ## Environment Setup Instructions
 

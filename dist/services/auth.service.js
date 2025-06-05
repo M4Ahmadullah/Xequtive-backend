@@ -393,7 +393,7 @@ class AuthService {
             // Update user in Firebase Auth
             await firebase_1.auth.updateUser(uid, {
                 displayName: fullName,
-                phoneNumber: phone,
+                // Remove phoneNumber from Firebase Auth to allow duplicates
             });
             // Get user email from Firebase
             const userRecord = await firebase_1.auth.getUser(uid);

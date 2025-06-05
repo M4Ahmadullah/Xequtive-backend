@@ -58,6 +58,10 @@ export interface BookingData {
   status: "pending" | "confirmed" | "completed" | "cancelled";
   createdAt: string;
   updatedAt: string;
+  travelInformation?: {
+    type: "flight" | "train";
+    details: FlightInformation | TrainInformation;
+  };
 }
 
 // New types for enhanced fare calculation
@@ -76,6 +80,11 @@ export interface BookingPassengersData {
   count: number;
   checkedLuggage: number;
   handLuggage: number;
+  mediumLuggage: number;
+  babySeat: number;
+  boosterSeat: number;
+  childSeat: number;
+  wheelchair: number;
 }
 
 export interface RouteDetails {
@@ -113,9 +122,10 @@ export interface VehiclePriceInfo {
   breakdown?: {
     baseFare: number;
     distanceFare: number;
-    timeSurcharge: number;
+    timeSurcharge?: number;
     additionalStopFees: number;
-    specialFees: { name: string; amount: number }[];
+    specialFees: { name: string; amount: number }[]; // Contains airport fees, congestion charge, etc.
+    additionalRequestFees: { name: string; amount: number }[]; // Contains baby seat, child seat, etc.
   };
 }
 
@@ -152,6 +162,16 @@ export interface FareEstimateRequest {
   additionalStops?: Coordinates[];
   vehicleType: string;
   date?: string; // Optional date field for time-based pricing (ISO format)
+  passengers?: {
+    count: number;
+    checkedLuggage: number;
+    mediumLuggage: number;
+    handLuggage: number;
+    babySeat: number;
+    childSeat: number;
+    boosterSeat: number;
+    wheelchair: number;
+  };
 }
 
 export interface FareEstimateResponse {
@@ -160,13 +180,64 @@ export interface FareEstimateResponse {
   duration_minutes: number;
 }
 
+export interface ValidationErrorDetails {
+  field: string;
+  message: string;
+  expected: string;
+  received: any;
+  suggestion: string;
+}
+
+export interface GroupedValidationErrors {
+  locations: ValidationErrorDetails[];
+  datetime: ValidationErrorDetails[];
+  passengers: ValidationErrorDetails[];
+}
+
+export interface MissingFields {
+  [key: string]: string | { [key: string]: string | null };
+}
+
+export interface ValidationErrorResponse {
+  summary: string;
+  receivedData: any;
+  missingFields?: MissingFields;
+  validationErrors: GroupedValidationErrors;
+  requiredFormat: {
+    locations: {
+      pickup: {
+        address: string;
+        coordinates: { lat: string; lng: string };
+      };
+      dropoff: {
+        address: string;
+        coordinates: { lat: string; lng: string };
+      };
+    };
+    datetime: {
+      date: string;
+      time: string;
+    };
+    passengers: {
+      count: string;
+      checkedLuggage: string;
+      handLuggage: string;
+      mediumLuggage: string;
+      babySeat: string;
+      boosterSeat: string;
+      childSeat: string;
+      wheelchair: string;
+    };
+  };
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: {
     message: string;
-    details?: string;
     code?: string;
+    details?: string | ValidationErrorResponse;
   };
 }
 
@@ -196,7 +267,12 @@ export interface EnhancedBookingData {
 
 export interface EnhancedBookingCreateRequest {
   customer: CustomerData;
-  booking: EnhancedBookingData;
+  booking: EnhancedBookingData & {
+    travelInformation?: {
+      type: "flight" | "train";
+      details: FlightInformation | TrainInformation;
+    };
+  };
 }
 
 export interface VerifiedFareData {
@@ -280,6 +356,10 @@ export interface PermanentBookingData {
   createdAt: string;
   updatedAt: string;
   temporaryBookingId?: string;
+  travelInformation?: {
+    type: "flight" | "train";
+    details: FlightInformation | TrainInformation;
+  };
 }
 
 // User booking management types
@@ -311,4 +391,24 @@ export interface BookingCancelResponse {
   message: string;
   id: string;
   status: string;
+}
+
+export interface FlightInformation {
+  airline: string;
+  flightNumber: string;
+  departureAirport?: string;
+  arrivalAirport?: string;
+  scheduledDeparture: string; // ISO datetime
+  actualDeparture?: string; // ISO datetime
+  status?: "on-time" | "delayed" | "cancelled";
+}
+
+export interface TrainInformation {
+  trainOperator: string;
+  trainNumber: string;
+  departureStation?: string;
+  arrivalStation?: string;
+  scheduledDeparture: string; // ISO datetime
+  actualDeparture?: string; // ISO datetime
+  status?: "on-time" | "delayed" | "cancelled";
 }

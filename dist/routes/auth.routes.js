@@ -79,7 +79,6 @@ router.post("/register", async (req, res) => {
             email,
             password,
             displayName: fullName,
-            phoneNumber: phone,
         });
         // Set custom claims for regular user
         await firebase_1.auth.setCustomUserClaims(userRecord.uid, { role: "user" });

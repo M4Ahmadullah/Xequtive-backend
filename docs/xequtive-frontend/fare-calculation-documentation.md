@@ -71,12 +71,12 @@ For journeys crossing the River Thames via the Dartford Crossing:
 | ------------------- | :-------------------: | :-----------: | :---------------: | :-------------: |
 | Standard Saloon     |           4           |     £5.00     |       £2.95       | £25.00 per hour |
 | Estate              |           4           |     £7.50     |       £3.95       | £30.00 per hour |
-| MPV (XL)            |           6           |    £12.50     |       £4.75       | £35.00 per hour |
-| MPV (XXL)           |           8           |    £20.00     |       £3.95       | £45.00 per hour |
-| Executive           |           3           |    £12.50     |       £4.95       | £45.00 per hour |
-| Executive MPV       |           8           |    £25.00     |       £5.95       | £55.00 per hour |
+| MPV-6               |           6           |    £12.50     |       £4.75       | £35.00 per hour |
+| MPV-8               |           8           |    £20.00     |       £3.95       | £45.00 per hour |
+| Executive Saloon    |           3           |    £12.50     |       £4.95       | £45.00 per hour |
 | VIP Executive\*     |           3           |      N/A      |        N/A        | £75.00 per hour |
 | VIP Executive MPV\* |           6           |      N/A      |        N/A        | £95.00 per hour |
+| WAV                 |           4           |    £12.50     |       £4.75       | £35.00 per hour |
 
 \*VIP vehicles are priced on a custom quote basis depending on specific requirements. These premium services are typically booked on an hourly basis (minimum 3-4 hours) rather than point-to-point journeys and include additional premium services by default. Please contact our team for a personalized quote.
 
@@ -96,30 +96,24 @@ For journeys crossing the River Thames via the Dartford Crossing:
   - Extra luggage space for airport transfers or shopping trips
   - Perfect balance of comfort and capacity
 
-- **MPV (XL)**: Ford Galaxy, Volkswagen Sharan
+- **MPV-6**: Ford Galaxy, Volkswagen Sharan
 
   - Accommodates 6 passengers with 4 luggage items
   - Spacious seating arrangement for family travel
   - Flexible interior configuration
 
-- **MPV (XXL)**: Ford Tourneo, Mercedes Vito
+- **MPV-8**: Ford Tourneo, Mercedes Vito
   - Accommodates 8 passengers with 6 luggage items
   - Maximum capacity for both passengers and luggage
   - Ideal for group travel or large families
 
 ### Premium Vehicles
 
-- **Executive**: Mercedes E-Class, BMW 5-Series
+- **Executive Saloon**: Mercedes E-Class, BMW 5-Series
 
   - Accommodates 3 passengers with 2 luggage items
   - WiFi, bottled water, professional chauffeur, flight tracking
   - Premium comfort for business travel and special occasions
-
-- **Executive MPV**: Mercedes V-Class, Volkswagen Caravelle
-
-  - Accommodates up to 8 passengers with 5 luggage items
-  - WiFi, bottled water, professional chauffeur, flight tracking, extra legroom
-  - Luxury group travel with premium amenities
 
 - **VIP Executive**: Mercedes S-Class, BMW 7-Series
 
@@ -131,6 +125,14 @@ For journeys crossing the River Thames via the Dartford Crossing:
   - Accommodates 6 passengers with 4 luggage items
   - WiFi, premium drinks, luxury interior, professional chauffeur, priority service, enhanced climate control
   - Premium group transportation with the highest level of service
+
+### Special Vehicles
+
+- **Wheelchair Accessible Vehicle (WAV)**: Specially adapted vans
+  - Accommodates 4 passengers + wheelchair, 2 luggage items
+  - Wheelchair ramp and secure wheelchair fastening
+  - Trained drivers for wheelchair assistance
+  - Ideal for accessible transportation needs
 
 ## Fare Calculation Formula
 
@@ -154,10 +156,9 @@ Where:
 | ----------------- | :---------------------: |
 | Standard Saloon   |          £2.50          |
 | Estate            |          £3.50          |
-| MPV (XL)          |          £4.50          |
-| MPV (XXL)         |          £4.50          |
-| Executive         |          £5.50          |
-| Executive MPV     |          £5.50          |
+| MPV-6             |          £4.50          |
+| MPV-8             |          £4.50          |
+| Executive Saloon  |          £5.50          |
 | VIP Executive     |           N/A           |
 | VIP Executive MPV |           N/A           |
 
@@ -169,10 +170,9 @@ Waiting time is charged at the following rates:
 | ----------------- | :------------: | :----------: |
 | Standard Saloon   |     £0.42      |    £25.00    |
 | Estate            |     £0.58      |    £30.00    |
-| MPV (XL)          |     £0.58      |    £35.00    |
-| MPV (XXL)         |     £0.67      |    £45.00    |
-| Executive         |     £0.67      |    £45.00    |
-| Executive MPV     |     £0.75      |    £55.00    |
+| MPV-6             |     £0.58      |    £35.00    |
+| MPV-8             |     £0.67      |    £45.00    |
+| Executive Saloon  |     £0.67      |    £45.00    |
 | VIP Executive     |     £1.25      |    £75.00    |
 | VIP Executive MPV |     £1.58      |    £95.00    |
 
@@ -184,10 +184,9 @@ For extended bookings, special day-trip rates apply:
 | ----------------- | :------------------: | :-------------------: |
 | Standard Saloon   |        £25.00        |        £20.00         |
 | Estate            |        £30.00        |        £25.00         |
-| MPV (XL)          |        £40.00        |        £30.00         |
-| MPV (XXL)         |        £45.00        |        £40.00         |
-| Executive         |        £45.00        |        £40.00         |
-| Executive MPV     |        £55.00        |        £50.00         |
+| MPV-6             |        £40.00        |        £30.00         |
+| MPV-8             |        £45.00        |        £40.00         |
+| Executive Saloon  |        £45.00        |        £40.00         |
 | VIP Executive     |         N/A          |          N/A          |
 | VIP Executive MPV |         N/A          |          N/A          |
 
@@ -311,11 +310,11 @@ Weekend Peak Charge = (Applicable rate)
 Total Fare = £12.50 + £123.75 + £7.50 + (Weekend charge) = £143.75 + (Weekend charge)
 ```
 
-### Example 3: MPV (XL) with Waiting Time and Additional Stops
+### Example 3: MPV-6 with Waiting Time and Additional Stops
 
 - **Distance**: 15 miles
 - **Time**: Monday, 2:00 PM (Off-Peak)
-- **Vehicle**: MPV (XL)
+- **Vehicle**: MPV-6
 - **Additional Stops**: 1
 - **Waiting Time**: 30 minutes
 
@@ -409,3 +408,50 @@ For customer convenience, all final fares are rounded up to the nearest £0.50.
 3. Child seats must be requested at the time of booking.
 4. A non-refundable deposit may be required for certain premium services or peak time bookings.
 5. Our drivers will wait up to 15 minutes beyond the scheduled pickup time for standard bookings, and 45 minutes for airport pickups (based on actual flight arrival time).
+
+## Passenger Information and Additional Services
+
+### Luggage Types and Charges
+
+1. **Hand Luggage**
+
+   - Small bags and carry-on items
+   - No additional charge
+   - Included in base fare
+
+2. **Medium Luggage** (NEW)
+
+   - Medium-sized bags
+   - Pricing: Every 2 medium bags are charged as 1 large bag at £10.00
+   - Example: 4 medium bags = 2 large bag equivalents = £20.00
+
+3. **Checked Luggage**
+   - Large suitcases and bags
+   - Standard rates apply based on vehicle type
+
+### Child Safety Equipment
+
+1. **Baby Seat (0-18 Months)**
+
+   - Maximum: 5 baby seats
+   - Price: £10.00 per seat
+   - Age Range: 0-18 Months
+
+2. **Child Seat (18 Months - 4 Years)**
+
+   - Maximum: 5 child seats
+   - Price: £10.00 per seat
+   - Age Range: 18 Months - 4 Years
+
+3. **Booster Seat (4-6 Years)**
+   - Maximum: 5 booster seats
+   - Price: £10.00 per seat
+   - Age Range: 4-6 Years
+
+### Accessibility Equipment
+
+1. **Foldable Wheelchair**
+   - £25.00 per wheelchair
+   - Must be foldable to fit in vehicle
+   - Driver assistance with loading/unloading included
+   - Available with all vehicle types except VIP Executive
