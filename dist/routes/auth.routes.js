@@ -192,8 +192,17 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
         res.cookie("token", authResult.token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-            sameSite: "strict",
+            sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+            domain: process.env.NODE_ENV === "production"
+                ? ".xequtive-frontend.vercel.app"
+                : undefined,
             maxAge: 432000 * 1000, // 5 days in milliseconds
+        });
+        console.log('Sign-in successful', {
+            uid: authResult.uid,
+            email: authResult.email,
+            cookieSet: true,
+            environment: process.env.NODE_ENV
         });
         // Return user data without the token
         return res.json({

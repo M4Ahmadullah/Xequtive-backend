@@ -8,6 +8,17 @@ export const verifyToken = async (
   next: NextFunction
 ) => {
   try {
+    // Log all incoming request details
+    console.log('Authentication Middleware - Request Details:', {
+      path: req.path,
+      method: req.method,
+      headers: {
+        authorization: req.headers.authorization ? 'Present' : 'Not Present',
+        cookie: req.headers.cookie ? 'Present' : 'Not Present'
+      },
+      cookies: Object.keys(req.cookies || {})
+    });
+
     // Check for token in cookies
     const tokenFromCookie = req.cookies?.token;
 
@@ -17,11 +28,14 @@ export const verifyToken = async (
 
     if (tokenFromCookie) {
       token = tokenFromCookie;
+      console.log('Token source: Cookie');
     } else if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
+      console.log('Token source: Authorization Header');
     }
 
     if (!token) {
+      console.warn('No token found in request');
       return res.status(401).json({
         success: false,
         error: {
@@ -33,8 +47,14 @@ export const verifyToken = async (
 
     try {
       // Verify the Firebase ID token
+      console.log('Attempting to verify token');
       const decodedToken = await auth.verifyIdToken(token);
       const userRecord = await auth.getUser(decodedToken.uid);
+
+      console.log('Token verified successfully', {
+        uid: userRecord.uid,
+        email: userRecord.email
+      });
 
       req.user = {
         uid: userRecord.uid,
@@ -44,6 +64,7 @@ export const verifyToken = async (
 
       next();
     } catch (error) {
+      console.error('Token verification failed:', error);
       return res.status(401).json({
         success: false,
         error: {
@@ -54,6 +75,7 @@ export const verifyToken = async (
       });
     }
   } catch (error) {
+    console.error('Unexpected error in authentication middleware:', error);
     next(error);
   }
 };
