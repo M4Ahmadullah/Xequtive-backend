@@ -246,36 +246,36 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
     const { email, password, fullName, phone } = req.body;
 
     try {
-      // Registration service
-      const userData = await AuthService.registerWithEmail(
-        email,
-        password,
-        fullName,
-        phone
-      );
+    // Registration service
+    const userData = await AuthService.registerWithEmail(
+      email,
+      password,
+      fullName,
+      phone
+    );
 
-      // Set the token as HttpOnly cookie
-      res.cookie("token", userData.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+    // Set the token as HttpOnly cookie
+    res.cookie("token", userData.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
         domain: process.env.NODE_ENV === "production" 
           ? ".xequtive-frontend.vercel.app" 
           : undefined,
-        maxAge: 432000 * 1000, // 5 days in milliseconds
-      });
+      maxAge: 432000 * 1000, // 5 days in milliseconds
+    });
 
       // Return user data without the token
-      return res.status(201).json({
-        success: true,
-        data: {
-          uid: userData.uid,
-          email: userData.email,
-          displayName: userData.displayName,
-          phone: userData.phone,
-          role: "user",
-        },
-      });
+    return res.status(201).json({
+      success: true,
+      data: {
+        uid: userData.uid,
+        email: userData.email,
+        displayName: userData.displayName,
+        phone: userData.phone,
+        role: "user",
+      },
+    });
     } catch (registrationError) {
       console.error("Registration error:", registrationError);
       return res.status(500).json({

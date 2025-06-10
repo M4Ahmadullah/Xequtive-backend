@@ -128,7 +128,7 @@ export class AuthService {
       
       // Check if user exists in Firebase Auth
       const userRecord = await auth.getUserByEmail(email);
-      
+
       // Fetch user profile from Firestore
       const userDoc = await firestore
         .collection("users")
