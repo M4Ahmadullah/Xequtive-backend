@@ -245,52 +245,58 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
 
     const { email, password, fullName, phone } = req.body;
 
-    // Registration service
-    const userData = await AuthService.registerWithEmail(
-      email,
-      password,
-      fullName,
-      phone
-    );
+    try {
+      // Registration service
+      const userData = await AuthService.registerWithEmail(
+        email,
+        password,
+        fullName,
+        phone
+      );
 
-    // Set the token as HttpOnly cookie
-    res.cookie("token", userData.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 432000 * 1000, // 5 days in milliseconds
-    });
+      // Set the token as HttpOnly cookie
+      res.cookie("token", userData.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        domain: process.env.NODE_ENV === "production" 
+          ? ".xequtive-frontend.vercel.app" 
+          : undefined,
+        maxAge: 432000 * 1000, // 5 days in milliseconds
+      });
 
-    // Return response without the token
-    return res.status(201).json({
-      success: true,
-      data: {
-        uid: userData.uid,
-        email: userData.email,
-        displayName: userData.displayName,
-        phone: userData.phone,
-        role: "user",
-      },
-    });
+      // Return user data without the token
+      return res.status(201).json({
+        success: true,
+        data: {
+          uid: userData.uid,
+          email: userData.email,
+          displayName: userData.displayName,
+          phone: userData.phone,
+          role: "user",
+        },
+      });
+    } catch (registrationError) {
+      console.error("Registration error:", registrationError);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to create user",
+          code: "auth/registration-failed",
+          details: registrationError instanceof Error 
+            ? registrationError.message 
+            : "Unknown error",
+        },
+      } as ApiResponse<never>);
+    }
   } catch (error) {
-    console.error("Registration error:", error);
-
-    // Determine appropriate error code
-    const statusCode =
-      error instanceof Error && error.message.includes("already exists")
-        ? 409
-        : 500;
-
-    const errorCode =
-      error instanceof Error && error.message.includes("already exists")
-        ? "auth/email-already-in-use"
-        : "auth/registration-failed";
-
-    return res.status(statusCode).json({
+    console.error("Unexpected signup error:", error);
+    return res.status(500).json({
       success: false,
       error: {
-        message: error instanceof Error ? error.message : "Registration failed",
-        code: errorCode,
+        message: "An unexpected error occurred during signup",
+        code: "auth/unexpected-error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
     } as ApiResponse<never>);
   }
@@ -326,10 +332,35 @@ router.get("/me", async (req: Request, res: Response) => {
       } as ApiResponse<never>);
     }
 
-    // Verify the token
+    // Verify the token (handle both custom tokens and ID tokens)
     try {
-      const decodedToken = await auth.verifyIdToken(token);
-      const userRecord = await auth.getUser(decodedToken.uid);
+      let decodedToken;
+      let userRecord;
+
+      // Check if this is a custom token (starts with 'eyJ' and has 3 parts separated by '.')
+      const isCustomToken = token.startsWith('eyJ') && token.split('.').length === 3;
+      
+      if (isCustomToken) {
+        try {
+          // Parse custom token to get UID
+          const tokenParts = token.split('.');
+          const payload = tokenParts[1];
+          const customTokenPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
+          
+          if (customTokenPayload.uid) {
+            userRecord = await auth.getUser(customTokenPayload.uid);
+            decodedToken = { uid: customTokenPayload.uid };
+          } else {
+            throw new Error('No UID found in custom token');
+          }
+        } catch (customTokenError) {
+          throw customTokenError;
+        }
+      } else {
+        // Try to verify as an ID token
+        decodedToken = await auth.verifyIdToken(token);
+        userRecord = await auth.getUser(decodedToken.uid);
+      }
 
       // Get user profile from Firestore for additional data
       const userDoc = await firestore

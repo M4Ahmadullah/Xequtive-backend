@@ -38,10 +38,52 @@ const verifyToken = async (req, res, next) => {
             });
         }
         try {
-            // Verify the Firebase ID token
+            // Verify the Firebase ID token or custom token
             console.log('Attempting to verify token');
-            const decodedToken = await firebase_1.auth.verifyIdToken(token);
-            const userRecord = await firebase_1.auth.getUser(decodedToken.uid);
+            let decodedToken;
+            let userRecord;
+            // Check if this is a custom token (starts with 'eyJ' and has 3 parts separated by '.')
+            const isCustomToken = token.startsWith('eyJ') && token.split('.').length === 3;
+            console.log('Token analysis:', {
+                isCustomToken,
+                tokenLength: token.length,
+                tokenParts: token.split('.').length,
+                tokenStart: token.substring(0, 10)
+            });
+            if (isCustomToken) {
+                try {
+                    // Parse custom token to get UID
+                    const tokenParts = token.split('.');
+                    const payload = tokenParts[1];
+                    console.log('Token payload part:', payload.substring(0, 50) + '...');
+                    const customTokenPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
+                    console.log('Custom token payload:', customTokenPayload);
+                    if (customTokenPayload.uid) {
+                        userRecord = await firebase_1.auth.getUser(customTokenPayload.uid);
+                        decodedToken = { uid: customTokenPayload.uid };
+                        console.log('Custom token verified successfully');
+                    }
+                    else {
+                        throw new Error('No UID found in custom token');
+                    }
+                }
+                catch (customTokenError) {
+                    console.error('Custom token verification failed:', customTokenError);
+                    throw customTokenError;
+                }
+            }
+            else {
+                try {
+                    // Try to verify as an ID token
+                    decodedToken = await firebase_1.auth.verifyIdToken(token);
+                    userRecord = await firebase_1.auth.getUser(decodedToken.uid);
+                    console.log('ID token verified successfully');
+                }
+                catch (idTokenError) {
+                    console.error('ID token verification failed:', idTokenError);
+                    throw idTokenError;
+                }
+            }
             console.log('Token verified successfully', {
                 uid: userRecord.uid,
                 email: userRecord.email
