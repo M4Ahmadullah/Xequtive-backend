@@ -4,13 +4,19 @@
   "description": "Backend for Xequtive taxi booking service",
   "main": "dist/index.js",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "test": "jest",
     "lint": "eslint . --ext .ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "docker:build": "docker build -t xequtive-backend .",
+    "docker:run": "docker run -p 8080:8080 xequtive-backend"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.15.3",

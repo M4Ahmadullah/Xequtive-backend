@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 // Define a schema for environment variables
 const envSchema = z.object({
   // Server configuration
-  PORT: z.string().default("5555"),
+  PORT: z.string().default("8080"),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -58,7 +58,7 @@ try {
 // Export validated environment variables
 export const env = {
   server: {
-    port: process.env.PORT || "5555",
+    port: process.env.PORT || "8080",
     nodeEnv: process.env.NODE_ENV || "development",
     isDev: process.env.NODE_ENV !== "production",
   },
