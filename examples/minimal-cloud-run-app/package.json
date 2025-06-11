@@ -1,0 +1,24 @@
+{
+  "name": "minimal-cloud-run-app",
+  "version": "1.0.0",
+  "description": "Minimal Node.js app for Google Cloud Run",
+  "main": "app.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "cloud-run",
+    "google-cloud"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+} 

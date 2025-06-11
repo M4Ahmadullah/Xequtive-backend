@@ -1,5 +1,7 @@
 node_modules
 npm-debug.log
+Dockerfile
+.dockerignore
 .git
 .gitignore
 README.md
@@ -22,4 +24,13 @@ cookies.txt
 cookies_new.txt
 token.json
 fly.toml
-start.sh 
+start.sh
+.env.*
+!.env.example
+.DS_Store
+logs
+*.tgz
+.npm
+.eslintcache
+.coverage
+app.yaml 

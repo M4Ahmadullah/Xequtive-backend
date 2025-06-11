@@ -3,21 +3,21 @@ runtime: nodejs18
 # Environment variables
 env_variables:
   NODE_ENV: production
-  Add your environment variables here
-  FIREBASE_PROJECT_ID: "your-firebase-project-id"
-  FIREBASE_PRIVATE_KEY: "your-base64-encoded-private-key"
-  FIREBASE_CLIENT_EMAIL: "your-firebase-client-email"
-  FIREBASE_API_KEY: "your-firebase-api-key"
-  JWT_SECRET: "your-jwt-secret"
-  ALLOWED_ORIGINS: "https://your-frontend-domain.com,https://another-domain.com"
-  MAPBOX_TOKEN: "your-mapbox-token"
-  BACKEND_GOOGLE_CALLBACK_URL: "https://your-app-id.appspot.com/api/auth/google/callback"
-  FRONTEND_URL: "https://your-frontend-domain.com"
-  LOGO_URL: "https://your-logo-url.com/logo.png"
-  GOOGLE_CLIENT_ID: "your-google-client-id"
-  GOOGLE_CLIENT_SECRET: "your-google-client-secret"
-  RESEND_API_KEY: "your-resend-api-key"
-  EMAIL_SENDER_ADDRESS: "noreply@yourdomain.com"
+  # Add your actual environment variables here as key-value pairs, e.g., FIREBASE_PROJECT_ID: "your-value"
+  # FIREBASE_PROJECT_ID: "your-firebase-project-id"
+  # FIREBASE_PRIVATE_KEY: "your-base64-encoded-private-key"
+  # FIREBASE_CLIENT_EMAIL: "your-firebase-client-email"
+  # FIREBASE_API_KEY: "your-firebase-api-key"
+  # JWT_SECRET: "your-jwt-secret"
+  # ALLOWED_ORIGINS: "https://your-frontend-domain.com,https://another-domain.com"
+  # MAPBOX_TOKEN: "your-mapbox-token"
+  # BACKEND_GOOGLE_CALLBACK_URL: "https://your-app-id.appspot.com/api/auth/google/callback"
+  # FRONTEND_URL: "https://your-frontend-domain.com"
+  # LOGO_URL: "https://your-logo-url.com/logo.png"
+  # GOOGLE_CLIENT_ID: "your-google-client-id"
+  # GOOGLE_CLIENT_SECRET: "your-google-client-secret"
+  # RESEND_API_KEY: "your-resend-api-key"
+  # EMAIL_SENDER_ADDRESS: "noreply@yourdomain.com"
 
 # Scaling configuration
 automatic_scaling:

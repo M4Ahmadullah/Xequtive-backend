@@ -55,6 +55,17 @@ app.use(cookieParser()); // Parse Cookie header and populate req.cookies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root endpoint for Cloud Run health checks
+app.get("/", (req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: "Hello from Cloud Run! Xequtive Backend is running.",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+    version: "1.0.0"
+  });
+});
+
 // Apply rate limiting to all API routes
 app.use("/api", apiLimiter);
 
