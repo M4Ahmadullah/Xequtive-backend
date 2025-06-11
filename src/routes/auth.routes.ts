@@ -182,10 +182,8 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
     res.cookie("token", authResult.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-      domain: process.env.NODE_ENV === "production" 
-        ? ".xequtive-frontend.vercel.app" 
-        : undefined,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
+      // Remove domain restriction to allow cross-origin authentication
       maxAge: 432000 * 1000, // 5 days in milliseconds
     });
 
@@ -258,10 +256,8 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
     res.cookie("token", userData.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-        domain: process.env.NODE_ENV === "production" 
-          ? ".xequtive-frontend.vercel.app" 
-          : undefined,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
+      // Remove domain restriction to allow cross-origin authentication
       maxAge: 432000 * 1000, // 5 days in milliseconds
     });
 
@@ -308,7 +304,7 @@ router.post("/signout", async (req: Request, res: Response) => {
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
 
   return res.status(200).json({
@@ -387,7 +383,7 @@ router.get("/me", async (req: Request, res: Response) => {
       res.clearCookie("token", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
 
       return res.status(401).json({
@@ -762,7 +758,8 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     res.cookie("token", tokenData.idToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
+      // Remove domain restriction to allow cross-origin authentication
       maxAge: 432000 * 1000, // 5 days in milliseconds
     });
 
