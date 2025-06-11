@@ -19,7 +19,7 @@ export const apiLimiter = rateLimit({
 // More strict limiter for auth endpoints to prevent brute force
 export const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 requests per windowMs
+  max: 30, // limit each IP to 30 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -35,7 +35,7 @@ export const authLimiter = rateLimit({
 // Specific limiter for booking creation to prevent abuse
 export const bookingLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // limit each IP to 5 booking creations per windowMs
+  max: 10, // limit each IP to 10 booking creations per windowMs
   standardHeaders: true,
   legacyHeaders: false,
   message: {
