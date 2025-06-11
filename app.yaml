@@ -1,0 +1,47 @@
+runtime: nodejs18
+
+# Environment variables
+env_variables:
+  NODE_ENV: production
+  Add your environment variables here
+  FIREBASE_PROJECT_ID: "your-firebase-project-id"
+  FIREBASE_PRIVATE_KEY: "your-base64-encoded-private-key"
+  FIREBASE_CLIENT_EMAIL: "your-firebase-client-email"
+  FIREBASE_API_KEY: "your-firebase-api-key"
+  JWT_SECRET: "your-jwt-secret"
+  ALLOWED_ORIGINS: "https://your-frontend-domain.com,https://another-domain.com"
+  MAPBOX_TOKEN: "your-mapbox-token"
+  BACKEND_GOOGLE_CALLBACK_URL: "https://your-app-id.appspot.com/api/auth/google/callback"
+  FRONTEND_URL: "https://your-frontend-domain.com"
+  LOGO_URL: "https://your-logo-url.com/logo.png"
+  GOOGLE_CLIENT_ID: "your-google-client-id"
+  GOOGLE_CLIENT_SECRET: "your-google-client-secret"
+  RESEND_API_KEY: "your-resend-api-key"
+  EMAIL_SENDER_ADDRESS: "noreply@yourdomain.com"
+
+# Scaling configuration
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+# Resource allocation
+resources:
+  cpu: 1
+  memory_gb: 0.5
+
+# Health check configuration
+liveness_check:
+  path: "/api/ping"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+readiness_check:
+  path: "/api/ping"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+  app_start_timeout_sec: 300 
