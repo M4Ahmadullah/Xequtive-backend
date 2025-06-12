@@ -10,17 +10,17 @@ if (!admin.apps.length) {
       env.firebase.privateKey && env.firebase.privateKey !== "missing" &&
       env.firebase.clientEmail && env.firebase.clientEmail !== "missing"
     ) {
-      const serviceAccount = {
-        projectId: env.firebase.projectId,
-        privateKey: env.firebase.privateKey,
-        clientEmail: env.firebase.clientEmail,
-      };
+  const serviceAccount = {
+    projectId: env.firebase.projectId,
+    privateKey: env.firebase.privateKey,
+    clientEmail: env.firebase.clientEmail,
+  };
 
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
 
-      console.log("Firebase Admin SDK initialized");
+  console.log("Firebase Admin SDK initialized");
     } else {
       console.warn("⚠️  Firebase credentials missing. Firebase features will be disabled.");
       // Initialize with minimal configuration for basic functionality

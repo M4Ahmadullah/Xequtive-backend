@@ -8,16 +8,8 @@ export const verifyToken = async (
   next: NextFunction
 ) => {
   try {
-    // Log all incoming request details
-    console.log('Authentication Middleware - Request Details:', {
-      path: req.path,
-      method: req.method,
-      headers: {
-        authorization: req.headers.authorization ? 'Present' : 'Not Present',
-        cookie: req.headers.cookie ? 'Present' : 'Not Present'
-      },
-      cookies: Object.keys(req.cookies || {})
-    });
+    // Only log auth failures for debugging
+    // console.log(`🔐 Auth check: ${req.method} ${req.path}`);
 
     // Check for token in cookies
     const tokenFromCookie = req.cookies?.token;
@@ -28,14 +20,11 @@ export const verifyToken = async (
 
     if (tokenFromCookie) {
       token = tokenFromCookie;
-      console.log('Token source: Cookie');
     } else if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
-      console.log('Token source: Authorization Header');
     }
 
     if (!token) {
-      console.warn('No token found in request');
       return res.status(401).json({
         success: false,
         error: {
@@ -46,58 +35,9 @@ export const verifyToken = async (
     }
 
     try {
-      // Verify the Firebase ID token or custom token
-      console.log('Attempting to verify token');
-      let decodedToken;
-      let userRecord;
-
-      // Check if this is a custom token (starts with 'eyJ' and has 3 parts separated by '.')
-      const isCustomToken = token.startsWith('eyJ') && token.split('.').length === 3;
-      
-      console.log('Token analysis:', {
-        isCustomToken,
-        tokenLength: token.length,
-        tokenParts: token.split('.').length,
-        tokenStart: token.substring(0, 10)
-      });
-      
-      if (isCustomToken) {
-        try {
-          // Parse custom token to get UID
-          const tokenParts = token.split('.');
-          const payload = tokenParts[1];
-          console.log('Token payload part:', payload.substring(0, 50) + '...');
-          
-          const customTokenPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-          console.log('Custom token payload:', customTokenPayload);
-          
-          if (customTokenPayload.uid) {
-            userRecord = await auth.getUser(customTokenPayload.uid);
-            decodedToken = { uid: customTokenPayload.uid };
-            console.log('Custom token verified successfully');
-          } else {
-            throw new Error('No UID found in custom token');
-          }
-        } catch (customTokenError) {
-          console.error('Custom token verification failed:', customTokenError);
-          throw customTokenError;
-        }
-      } else {
-        try {
-          // Try to verify as an ID token
-          decodedToken = await auth.verifyIdToken(token);
-          userRecord = await auth.getUser(decodedToken.uid);
-          console.log('ID token verified successfully');
-        } catch (idTokenError) {
-          console.error('ID token verification failed:', idTokenError);
-          throw idTokenError;
-        }
-      }
-
-      console.log('Token verified successfully', {
-        uid: userRecord.uid,
-        email: userRecord.email
-      });
+      // Verify the Firebase ID token
+      const decodedToken = await auth.verifyIdToken(token);
+      const userRecord = await auth.getUser(decodedToken.uid);
 
       req.user = {
         uid: userRecord.uid,
@@ -107,13 +47,16 @@ export const verifyToken = async (
 
       next();
     } catch (error) {
-      console.error('Token verification failed:', error);
+      // Only log authentication errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Auth error:', error instanceof Error ? error.message : 'Unknown error');
+      }
+      
       return res.status(401).json({
         success: false,
         error: {
           message: "Invalid or expired session",
           code: "auth/invalid-session",
-          details: error instanceof Error ? error.message : "Unknown error",
         },
       });
     }

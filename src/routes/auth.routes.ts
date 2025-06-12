@@ -328,35 +328,10 @@ router.get("/me", async (req: Request, res: Response) => {
       } as ApiResponse<never>);
     }
 
-    // Verify the token (handle both custom tokens and ID tokens)
+    // Verify the Firebase ID token
     try {
-      let decodedToken;
-      let userRecord;
-
-      // Check if this is a custom token (starts with 'eyJ' and has 3 parts separated by '.')
-      const isCustomToken = token.startsWith('eyJ') && token.split('.').length === 3;
-      
-      if (isCustomToken) {
-        try {
-          // Parse custom token to get UID
-          const tokenParts = token.split('.');
-          const payload = tokenParts[1];
-          const customTokenPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-          
-          if (customTokenPayload.uid) {
-            userRecord = await auth.getUser(customTokenPayload.uid);
-            decodedToken = { uid: customTokenPayload.uid };
-          } else {
-            throw new Error('No UID found in custom token');
-          }
-        } catch (customTokenError) {
-          throw customTokenError;
-        }
-      } else {
-        // Try to verify as an ID token
-        decodedToken = await auth.verifyIdToken(token);
-        userRecord = await auth.getUser(decodedToken.uid);
-      }
+      const decodedToken = await auth.verifyIdToken(token);
+      const userRecord = await auth.getUser(decodedToken.uid);
 
       // Get user profile from Firestore for additional data
       const userDoc = await firestore
@@ -382,8 +357,9 @@ router.get("/me", async (req: Request, res: Response) => {
       // Token is invalid - clear it and return not authenticated
       res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: false,
+        sameSite: "lax" as const,
+        path: "/",
       });
 
       return res.status(401).json({
@@ -576,21 +552,33 @@ router.get("/google/login", async (req: Request, res: Response) => {
 
 // Google OAuth Callback (from Google)
 router.get("/google/callback", async (req: Request, res: Response) => {
+  
   try {
     const { code, state: encodedState } = req.query;
+    console.log("🔑 Authorization code:", code ? "Present" : "Missing");
+    console.log("🏷️ State parameter:", encodedState ? "Present" : "Missing");
 
     if (!code || !encodedState) {
+      console.error("❌ Missing required parameters (code or state)");
       return res.redirect(`/?error=invalid_request`);
     }
 
     const state = decodeURIComponent(encodedState as string);
+    console.log("🔓 Decoded state:", state);
 
     // Extract redirect URL from state
     const [stateToken, redirectUrl] = state.split("|");
+    console.log("🎯 Redirect URL:", redirectUrl);
+    console.log("🎲 State token:", stateToken);
 
     // In a production app, validate the state token against stored value
 
     // Exchange the code for tokens
+    console.log("✅ Step 1: Exchanging authorization code for access token");
+    console.log("🔗 Google OAuth client ID:", env.googleOAuth.clientId ? "Present" : "Missing");
+    console.log("🔗 Google OAuth client secret:", env.googleOAuth.clientSecret ? "Present" : "Missing");
+    console.log("🔗 Callback URL:", env.googleOAuth.callbackUrl);
+    
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -605,13 +593,23 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       }),
     });
 
+    console.log("📡 Token response status:", tokenResponse.status);
     const tokenData = await tokenResponse.json();
+    console.log("📡 Token response data:", {
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      error: tokenData.error,
+      errorDescription: tokenData.error_description
+    });
 
     if (!tokenData.access_token) {
+      console.error("❌ Failed to get access token from Google");
+      console.error("❌ Token response:", tokenData);
       return res.redirect(`${redirectUrl}?error=token_exchange_failed`);
     }
 
     // Get user info using the access token
+    console.log("✅ Step 2: Getting user info from Google");
     const userInfoResponse = await fetch(
       "https://www.googleapis.com/oauth2/v3/userinfo",
       {
@@ -621,38 +619,56 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       }
     );
 
+    console.log("📡 User info response status:", userInfoResponse.status);
     const googleUser = await userInfoResponse.json();
+    console.log("👤 Google user data:", {
+      email: googleUser.email,
+      name: googleUser.name,
+      picture: !!googleUser.picture,
+      verified_email: googleUser.verified_email
+    });
 
     if (!googleUser.email) {
+      console.error("❌ No email received from Google user info");
       return res.redirect(`${redirectUrl}?error=invalid_user_data`);
     }
 
     // Create or get the user in Firebase
+    console.log("✅ Step 3: Creating or getting Firebase user");
     let firebaseUser;
     try {
       // Check if user exists by email
+      console.log("🔍 Checking if user exists in Firebase:", googleUser.email);
       firebaseUser = await auth.getUserByEmail(googleUser.email);
+      console.log("👤 Existing Firebase user found:", firebaseUser.uid);
     } catch (error) {
       // User doesn't exist, create a new one
+      console.log("➕ Creating new Firebase user");
       firebaseUser = await auth.createUser({
         email: googleUser.email,
         displayName: googleUser.name,
         photoURL: googleUser.picture,
       });
+      console.log("👤 New Firebase user created:", firebaseUser.uid);
 
       // Set custom claims for regular user
+      console.log("🏷️ Setting custom claims for new user");
       await auth.setCustomUserClaims(firebaseUser.uid, { role: "user" });
     }
 
     // Create or update user document in Firestore
+    console.log("✅ Step 4: Managing Firestore user document");
     const userDoc = firestore.collection("users").doc(firebaseUser.uid);
     const userSnapshot = await userDoc.get();
+    console.log("📄 User document exists:", userSnapshot.exists);
 
     // Check if profile data needs to be completed (e.g., phone number)
     const profileComplete = userSnapshot.exists && userSnapshot.data()?.phone;
+    console.log("✅ Profile complete:", profileComplete);
 
     if (!userSnapshot.exists) {
       // Create new user document
+      console.log("➕ Creating new Firestore user document");
       await userDoc.set({
         email: firebaseUser.email,
         fullName: googleUser.name,
@@ -662,18 +678,28 @@ router.get("/google/callback", async (req: Request, res: Response) => {
         authProvider: "google",
         createdAt: new Date().toISOString(),
       });
+      console.log("📄 User document created successfully");
     }
 
     // Generate a temporary code for the frontend
+    console.log("✅ Step 5: Generating temporary code for frontend");
     const tempCode = await AuthService.storeTemporaryCode(
       firebaseUser.uid,
       firebaseUser.email || ""
     );
+    console.log("🎫 Temporary code generated:", tempCode);
 
     // Redirect to frontend with temp code
-    res.redirect(`${redirectUrl}?code=${tempCode}`);
+    const finalRedirectUrl = `${redirectUrl}?code=${tempCode}`;
+    console.log("🎯 Final redirect URL:", finalRedirectUrl);
+    console.log("🎉 OAuth callback successful, redirecting to frontend");
+    res.redirect(finalRedirectUrl);
   } catch (error) {
-    console.error("OAuth callback error:", error);
+    console.error("💥 OAuth callback error - Full details:");
+    console.error("Error name:", error instanceof Error ? error.name : "Unknown");
+    console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    console.error("Error object:", error);
 
     // Extract the redirect URL from state or use default
     const redirectUrl = req.query.state
@@ -681,17 +707,24 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       : "/";
 
     // Redirect to frontend with error
+    console.log("❌ Redirecting to frontend with error");
     res.redirect(`${redirectUrl}?error=auth_failed`);
   }
 });
 
 // Frontend Code Exchange Endpoint
 router.post("/google/callback", async (req: Request, res: Response) => {
+  console.log("🔍 POST /api/auth/google/callback - Starting request processing");
+  console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
+  
   try {
     // Validate request
+    console.log("✅ Step 1: Validating request schema");
     try {
       googleCallbackSchema.parse(req.body);
+      console.log("✅ Schema validation passed");
     } catch (error) {
+      console.error("❌ Schema validation failed:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
@@ -706,11 +739,15 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     }
 
     const { code } = req.body;
+    console.log("🔑 Temporary code received:", code);
 
     // Validate the temporary code
+    console.log("✅ Step 2: Validating temporary code");
     const userData = await AuthService.validateTemporaryCode(code);
+    console.log("👤 User data from temp code:", userData);
 
     if (!userData) {
+      console.error("❌ Invalid or expired temporary code");
       return res.status(401).json({
         success: false,
         error: {
@@ -720,17 +757,32 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     }
 
     // Get user data
+    console.log("✅ Step 3: Getting user record from Firebase");
     const userRecord = await auth.getUser(userData.uid);
+    console.log("👤 Firebase user record:", {
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName
+    });
+
+    console.log("✅ Step 4: Getting user profile from Firestore");
     const userDoc = await firestore.collection("users").doc(userData.uid).get();
     const userProfile = userDoc.data();
+    console.log("📄 User profile data:", userProfile);
 
     // Create a custom token with extended expiration
+    console.log("✅ Step 5: Creating custom token");
     const customToken = await auth.createCustomToken(userRecord.uid, {
       role: userProfile?.role || "user",
       expiresIn: 432000, // 5 days in seconds
     });
+    console.log("🎫 Custom token created successfully (length:", customToken.length, ")");
 
     // Exchange custom token for ID token
+    console.log("✅ Step 6: Exchanging custom token for ID token");
+    console.log("🔗 Firebase API Key available:", !!env.firebase.apiKey);
+    console.log("🔗 API URL:", `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey?.substring(0, 10)}...`);
+    
     const idTokenResponse = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey}`,
       {
@@ -743,41 +795,63 @@ router.post("/google/callback", async (req: Request, res: Response) => {
       }
     );
 
+    console.log("📡 ID token response status:", idTokenResponse.status);
     const tokenData = await idTokenResponse.json();
+    console.log("📡 ID token response data:", {
+      hasIdToken: !!tokenData.idToken,
+      hasRefreshToken: !!tokenData.refreshToken,
+      error: tokenData.error
+    });
 
     if (!tokenData.idToken) {
+      console.error("❌ Failed to get ID token from Firebase");
+      console.error("❌ Token response:", tokenData);
       return res.status(500).json({
         success: false,
         error: {
           message: "Failed to generate authentication token",
+          details: tokenData.error?.message || "No ID token received"
         },
       });
     }
 
     // Set cookie with the ID token
-    res.cookie("token", tokenData.idToken, {
+    console.log("✅ Step 7: Setting authentication cookie");
+    const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
-      // Remove domain restriction to allow cross-origin authentication
+      secure: false, // Set to false for localhost development
+      sameSite: "lax" as const, // Use lax for same-origin localhost requests
       maxAge: 432000 * 1000, // 5 days in milliseconds
-    });
+      path: "/", // Ensure cookie is available for all paths
+    };
+    
+    console.log("🍪 Cookie options:", cookieOptions);
+    res.cookie("token", tokenData.idToken, cookieOptions);
+
+    console.log("✅ Step 8: Preparing response data");
+    const responseData = {
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userProfile?.fullName || userRecord.displayName,
+      phone: userProfile?.phone || null,
+      role: userProfile?.role || "user",
+      profileComplete: !!userProfile?.profileComplete,
+      authProvider: userProfile?.authProvider || "google",
+    };
+    console.log("📤 Response data:", responseData);
 
     // Return user data
+    console.log("🎉 Authentication successful!");
     return res.json({
       success: true,
-      data: {
-        uid: userRecord.uid,
-        email: userRecord.email,
-        displayName: userProfile?.fullName || userRecord.displayName,
-        phone: userProfile?.phone || null,
-        role: userProfile?.role || "user",
-        profileComplete: !!userProfile?.profileComplete,
-        authProvider: userProfile?.authProvider || "google",
-      },
+      data: responseData,
     });
   } catch (error) {
-    console.error("Code exchange error:", error);
+    console.error("💥 Code exchange error - Full details:");
+    console.error("Error name:", error instanceof Error ? error.name : "Unknown");
+    console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    console.error("Error object:", error);
 
     return res.status(500).json({
       success: false,

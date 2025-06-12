@@ -50,6 +50,16 @@ app.use((0, morgan_1.default)("dev"));
 app.use((0, cookie_parser_1.default)()); // Parse Cookie header and populate req.cookies
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
+// Root endpoint for Cloud Run health checks
+app.get("/", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "Hello from Cloud Run! Xequtive Backend is running.",
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || "development",
+        version: "1.0.0"
+    });
+});
 // Apply rate limiting to all API routes
 app.use("/api", rateLimiter_1.apiLimiter);
 // Routes
@@ -57,7 +67,33 @@ app.use("/api", index_routes_1.default);
 // Error handling
 app.use(errorHandler_1.errorHandler);
 // Start server
-const PORT = process.env.PORT || 5555;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+const PORT = parseInt(process.env.PORT || '8080', 10);
+// Add startup error handling
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+});
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'production'} mode`);
+    console.log(`📍 Health check available at http://0.0.0.0:${PORT}/`);
+    console.log(`🏥 API health check at http://0.0.0.0:${PORT}/api/ping`);
+});
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('Process terminated');
+        process.exit(0);
+    });
+});
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    server.close(() => {
+        console.log('Process terminated');
+        process.exit(0);
+    });
 });

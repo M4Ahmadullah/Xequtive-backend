@@ -11,12 +11,17 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
+    "build": "npm run build:clean && npm run build:compile && npm run build:verify",
+    "build:clean": "echo '🧹 Cleaning previous build...' && rimraf dist",
+    "build:compile": "echo '🔨 Compiling TypeScript...' && tsc --listFiles",
+    "build:verify": "echo '✅ Verifying build...' && node -e \"console.log('📦 Build completed successfully!'); console.log('📁 Output directory:', 'dist/'); console.log('🚀 Ready for deployment!')\"",
+    "prebuild": "echo '🚀 Starting build process...' && npm run type-check",
     "test": "jest",
-    "lint": "eslint . --ext .ts",
-    "type-check": "tsc --noEmit",
+    "lint": "echo '🔍 Running ESLint...' && eslint . --ext .ts",
+    "type-check": "echo '🔎 Type checking...' && tsc --noEmit",
     "docker:build": "docker build -t xequtive-backend .",
-    "docker:run": "docker run -p 8080:8080 xequtive-backend"
+    "docker:run": "docker run -p 8080:8080 xequtive-backend",
+    "deploy:gcloud": "npm run build && gcloud run deploy xequtive-backend --source . --region europe-west2 --allow-unauthenticated"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.15.3",

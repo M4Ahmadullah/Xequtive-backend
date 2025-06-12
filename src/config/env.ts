@@ -77,7 +77,7 @@ try {
       EMAIL_SENDER_ADDRESS: process.env.EMAIL_SENDER_ADDRESS || "Xequtive <onboarding@resend.dev>",
     };
   } else {
-    throw new Error("Invalid environment variables");
+  throw new Error("Invalid environment variables");
   }
 }
 

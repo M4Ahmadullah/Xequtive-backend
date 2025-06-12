@@ -23,7 +23,7 @@ exports.apiLimiter = (0, express_rate_limit_1.default)({
 // More strict limiter for auth endpoints to prevent brute force
 exports.authLimiter = (0, express_rate_limit_1.default)({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 10, // limit each IP to 10 requests per windowMs
+    max: 30, // limit each IP to 30 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
     message: {
@@ -38,7 +38,7 @@ exports.authLimiter = (0, express_rate_limit_1.default)({
 // Specific limiter for booking creation to prevent abuse
 exports.bookingLimiter = (0, express_rate_limit_1.default)({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // limit each IP to 5 booking creations per windowMs
+    max: 10, // limit each IP to 10 booking creations per windowMs
     standardHeaders: true,
     legacyHeaders: false,
     message: {
