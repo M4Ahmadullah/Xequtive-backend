@@ -15,9 +15,19 @@ dotenv.config();
 const app: Express = express();
 
 // Get allowed origins from environment and normalize them (remove trailing slashes)
+// Also add both HTTP and HTTPS versions for localhost development
 const allowedOrigins = process.env
   .ALLOWED_ORIGINS!.split(",")
-  .map((origin) => origin.trim().replace(/\/$/, ""));
+  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .flatMap((origin) => {
+    // For localhost, add both http and https versions
+    if (origin.includes('localhost')) {
+      const httpVersion = origin.replace('https://', 'http://');
+      const httpsVersion = origin.replace('http://', 'https://');
+      return [httpVersion, httpsVersion];
+    }
+    return [origin];
+  });
 
 console.log("CORS enabled for origins:", allowedOrigins);
 

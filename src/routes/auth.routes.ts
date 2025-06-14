@@ -178,13 +178,40 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
     // Signin service
     const authResult = await AuthService.loginWithEmail(email, password);
 
-    // Set the token as HttpOnly cookie instead of returning in response
-    res.cookie("token", authResult.token, {
+    // Exchange custom token for ID token (same as OAuth flow)
+    const idTokenResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: authResult.token,
+          returnSecureToken: true,
+        }),
+      }
+    );
+
+    const tokenData = await idTokenResponse.json();
+
+    if (!tokenData.idToken) {
+      console.error("Failed to get ID token from Firebase:", tokenData);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to generate authentication token",
+          code: "auth/token-generation-failed",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Set the ID token as HttpOnly cookie instead of returning in response
+    res.cookie("token", tokenData.idToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
       // Remove domain restriction to allow cross-origin authentication
       maxAge: 432000 * 1000, // 5 days in milliseconds
+      path: "/", // Ensure cookie is available for all paths
     });
 
     console.log('Sign-in successful', {
@@ -252,13 +279,40 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
       phone
     );
 
-    // Set the token as HttpOnly cookie
-    res.cookie("token", userData.token, {
+    // Exchange custom token for ID token (same as OAuth flow)
+    const idTokenResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: userData.token,
+          returnSecureToken: true,
+        }),
+      }
+    );
+
+    const tokenData = await idTokenResponse.json();
+
+    if (!tokenData.idToken) {
+      console.error("Failed to get ID token from Firebase:", tokenData);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: "Failed to generate authentication token",
+          code: "auth/token-generation-failed",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Set the ID token as HttpOnly cookie
+    res.cookie("token", tokenData.idToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
       // Remove domain restriction to allow cross-origin authentication
       maxAge: 432000 * 1000, // 5 days in milliseconds
+      path: "/", // Ensure cookie is available for all paths
     });
 
       // Return user data without the token
