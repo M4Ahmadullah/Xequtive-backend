@@ -205,11 +205,11 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
     }
 
     // Set the ID token as HttpOnly cookie instead of returning in response
+    const isProduction = process.env.NODE_ENV === "production";
     res.cookie("token", tokenData.idToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
-      // Remove domain restriction to allow cross-origin authentication
+      secure: isProduction, // Only send over HTTPS in production
+      sameSite: isProduction ? "none" as const : "lax" as const, // Allow cross-origin cookies in production
       maxAge: 432000 * 1000, // 5 days in milliseconds
       path: "/", // Ensure cookie is available for all paths
     });
@@ -218,7 +218,12 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
       uid: authResult.uid,
       email: authResult.email,
       cookieSet: true,
-      environment: process.env.NODE_ENV
+      environment: process.env.NODE_ENV,
+      isProduction,
+      cookieOptions: {
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax"
+      }
     });
 
     // Return user data without the token
@@ -306,11 +311,11 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
     }
 
     // Set the ID token as HttpOnly cookie
+    const isProduction = process.env.NODE_ENV === "production";
     res.cookie("token", tokenData.idToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
-      // Remove domain restriction to allow cross-origin authentication
+      secure: isProduction,
+      sameSite: isProduction ? "none" as const : "lax" as const, // Allow cross-origin cookies in production
       maxAge: 432000 * 1000, // 5 days in milliseconds
       path: "/", // Ensure cookie is available for all paths
     });
@@ -355,10 +360,12 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
 // Sign out endpoint
 router.post("/signout", async (req: Request, res: Response) => {
   // Clear the auth cookie
+  const isProduction = process.env.NODE_ENV === "production";
   res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" as const : "lax" as const,
+    path: "/",
   });
 
   return res.status(200).json({
@@ -409,10 +416,11 @@ router.get("/me", async (req: Request, res: Response) => {
       });
     } catch (error) {
       // Token is invalid - clear it and return not authenticated
+      const isProduction = process.env.NODE_ENV === "production";
       res.clearCookie("token", {
         httpOnly: true,
-        secure: false,
-        sameSite: "lax" as const,
+        secure: isProduction,
+        sameSite: isProduction ? "none" as const : "lax" as const,
         path: "/",
       });
 
@@ -464,11 +472,13 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
     const authResult = await AuthService.processGoogleSignIn(idToken);
 
     // Set the token as HttpOnly cookie
+    const isProduction = process.env.NODE_ENV === "production";
     res.cookie("token", authResult.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-      sameSite: "strict",
+      secure: isProduction, // Only send over HTTPS in production
+      sameSite: isProduction ? "none" as const : "lax" as const,
       maxAge: 432000 * 1000, // 5 days in milliseconds
+      path: "/",
     });
 
     // Return user data without the token
@@ -871,15 +881,19 @@ router.post("/google/callback", async (req: Request, res: Response) => {
 
     // Set cookie with the ID token
     console.log("✅ Step 7: Setting authentication cookie");
+    const isProduction = process.env.NODE_ENV === "production";
     const cookieOptions = {
       httpOnly: true,
-      secure: false, // Set to false for localhost development
-      sameSite: "lax" as const, // Use lax for same-origin localhost requests
+      secure: isProduction, // Use HTTPS in production
+      sameSite: isProduction ? "none" as const : "lax" as const, // Allow cross-origin in production
       maxAge: 432000 * 1000, // 5 days in milliseconds
       path: "/", // Ensure cookie is available for all paths
     };
     
     console.log("🍪 Cookie options:", cookieOptions);
+    console.log("🌍 Environment:", process.env.NODE_ENV);
+    console.log("🔗 Request origin:", req.get('origin'));
+    console.log("🔗 Request host:", req.get('host'));
     res.cookie("token", tokenData.idToken, cookieOptions);
 
     console.log("✅ Step 8: Preparing response data");

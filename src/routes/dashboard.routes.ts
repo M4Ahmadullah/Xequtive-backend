@@ -96,11 +96,13 @@ router.post(
       }
 
       // Set token in cookie
+      const isProduction = process.env.NODE_ENV === "production";
       res.cookie("token", tokenData.idToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: isProduction,
+        sameSite: isProduction ? "none" as const : "lax" as const,
         maxAge: 432000 * 1000, // 5 days in milliseconds
+        path: "/",
       });
 
       return res.status(201).json({
@@ -160,11 +162,13 @@ router.post("/auth/login", async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // Set token in HttpOnly cookie
+    const isProduction = process.env.NODE_ENV === "production";
     res.cookie("token", authResult.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: isProduction,
+      sameSite: isProduction ? "none" as const : "lax" as const,
       maxAge: 432000 * 1000, // 5 days in milliseconds
+      path: "/",
     });
 
     // If we get here, user is an admin
@@ -198,10 +202,12 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Clear the auth cookie
+      const isProduction = process.env.NODE_ENV === "production";
       res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: isProduction,
+        sameSite: isProduction ? "none" as const : "lax" as const,
+        path: "/",
       });
 
       return res.json({
@@ -278,10 +284,12 @@ router.get(
         });
       } catch (error) {
         // Token is invalid - clear it and return not authenticated
+        const isProduction = process.env.NODE_ENV === "production";
         res.clearCookie("token", {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
+          secure: isProduction,
+          sameSite: isProduction ? "none" as const : "lax" as const,
+          path: "/",
         });
 
         return res.status(401).json({
