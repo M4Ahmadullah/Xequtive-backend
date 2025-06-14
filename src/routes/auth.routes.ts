@@ -15,6 +15,7 @@ import {
   completeProfileSchema,
   googleCallbackSchema,
   verifyEmailSchema,
+  updateProfileSchema,
 } from "../validation/auth.schema";
 import crypto from "crypto";
 import fetch from "node-fetch";
@@ -235,6 +236,7 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
         displayName: authResult.displayName,
         phone: authResult.phone,
         role: "user",
+        profileComplete: authResult.profileComplete,
       },
     });
   } catch (error) {
@@ -329,6 +331,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
         displayName: userData.displayName,
         phone: userData.phone,
         role: "user",
+        profileComplete: !!(userData.displayName && userData.phone),
       },
     });
     } catch (registrationError) {
@@ -410,6 +413,7 @@ router.get("/me", async (req: Request, res: Response) => {
           displayName: userData?.fullName || userRecord.displayName,
           phone: userData?.phone || null,
           role: "user",
+          profileComplete: userData?.profileComplete || false,
           createdAt: userData?.createdAt || null,
           updatedAt: userData?.updatedAt || null,
         },
@@ -440,6 +444,60 @@ router.get("/me", async (req: Request, res: Response) => {
       error: {
         message: "Failed to verify authentication",
         code: "auth/server-error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
+// Update user profile endpoint
+router.put("/update-profile", verifyToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user?.uid) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: "Authentication required",
+          code: "auth/not-authenticated",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Validate request body
+    try {
+      updateProfileSchema.parse(req.body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: "Invalid profile data",
+            code: "auth/invalid-data",
+            details: error.errors.map((e) => e.message).join(", "),
+          },
+        } as ApiResponse<never>);
+      }
+      throw error;
+    }
+
+    // Update user profile
+    const updatedProfile = await AuthService.updateUserProfile(
+      req.user.uid,
+      req.body
+    );
+
+    return res.json({
+      success: true,
+      data: updatedProfile,
+    });
+  } catch (error) {
+    console.error("Profile update error:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to update profile",
+        code: "auth/profile-update-failed",
         details: error instanceof Error ? error.message : "Unknown error",
       },
     } as ApiResponse<never>);
