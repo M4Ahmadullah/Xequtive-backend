@@ -7,7 +7,7 @@ import { env } from "../config/env"; // Import the env configuration
 import * as dotenv from "dotenv";
 import path from "path";
 import { z } from "zod";
-import { authLimiter } from "../middleware/rateLimiter";
+import { authLimiter, sessionCheckLimiter } from "../middleware/rateLimiter";
 import {
   loginSchema,
   signupSchema,
@@ -234,7 +234,7 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
         uid: authResult.uid,
         email: authResult.email,
         displayName: authResult.displayName,
-        phone: authResult.phone,
+        phoneNumber: authResult.phone, // Changed from phone to phoneNumber
         role: "user",
         profileComplete: authResult.profileComplete,
       },
@@ -329,7 +329,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
         uid: userData.uid,
         email: userData.email,
         displayName: userData.displayName,
-        phone: userData.phone,
+        phoneNumber: userData.phone, // Changed from phone to phoneNumber
         role: "user",
         profileComplete: !!(userData.displayName && userData.phone),
       },
@@ -378,7 +378,7 @@ router.post("/signout", async (req: Request, res: Response) => {
 });
 
 // Get current user from cookie
-router.get("/me", async (req: Request, res: Response) => {
+router.get("/me", sessionCheckLimiter, async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.token;
 
@@ -411,7 +411,7 @@ router.get("/me", async (req: Request, res: Response) => {
           uid: userRecord.uid,
           email: userRecord.email,
           displayName: userData?.fullName || userRecord.displayName,
-          phone: userData?.phone || null,
+          phoneNumber: userData?.phone || null, // Changed from phone to phoneNumber
           role: "user",
           profileComplete: userData?.profileComplete || false,
           createdAt: userData?.createdAt || null,
@@ -546,7 +546,7 @@ router.post("/google", authLimiter, async (req: Request, res: Response) => {
         uid: authResult.uid,
         email: authResult.email,
         displayName: authResult.displayName,
-        phone: authResult.phone,
+        phoneNumber: authResult.phone, // Changed from phone to phoneNumber
         role: authResult.role,
         profileComplete: authResult.profileComplete,
         authProvider: authResult.authProvider,
@@ -959,7 +959,7 @@ router.post("/google/callback", async (req: Request, res: Response) => {
       uid: userRecord.uid,
       email: userRecord.email,
       displayName: userProfile?.fullName || userRecord.displayName,
-      phone: userProfile?.phone || null,
+      phoneNumber: userProfile?.phone || null, // Changed from phone to phoneNumber
       role: userProfile?.role || "user",
       profileComplete: !!userProfile?.profileComplete,
       authProvider: userProfile?.authProvider || "google",
