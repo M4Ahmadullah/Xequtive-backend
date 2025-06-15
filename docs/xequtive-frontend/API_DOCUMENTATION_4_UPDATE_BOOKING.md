@@ -43,7 +43,7 @@ The request body follows the same structure as the booking creation endpoint:
   "customer": {
     "fullName": "John Smith",
     "email": "john.smith@example.com",
-    "phone": "+447123456789"
+    "phoneNumber": "+447123456789"
   },
   "booking": {
     "locations": {

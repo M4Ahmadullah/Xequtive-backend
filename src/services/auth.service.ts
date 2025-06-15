@@ -166,7 +166,7 @@ export class AuthService {
     email: string,
     password: string,
     fullName?: string,
-    phone?: string
+    phoneNumber?: string
   ) {
     try {
       // Create user in Firebase Authentication
@@ -187,9 +187,9 @@ export class AuthService {
         .set({
           email: userRecord.email,
           fullName: fullName || null,
-          phone: phone || null,
+          phone: phoneNumber || null,
           role: "user",
-          profileComplete: !!(fullName && phone), // Profile is complete if both name and phone are provided
+          profileComplete: !!(fullName && phoneNumber), // Profile is complete if both name and phone are provided
           createdAt: new Date().toISOString(),
         });
 
@@ -209,7 +209,7 @@ export class AuthService {
         uid: userRecord.uid,
         email: userRecord.email,
         displayName: fullName || null,
-        phone: phone || null,
+        phoneNumber: phoneNumber || null,
         role: "user",
         token: customToken, // Use custom token directly
         expiresIn: "432000", // 5 days in seconds

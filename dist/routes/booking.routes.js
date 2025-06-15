@@ -46,7 +46,7 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 const customer = {
                     fullName: userData.fullName || req.user.displayName || "Unknown",
                     email: userData.email || req.user.email,
-                    phone: userData.phone || "",
+                    phoneNumber: userData.phone || "",
                 };
                 // Add customer object to request body
                 bookingData = {
@@ -262,7 +262,7 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
 });
 // User endpoints for booking management
 // Cancel a booking
-router.post("/user/bookings/:id/cancel", authMiddleware_1.verifyToken, async (req, res) => {
+router.post("/:id/cancel", authMiddleware_1.verifyToken, async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({
@@ -326,13 +326,13 @@ router.post("/user/bookings/:id/cancel", authMiddleware_1.verifyToken, async (re
             });
         }
         // Check if the booking can be cancelled
-        if (!["pending", "accepted", "confirmed"].includes(booking.status)) {
+        if (!["pending", "confirmed", "assigned"].includes(booking.status)) {
             return res.status(400).json({
                 success: false,
                 error: {
                     code: "CANNOT_CANCEL",
                     message: `Cannot cancel a booking with status: ${booking.status}`,
-                    details: "Only bookings in pending, accepted, or confirmed status can be cancelled",
+                    details: "Only bookings in pending, confirmed, or assigned status can be cancelled",
                 },
             });
         }

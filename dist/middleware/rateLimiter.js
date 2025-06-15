@@ -3,12 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bookingLimiter = exports.authLimiter = exports.apiLimiter = void 0;
+exports.sessionCheckLimiter = exports.bookingLimiter = exports.authLimiter = exports.apiLimiter = void 0;
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 // Basic rate limiter for API endpoints
 exports.apiLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 200, // limit each IP to 200 requests per windowMs (increased from 100)
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: {
@@ -16,14 +16,14 @@ exports.apiLimiter = (0, express_rate_limit_1.default)({
         error: {
             message: "Too many requests, please try again later.",
             code: "RATE_LIMIT_EXCEEDED",
-            details: "You have exceeded the rate limit for API requests.",
+            details: "You have exceeded the rate limit for API requests. Please implement proper request caching and avoid excessive API calls.",
         },
     },
 });
 // More strict limiter for auth endpoints to prevent brute force
 exports.authLimiter = (0, express_rate_limit_1.default)({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 30, // limit each IP to 30 requests per windowMs
+    max: 100, // limit each IP to 100 requests per windowMs (increased from 30)
     standardHeaders: true,
     legacyHeaders: false,
     message: {
@@ -31,7 +31,7 @@ exports.authLimiter = (0, express_rate_limit_1.default)({
         error: {
             message: "Too many authentication attempts, please try again later.",
             code: "AUTH_RATE_LIMIT_EXCEEDED",
-            details: "You have exceeded the rate limit for authentication requests.",
+            details: "You have exceeded the rate limit for authentication requests. Please reduce the frequency of /auth/me calls and implement proper caching on the frontend.",
         },
     },
 });
@@ -47,6 +47,21 @@ exports.bookingLimiter = (0, express_rate_limit_1.default)({
             message: "Too many booking requests, please try again later.",
             code: "BOOKING_RATE_LIMIT_EXCEEDED",
             details: "You have exceeded the rate limit for booking creation.",
+        },
+    },
+});
+// Less restrictive limiter for user session checks (/auth/me)
+exports.sessionCheckLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 50, // limit each IP to 50 session checks per 15 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        error: {
+            message: "Too many session check requests. Please implement frontend caching.",
+            code: "SESSION_RATE_LIMIT_EXCEEDED",
+            details: "You are checking user session too frequently. Please cache the user session on the frontend and only refresh when necessary (e.g., on page reload, after login/logout, or every 30+ minutes).",
         },
     },
 });

@@ -48,7 +48,7 @@ const response = await fetch("http://localhost:5555/api/auth/signup", {
     email: "user@example.com",
     password: "securepassword123",
     fullName: "John Doe",
-    phone: "+447123456789",
+    phoneNumber: "+447123456789",
   }),
 });
 
@@ -116,7 +116,7 @@ const response = await fetch(
     credentials: "include",
     body: JSON.stringify({
       fullName: "John Doe",
-      phone: "+447123456789",
+      phoneNumber: "+447123456789",
     }),
   }
 );
@@ -139,7 +139,7 @@ All authentication endpoints return the same structure on success:
     "uid": "user123",
     "email": "user@example.com",
     "displayName": "John Doe",
-    "phone": "+447123456789",
+    "phoneNumber": "+447123456789",
     "role": "user",
     "profileComplete": true,
     "authProvider": "google"
@@ -577,7 +577,7 @@ interface TrainInformation {
   "customer": {
     "fullName": "John Doe",
     "email": "john.doe@example.com",
-    "phone": "+447123456789"
+            "phoneNumber": "+447123456789"
   },
   "booking": {
     "locations": {
@@ -635,7 +635,7 @@ interface TrainInformation {
   "customer": {
     "fullName": "Jane Smith",
     "email": "jane.smith@example.com",
-    "phone": "+447987654321"
+            "phoneNumber": "+447987654321"
   },
   "booking": {
     "locations": {

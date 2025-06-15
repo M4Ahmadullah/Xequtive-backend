@@ -28,7 +28,7 @@ The booking process follows these steps:
     "customer": {
       "fullName": "John Smith",
       "email": "john.smith@example.com",
-      "phone": "+447123456789"
+      "phoneNumber": "+447123456789"
     },
     "booking": {
       "locations": {
@@ -54,7 +54,12 @@ The booking process follows these steps:
       "passengers": {
         "count": 2,
         "checkedLuggage": 1,
-        "handLuggage": 1
+        "handLuggage": 1,
+        "mediumLuggage": 0,
+        "babySeat": 0,
+        "childSeat": 0,
+        "boosterSeat": 0,
+        "wheelchair": 0
       },
       "vehicle": {
         "id": "executive-saloon",
@@ -151,7 +156,12 @@ curl -X POST "http://localhost:5555/api/fare-estimate/enhanced" \
   "passengers": {
     "count": 2,
     "checkedLuggage": 1,
-    "handLuggage": 1
+    "handLuggage": 1,
+    "mediumLuggage": 0,
+    "babySeat": 0,
+    "childSeat": 0,
+    "boosterSeat": 0,
+    "wheelchair": 0
   }
 }'
 ```
@@ -170,7 +180,7 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
   "customer": {
     "fullName": "John Smith",
     "email": "john.smith@example.com",
-    "phone": "+447123456789"
+    "phoneNumber": "+447123456789"
   },
   "booking": {
     "locations": {
@@ -526,7 +536,7 @@ If the limit is exceeded, the API will respond with:
   "customer": {
     "fullName": "John Doe",
     "email": "john@example.com",
-    "phone": "+441234567890"
+    "phoneNumber": "+441234567890"
   },
   "booking": {
     "locations": {
@@ -561,7 +571,12 @@ If the limit is exceeded, the API will respond with:
     "passengers": {
       "count": 2,
       "checkedLuggage": 1,
-      "handLuggage": 1
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
     },
     "vehicle": {
       "id": "standard-saloon",
@@ -575,7 +590,24 @@ If the limit is exceeded, the API will respond with:
 **Notes:**
 
 - If the `customer` object is omitted, the system will use the authenticated user's profile information instead
-- Available vehicle IDs: "standard-saloon", "estate", "mpv-xl", "mpv-xxl", "executive", "executive-mpv", "vip-executive", "vip-executive-mpv"
+- Available vehicle IDs: "standard-saloon", "estate", "large-mpv", "extra-large-mpv", "executive-saloon", "vip", "vip-mpv", "wav" (wheelchair-accessible)
+
+**IMPORTANT: All passenger fields are REQUIRED, even if set to 0:**
+
+```json
+{
+  "passengers": {
+    "count": 2,           // REQUIRED: Min 1, Max 16
+    "checkedLuggage": 1,  // REQUIRED: Min 0, Max 8
+    "handLuggage": 1,     // REQUIRED: Min 0, Max 8
+    "mediumLuggage": 0,   // REQUIRED: Min 0, Max 8
+    "babySeat": 0,        // REQUIRED: Min 0, Max 5
+    "childSeat": 0,       // REQUIRED: Min 0, Max 5
+    "boosterSeat": 0,     // REQUIRED: Min 0, Max 5
+    "wheelchair": 0       // REQUIRED: Min 0, Max 2
+  }
+}
+```
 
 #### Success Response
 
@@ -755,7 +787,7 @@ const bookingWithCustomer = {
   customer: {
     fullName: "John Doe",
     email: "john@example.com",
-    phone: "+441234567890",
+    phoneNumber: "+441234567890",
   },
   booking: {
     locations: {
@@ -912,7 +944,7 @@ The API will include messages for each additional charge in the response:
   "customer": {
     "fullName": "John Smith",
     "email": "john.smith@example.com",
-    "phone": "+447700900123"
+            "phoneNumber": "+447700900123"
   },
   "booking": {
     "locations": {
@@ -1109,6 +1141,55 @@ The following vehicle types are available for bookings:
 8. **Wheelchair Accessible** (`wav`)
    - Capacity: 4 passengers + wheelchair, 2 luggage
    - Examples: Specially adapted vans
+
+## 🚨 CRITICAL: Frontend Troubleshooting Guide
+
+### Common Booking Creation Failures:
+
+1. **"Required" Validation Error**: 
+   - **Cause**: Missing required passenger fields
+   - **Solution**: Always include ALL passenger fields, even if set to 0
+   ```javascript
+   // ❌ WRONG - Missing fields
+   "passengers": {
+     "count": 2,
+     "checkedLuggage": 1,
+     "handLuggage": 1
+   }
+   
+   // ✅ CORRECT - All fields included
+   "passengers": {
+     "count": 2,
+     "checkedLuggage": 1,
+     "handLuggage": 1,
+     "mediumLuggage": 0,  // Required!
+     "babySeat": 0,       // Required!
+     "childSeat": 0,      // Required!
+     "boosterSeat": 0,    // Required!
+     "wheelchair": 0      // Required!
+   }
+   ```
+
+2. **"Invalid Vehicle ID" Error**:
+   - **Cause**: Using wrong vehicle IDs
+   - **Solution**: Use only these valid IDs: `standard-saloon`, `estate`, `large-mpv`, `extra-large-mpv`, `executive-saloon`, `vip`, `vip-mpv`, `wav`
+
+3. **"Invalid phone number format" Error**:
+   - **Cause**: Phone number contains spaces or invalid characters
+   - **Solution**: Strip all spaces from phone number before sending
+   ```javascript
+   // ❌ WRONG - Contains spaces
+   "phoneNumber": "+447899 966 666"
+   
+   // ✅ CORRECT - No spaces
+   "phoneNumber": "+447899966666"
+   
+   // Frontend fix:
+   const cleanPhone = phoneNumber.replace(/\s+/g, '');
+   ```
+
+4. **Authentication Errors**:
+   - **Solution**: Always include `credentials: "include"` in fetch requests
 
 ## Booking Process Flow
 

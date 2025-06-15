@@ -6,12 +6,12 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters long"),
 });
 
-// Schema for signup validation - fullName and phone are now optional
+// Schema for signup validation - fullName and phoneNumber are now optional
 export const signupSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters long"),
   fullName: z.string().optional().transform(val => val === "" ? undefined : val),
-  phone: z.string().optional().transform(val => val === "" ? undefined : val),
+  phoneNumber: z.string().optional().transform(val => val === "" ? undefined : val),
 });
 
 // Schema for Google OAuth sign-in
@@ -22,7 +22,7 @@ export const googleAuthSchema = z.object({
 // Schema for completing user profile after OAuth sign-in
 export const completeProfileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters long"),
-  phone: z.string().min(6, "Phone number is required"),
+  phoneNumber: z.string().min(6, "Phone number is required"),
 });
 
 // Add Google callback schema
@@ -39,7 +39,7 @@ export const verifyEmailSchema = z.object({
 // Schema for updating user profile
 export const updateProfileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters long").optional(),
-  phone: z.string().min(6, "Phone number must be at least 6 characters long").optional(),
+  phoneNumber: z.string().min(6, "Phone number must be at least 6 characters long").optional(),
   notifications: z.object({
     email: z.boolean().optional(),
     sms: z.boolean().optional(),

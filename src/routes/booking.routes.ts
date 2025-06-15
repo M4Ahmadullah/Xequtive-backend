@@ -73,7 +73,7 @@ router.post(
           const customer = {
             fullName: userData.fullName || req.user.displayName || "Unknown",
             email: userData.email || req.user.email,
-            phone: userData.phone || "",
+            phoneNumber: userData.phone || "",
           };
 
           // Add customer object to request body
@@ -323,7 +323,7 @@ router.get(
 
 // Cancel a booking
 router.post(
-  "/user/bookings/:id/cancel",
+  "/:id/cancel",
   verifyToken,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -396,14 +396,14 @@ router.post(
       }
 
       // Check if the booking can be cancelled
-      if (!["pending", "accepted", "confirmed"].includes(booking.status)) {
+      if (!["pending", "confirmed", "assigned"].includes(booking.status)) {
         return res.status(400).json({
           success: false,
           error: {
             code: "CANNOT_CANCEL",
             message: `Cannot cancel a booking with status: ${booking.status}`,
             details:
-              "Only bookings in pending, accepted, or confirmed status can be cancelled",
+              "Only bookings in pending, confirmed, or assigned status can be cancelled",
           },
         } as ApiResponse<never>);
       }

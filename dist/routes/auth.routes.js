@@ -209,11 +209,11 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
             });
         }
         // Set the ID token as HttpOnly cookie instead of returning in response
+        const isProduction = process.env.NODE_ENV === "production";
         res.cookie("token", tokenData.idToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
-            // Remove domain restriction to allow cross-origin authentication
+            secure: isProduction, // Only send over HTTPS in production
+            sameSite: isProduction ? "none" : "lax", // Allow cross-origin cookies in production
             maxAge: 432000 * 1000, // 5 days in milliseconds
             path: "/", // Ensure cookie is available for all paths
         });
@@ -221,7 +221,12 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
             uid: authResult.uid,
             email: authResult.email,
             cookieSet: true,
-            environment: process.env.NODE_ENV
+            environment: process.env.NODE_ENV,
+            isProduction,
+            cookieOptions: {
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax"
+            }
         });
         // Return user data without the token
         return res.json({
@@ -230,8 +235,9 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
                 uid: authResult.uid,
                 email: authResult.email,
                 displayName: authResult.displayName,
-                phone: authResult.phone,
+                phoneNumber: authResult.phone, // Changed from phone to phoneNumber
                 role: "user",
+                profileComplete: authResult.profileComplete,
             },
         });
     }
@@ -268,10 +274,10 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
             }
             throw error;
         }
-        const { email, password, fullName, phone } = req.body;
+        const { email, password, fullName, phoneNumber } = req.body;
         try {
             // Registration service
-            const userData = await auth_service_1.AuthService.registerWithEmail(email, password, fullName, phone);
+            const userData = await auth_service_1.AuthService.registerWithEmail(email, password, fullName, phoneNumber);
             // Exchange custom token for ID token (same as OAuth flow)
             const idTokenResponse = await (0, node_fetch_1.default)(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env_1.env.firebase.apiKey}`, {
                 method: "POST",
@@ -293,11 +299,11 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
                 });
             }
             // Set the ID token as HttpOnly cookie
+            const isProduction = process.env.NODE_ENV === "production";
             res.cookie("token", tokenData.idToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin cookies in production
-                // Remove domain restriction to allow cross-origin authentication
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax", // Allow cross-origin cookies in production
                 maxAge: 432000 * 1000, // 5 days in milliseconds
                 path: "/", // Ensure cookie is available for all paths
             });
@@ -308,8 +314,9 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
                     uid: userData.uid,
                     email: userData.email,
                     displayName: userData.displayName,
-                    phone: userData.phone,
+                    phoneNumber: userData.phoneNumber, // Changed from phone to phoneNumber
                     role: "user",
+                    profileComplete: !!(userData.displayName && userData.phoneNumber),
                 },
             });
         }
@@ -342,10 +349,12 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
 // Sign out endpoint
 router.post("/signout", async (req, res) => {
     // Clear the auth cookie
+    const isProduction = process.env.NODE_ENV === "production";
     res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        path: "/",
     });
     return res.status(200).json({
         success: true,
@@ -353,10 +362,27 @@ router.post("/signout", async (req, res) => {
     });
 });
 // Get current user from cookie
-router.get("/me", async (req, res) => {
+router.get("/me", rateLimiter_1.sessionCheckLimiter, async (req, res) => {
+    const startTime = Date.now();
+    const requestId = Math.random().toString(36).substring(7);
     try {
+        console.log(`🔍 [${requestId}] Auth/me request started`, {
+            timestamp: new Date().toISOString(),
+            userAgent: req.get('User-Agent'),
+            origin: req.get('Origin'),
+            referer: req.get('Referer'),
+            hasCookies: !!req.cookies,
+            cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+            hasToken: !!req.cookies?.token,
+            tokenLength: req.cookies?.token ? req.cookies.token.length : 0,
+            environment: process.env.NODE_ENV,
+        });
         const token = req.cookies?.token;
         if (!token) {
+            console.log(`❌ [${requestId}] No token found in cookies`, {
+                cookies: req.cookies,
+                headers: req.headers.cookie,
+            });
             return res.status(401).json({
                 success: false,
                 error: {
@@ -365,35 +391,78 @@ router.get("/me", async (req, res) => {
                 },
             });
         }
+        console.log(`🔑 [${requestId}] Token found, verifying...`, {
+            tokenPreview: token.substring(0, 20) + '...',
+            tokenLength: token.length,
+        });
         // Verify the Firebase ID token
         try {
             const decodedToken = await firebase_1.auth.verifyIdToken(token);
+            console.log(`✅ [${requestId}] Token verified successfully`, {
+                uid: decodedToken.uid,
+                email: decodedToken.email,
+                iss: decodedToken.iss,
+                exp: new Date(decodedToken.exp * 1000).toISOString(),
+            });
             const userRecord = await firebase_1.auth.getUser(decodedToken.uid);
+            console.log(`👤 [${requestId}] User record retrieved`, {
+                uid: userRecord.uid,
+                email: userRecord.email,
+                emailVerified: userRecord.emailVerified,
+                disabled: userRecord.disabled,
+            });
             // Get user profile from Firestore for additional data
             const userDoc = await firebase_1.firestore
                 .collection("users")
                 .doc(userRecord.uid)
                 .get();
             const userData = userDoc.data();
+            console.log(`📄 [${requestId}] Firestore data retrieved`, {
+                exists: userDoc.exists,
+                hasFullName: !!userData?.fullName,
+                hasPhone: !!userData?.phone,
+                profileComplete: userData?.profileComplete,
+            });
+            const responseData = {
+                uid: userRecord.uid,
+                email: userRecord.email,
+                displayName: userData?.fullName || userRecord.displayName,
+                phoneNumber: userData?.phone || null, // Changed from phone to phoneNumber
+                role: "user",
+                profileComplete: userData?.profileComplete || false,
+                createdAt: userData?.createdAt || null,
+                updatedAt: userData?.updatedAt || null,
+            };
+            console.log(`✅ [${requestId}] Success response prepared`, {
+                responseData: {
+                    uid: !!responseData.uid,
+                    email: !!responseData.email,
+                    displayName: !!responseData.displayName,
+                    phoneNumber: !!responseData.phoneNumber,
+                    role: responseData.role,
+                    profileComplete: responseData.profileComplete,
+                },
+                processingTime: Date.now() - startTime,
+            });
             return res.json({
                 success: true,
-                data: {
-                    uid: userRecord.uid,
-                    email: userRecord.email,
-                    displayName: userData?.fullName || userRecord.displayName,
-                    phone: userData?.phone || null,
-                    role: "user",
-                    createdAt: userData?.createdAt || null,
-                    updatedAt: userData?.updatedAt || null,
-                },
+                data: responseData,
             });
         }
         catch (error) {
+            console.error(`❌ [${requestId}] Token verification failed`, {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                errorCode: error.code,
+                errorStack: error instanceof Error ? error.stack : undefined,
+                tokenPreview: token.substring(0, 20) + '...',
+                processingTime: Date.now() - startTime,
+            });
             // Token is invalid - clear it and return not authenticated
+            const isProduction = process.env.NODE_ENV === "production";
             res.clearCookie("token", {
                 httpOnly: true,
-                secure: false,
-                sameSite: "lax",
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax",
                 path: "/",
             });
             return res.status(401).json({
@@ -406,12 +475,64 @@ router.get("/me", async (req, res) => {
         }
     }
     catch (error) {
-        console.error("Error verifying authentication:", error);
+        console.error(`💥 [${requestId}] Unexpected error in auth/me`, {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            errorStack: error instanceof Error ? error.stack : undefined,
+            processingTime: Date.now() - startTime,
+        });
         return res.status(500).json({
             success: false,
             error: {
                 message: "Failed to verify authentication",
                 code: "auth/server-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Update user profile endpoint
+router.put("/update-profile", authMiddleware_1.verifyToken, async (req, res) => {
+    try {
+        if (!req.user?.uid) {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    message: "Authentication required",
+                    code: "auth/not-authenticated",
+                },
+            });
+        }
+        // Validate request body
+        try {
+            auth_schema_1.updateProfileSchema.parse(req.body);
+        }
+        catch (error) {
+            if (error instanceof zod_1.z.ZodError) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: "Invalid profile data",
+                        code: "auth/invalid-data",
+                        details: error.errors.map((e) => e.message).join(", "),
+                    },
+                });
+            }
+            throw error;
+        }
+        // Update user profile
+        const updatedProfile = await auth_service_1.AuthService.updateUserProfile(req.user.uid, req.body);
+        return res.json({
+            success: true,
+            data: updatedProfile,
+        });
+    }
+    catch (error) {
+        console.error("Profile update error:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to update profile",
+                code: "auth/profile-update-failed",
                 details: error instanceof Error ? error.message : "Unknown error",
             },
         });
@@ -441,11 +562,13 @@ router.post("/google", rateLimiter_1.authLimiter, async (req, res) => {
         // Process Google sign-in
         const authResult = await auth_service_1.AuthService.processGoogleSignIn(idToken);
         // Set the token as HttpOnly cookie
+        const isProduction = process.env.NODE_ENV === "production";
         res.cookie("token", authResult.token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production", // Only send over HTTPS in production
-            sameSite: "strict",
+            secure: isProduction, // Only send over HTTPS in production
+            sameSite: isProduction ? "none" : "lax",
             maxAge: 432000 * 1000, // 5 days in milliseconds
+            path: "/",
         });
         // Return user data without the token
         return res.json({
@@ -454,7 +577,7 @@ router.post("/google", rateLimiter_1.authLimiter, async (req, res) => {
                 uid: authResult.uid,
                 email: authResult.email,
                 displayName: authResult.displayName,
-                phone: authResult.phone,
+                phoneNumber: authResult.phone, // Changed from phone to phoneNumber
                 role: authResult.role,
                 profileComplete: authResult.profileComplete,
                 authProvider: authResult.authProvider,
@@ -502,9 +625,9 @@ router.post("/complete-profile", authMiddleware_1.verifyToken, async (req, res) 
             }
             throw error;
         }
-        const { fullName, phone } = req.body;
+        const { fullName, phoneNumber } = req.body;
         // Complete user profile
-        const updatedProfile = await auth_service_1.AuthService.completeUserProfile(req.user.uid, fullName, phone);
+        const updatedProfile = await auth_service_1.AuthService.completeUserProfile(req.user.uid, fullName, phoneNumber);
         return res.json({
             success: true,
             data: updatedProfile,
@@ -786,21 +909,25 @@ router.post("/google/callback", async (req, res) => {
         }
         // Set cookie with the ID token
         console.log("✅ Step 7: Setting authentication cookie");
+        const isProduction = process.env.NODE_ENV === "production";
         const cookieOptions = {
             httpOnly: true,
-            secure: false, // Set to false for localhost development
-            sameSite: "lax", // Use lax for same-origin localhost requests
+            secure: isProduction, // Use HTTPS in production
+            sameSite: isProduction ? "none" : "lax", // Allow cross-origin in production
             maxAge: 432000 * 1000, // 5 days in milliseconds
             path: "/", // Ensure cookie is available for all paths
         };
         console.log("🍪 Cookie options:", cookieOptions);
+        console.log("🌍 Environment:", process.env.NODE_ENV);
+        console.log("🔗 Request origin:", req.get('origin'));
+        console.log("🔗 Request host:", req.get('host'));
         res.cookie("token", tokenData.idToken, cookieOptions);
         console.log("✅ Step 8: Preparing response data");
         const responseData = {
             uid: userRecord.uid,
             email: userRecord.email,
             displayName: userProfile?.fullName || userRecord.displayName,
-            phone: userProfile?.phone || null,
+            phoneNumber: userProfile?.phone || null, // Changed from phone to phoneNumber
             role: userProfile?.role || "user",
             profileComplete: !!userProfile?.profileComplete,
             authProvider: userProfile?.authProvider || "google",

@@ -65,7 +65,7 @@ export const enhancedFareEstimateSchema = z.object({
 export const bookingSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email format"),
-  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
+  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
   pickupDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
@@ -110,7 +110,7 @@ export const enhancedBookingCreateSchema = z.object({
   customer: z.object({
     fullName: z.string().min(1, "Full name is required"),
     email: z.string().email("Invalid email format"),
-    phone: z
+    phoneNumber: z
       .string()
       .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
   }),

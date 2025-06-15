@@ -275,7 +275,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
       throw error;
     }
 
-    const { email, password, fullName, phone } = req.body;
+    const { email, password, fullName, phoneNumber } = req.body;
 
     try {
     // Registration service
@@ -283,7 +283,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
       email,
       password,
       fullName,
-      phone
+      phoneNumber
     );
 
     // Exchange custom token for ID token (same as OAuth flow)
@@ -329,9 +329,9 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
         uid: userData.uid,
         email: userData.email,
         displayName: userData.displayName,
-        phoneNumber: userData.phone, // Changed from phone to phoneNumber
+        phoneNumber: userData.phoneNumber, // Changed from phone to phoneNumber
         role: "user",
-        profileComplete: !!(userData.displayName && userData.phone),
+        profileComplete: !!(userData.displayName && userData.phoneNumber),
       },
     });
     } catch (registrationError) {
@@ -379,10 +379,29 @@ router.post("/signout", async (req: Request, res: Response) => {
 
 // Get current user from cookie
 router.get("/me", sessionCheckLimiter, async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(7);
+  
   try {
+    console.log(`🔍 [${requestId}] Auth/me request started`, {
+      timestamp: new Date().toISOString(),
+      userAgent: req.get('User-Agent'),
+      origin: req.get('Origin'),
+      referer: req.get('Referer'),
+      hasCookies: !!req.cookies,
+      cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+      hasToken: !!req.cookies?.token,
+      tokenLength: req.cookies?.token ? req.cookies.token.length : 0,
+      environment: process.env.NODE_ENV,
+    });
+    
     const token = req.cookies?.token;
 
     if (!token) {
+      console.log(`❌ [${requestId}] No token found in cookies`, {
+        cookies: req.cookies,
+        headers: req.headers.cookie,
+      });
       return res.status(401).json({
         success: false,
         error: {
@@ -392,10 +411,28 @@ router.get("/me", sessionCheckLimiter, async (req: Request, res: Response) => {
       } as ApiResponse<never>);
     }
 
+    console.log(`🔑 [${requestId}] Token found, verifying...`, {
+      tokenPreview: token.substring(0, 20) + '...',
+      tokenLength: token.length,
+    });
+
     // Verify the Firebase ID token
     try {
       const decodedToken = await auth.verifyIdToken(token);
+      console.log(`✅ [${requestId}] Token verified successfully`, {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        iss: decodedToken.iss,
+        exp: new Date(decodedToken.exp * 1000).toISOString(),
+      });
+      
       const userRecord = await auth.getUser(decodedToken.uid);
+      console.log(`👤 [${requestId}] User record retrieved`, {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        emailVerified: userRecord.emailVerified,
+        disabled: userRecord.disabled,
+      });
 
       // Get user profile from Firestore for additional data
       const userDoc = await firestore
@@ -404,21 +441,49 @@ router.get("/me", sessionCheckLimiter, async (req: Request, res: Response) => {
         .get();
 
       const userData = userDoc.data();
+      console.log(`📄 [${requestId}] Firestore data retrieved`, {
+        exists: userDoc.exists,
+        hasFullName: !!userData?.fullName,
+        hasPhone: !!userData?.phone,
+        profileComplete: userData?.profileComplete,
+      });
+
+      const responseData = {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userData?.fullName || userRecord.displayName,
+        phoneNumber: userData?.phone || null, // Changed from phone to phoneNumber
+        role: "user",
+        profileComplete: userData?.profileComplete || false,
+        createdAt: userData?.createdAt || null,
+        updatedAt: userData?.updatedAt || null,
+      };
+
+      console.log(`✅ [${requestId}] Success response prepared`, {
+        responseData: {
+          uid: !!responseData.uid,
+          email: !!responseData.email,
+          displayName: !!responseData.displayName,
+          phoneNumber: !!responseData.phoneNumber,
+          role: responseData.role,
+          profileComplete: responseData.profileComplete,
+        },
+        processingTime: Date.now() - startTime,
+      });
 
       return res.json({
         success: true,
-        data: {
-          uid: userRecord.uid,
-          email: userRecord.email,
-          displayName: userData?.fullName || userRecord.displayName,
-          phoneNumber: userData?.phone || null, // Changed from phone to phoneNumber
-          role: "user",
-          profileComplete: userData?.profileComplete || false,
-          createdAt: userData?.createdAt || null,
-          updatedAt: userData?.updatedAt || null,
-        },
+        data: responseData,
       });
     } catch (error) {
+      console.error(`❌ [${requestId}] Token verification failed`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: (error as any).code,
+        errorStack: error instanceof Error ? error.stack : undefined,
+        tokenPreview: token.substring(0, 20) + '...',
+        processingTime: Date.now() - startTime,
+      });
+      
       // Token is invalid - clear it and return not authenticated
       const isProduction = process.env.NODE_ENV === "production";
       res.clearCookie("token", {
@@ -437,7 +502,11 @@ router.get("/me", sessionCheckLimiter, async (req: Request, res: Response) => {
       } as ApiResponse<never>);
     }
   } catch (error) {
-    console.error("Error verifying authentication:", error);
+    console.error(`💥 [${requestId}] Unexpected error in auth/me`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      processingTime: Date.now() - startTime,
+    });
 
     return res.status(500).json({
       success: false,
@@ -600,14 +669,14 @@ router.post(
         throw error;
       }
 
-      const { fullName, phone } = req.body;
+      const { fullName, phoneNumber } = req.body;
 
       // Complete user profile
-      const updatedProfile = await AuthService.completeUserProfile(
-        req.user.uid,
-        fullName,
-        phone
-      );
+              const updatedProfile = await AuthService.completeUserProfile(
+          req.user.uid,
+          fullName,
+          phoneNumber
+        );
 
       return res.json({
         success: true,

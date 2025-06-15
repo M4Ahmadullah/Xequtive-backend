@@ -158,6 +158,7 @@ class AuthService {
                 displayName: userData?.fullName || userRecord.displayName,
                 phone: userData?.phone || null,
                 role: userData?.role || "user",
+                profileComplete: userData?.profileComplete || false,
                 token: customToken,
                 expiresIn: "432000", // 5 days in seconds
             };
@@ -170,13 +171,13 @@ class AuthService {
     /**
      * Register a new user with email, password, and profile data
      */
-    static async registerWithEmail(email, password, fullName, phone) {
+    static async registerWithEmail(email, password, fullName, phoneNumber) {
         try {
             // Create user in Firebase Authentication
             const userRecord = await firebase_1.auth.createUser({
                 email,
                 password,
-                displayName: fullName,
+                displayName: fullName || undefined, // Only set if provided
                 // phoneNumber: phone, // Removed to avoid uniqueness constraint
             });
             // Set custom claims for regular user
@@ -187,24 +188,27 @@ class AuthService {
                 .doc(userRecord.uid)
                 .set({
                 email: userRecord.email,
-                fullName: fullName,
-                phone: phone || null,
+                fullName: fullName || null,
+                phone: phoneNumber || null,
                 role: "user",
+                profileComplete: !!(fullName && phoneNumber), // Profile is complete if both name and phone are provided
                 createdAt: new Date().toISOString(),
             });
             // Generate a custom token directly (this doesn't require REST API)
             const customToken = await firebase_1.auth.createCustomToken(userRecord.uid, {
                 role: "user",
             });
-            // Send welcome email (non-blocking)
-            email_service_1.EmailService.sendWelcomeEmail(email, fullName).catch((error) => {
-                console.error("Failed to send welcome email:", error);
-            });
+            // Send welcome email (non-blocking) - only if fullName is provided
+            if (fullName) {
+                email_service_1.EmailService.sendWelcomeEmail(email, fullName).catch((error) => {
+                    console.error("Failed to send welcome email:", error);
+                });
+            }
             return {
                 uid: userRecord.uid,
                 email: userRecord.email,
-                displayName: fullName,
-                phone: phone || null,
+                displayName: fullName || null,
+                phoneNumber: phoneNumber || null,
                 role: "user",
                 token: customToken, // Use custom token directly
                 expiresIn: "432000", // 5 days in seconds
@@ -372,6 +376,68 @@ class AuthService {
         }
         catch (error) {
             console.error("Error completing user profile:", error);
+            throw error;
+        }
+    }
+    /**
+     * Update user profile (for regular users after signup)
+     */
+    static async updateUserProfile(uid, updates) {
+        try {
+            // Get current user data
+            const userRecord = await firebase_1.auth.getUser(uid);
+            const userDoc = await firebase_1.firestore.collection("users").doc(uid).get();
+            const currentUserData = userDoc.data();
+            if (!currentUserData) {
+                throw new Error("User profile not found");
+            }
+            // Prepare updates for Firebase Auth
+            const authUpdates = {};
+            if (updates.fullName) {
+                authUpdates.displayName = updates.fullName;
+            }
+            // Update Firebase Auth if there are auth-related updates
+            if (Object.keys(authUpdates).length > 0) {
+                await firebase_1.auth.updateUser(uid, authUpdates);
+            }
+            // Prepare updates for Firestore
+            const firestoreUpdates = {
+                updatedAt: new Date().toISOString(),
+            };
+            if (updates.fullName !== undefined) {
+                firestoreUpdates.fullName = updates.fullName;
+            }
+            if (updates.phone !== undefined) {
+                firestoreUpdates.phone = updates.phone;
+            }
+            if (updates.notifications !== undefined) {
+                firestoreUpdates.notifications = {
+                    ...currentUserData.notifications,
+                    ...updates.notifications,
+                };
+            }
+            // Check if profile is now complete
+            const updatedFullName = updates.fullName !== undefined ? updates.fullName : currentUserData.fullName;
+            const updatedPhone = updates.phone !== undefined ? updates.phone : currentUserData.phone;
+            firestoreUpdates.profileComplete = !!(updatedFullName && updatedPhone);
+            // Update user document in Firestore
+            await firebase_1.firestore.collection("users").doc(uid).update(firestoreUpdates);
+            // Get updated user data
+            const updatedUserDoc = await firebase_1.firestore.collection("users").doc(uid).get();
+            const updatedUserData = updatedUserDoc.data();
+            return {
+                uid,
+                email: userRecord.email,
+                displayName: updatedUserData?.fullName || userRecord.displayName,
+                phone: updatedUserData?.phone || null,
+                role: "user",
+                profileComplete: updatedUserData?.profileComplete || false,
+                notifications: updatedUserData?.notifications || null,
+                updatedAt: updatedUserData?.updatedAt,
+            };
+        }
+        catch (error) {
+            console.error("Error updating user profile:", error);
             throw error;
         }
     }

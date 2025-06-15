@@ -109,11 +109,13 @@ router.post("/auth/signup", async (req, res) => {
             throw new Error(tokenData.error?.message || "Token exchange failed");
         }
         // Set token in cookie
+        const isProduction = process.env.NODE_ENV === "production";
         res.cookie("token", tokenData.idToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
             maxAge: 432000 * 1000, // 5 days in milliseconds
+            path: "/",
         });
         return res.status(201).json({
             success: true,
@@ -165,11 +167,13 @@ router.post("/auth/login", async (req, res) => {
             });
         }
         // Set token in HttpOnly cookie
+        const isProduction = process.env.NODE_ENV === "production";
         res.cookie("token", authResult.token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
             maxAge: 432000 * 1000, // 5 days in milliseconds
+            path: "/",
         });
         // If we get here, user is an admin
         return res.json({
@@ -198,10 +202,12 @@ router.post("/auth/login", async (req, res) => {
 router.post("/auth/logout", async (req, res) => {
     try {
         // Clear the auth cookie
+        const isProduction = process.env.NODE_ENV === "production";
         res.clearCookie("token", {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            path: "/",
         });
         return res.json({
             success: true,
@@ -268,10 +274,12 @@ router.get("/auth/check-admin", async (req, res) => {
         }
         catch (error) {
             // Token is invalid - clear it and return not authenticated
+            const isProduction = process.env.NODE_ENV === "production";
             res.clearCookie("token", {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                secure: isProduction,
+                sameSite: isProduction ? "none" : "lax",
+                path: "/",
             });
             return res.status(401).json({
                 success: false,

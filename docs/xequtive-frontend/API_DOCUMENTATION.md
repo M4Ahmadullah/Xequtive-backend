@@ -540,7 +540,7 @@ const response = await fetch("/api/auth/signup", {
     email: "user@example.com",
     password: "securepassword123",
     fullName: "John Doe",
-    phone: "+447123456789",
+    phoneNumber: "+447123456789",
   }),
 });
 
@@ -606,7 +606,7 @@ const response = await fetch("/api/auth/complete-profile", {
   credentials: "include",
   body: JSON.stringify({
     fullName: "John Doe",
-    phone: "+447123456789",
+    phoneNumber: "+447123456789",
   }),
 });
 
@@ -628,7 +628,7 @@ All authentication endpoints return the same structure on success:
     "uid": "user123",
     "email": "user@example.com",
     "displayName": "John Doe",
-    "phone": "+447123456789",
+    "phoneNumber": "+447123456789",
     "role": "user",
     "profileComplete": true,
     "authProvider": "google"

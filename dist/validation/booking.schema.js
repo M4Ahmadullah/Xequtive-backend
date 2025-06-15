@@ -62,7 +62,7 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
 exports.bookingSchema = zod_1.z.object({
     fullName: zod_1.z.string().min(1, "Full name is required"),
     email: zod_1.z.string().email("Invalid email format"),
-    phone: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
+    phoneNumber: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
     pickupDate: zod_1.z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
@@ -104,7 +104,7 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
     customer: zod_1.z.object({
         fullName: zod_1.z.string().min(1, "Full name is required"),
         email: zod_1.z.string().email("Invalid email format"),
-        phone: zod_1.z
+        phoneNumber: zod_1.z
             .string()
             .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
     }),

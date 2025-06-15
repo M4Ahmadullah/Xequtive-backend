@@ -7,7 +7,7 @@ export interface UserData {
   uid: string;
   email: string;
   displayName?: string;
-  phone?: string;
+  phoneNumber?: string;
   role: UserRole;
   profileComplete?: boolean;
   authProvider?: AuthProvider;
@@ -245,7 +245,7 @@ export interface ApiResponse<T> {
 export interface CustomerData {
   fullName: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
 }
 
 export interface BookingVehicleData {
