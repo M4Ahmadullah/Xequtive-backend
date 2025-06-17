@@ -31,7 +31,7 @@ const allowedOrigins = process.env
     return [origin];
 });
 console.log("CORS enabled for origins:", allowedOrigins);
-// Enhanced CORS configuration
+// Enhanced CORS configuration for cross-origin cookies
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -40,24 +40,74 @@ app.use((0, cors_1.default)({
         // Normalize the request origin by removing trailing slash if present
         const normalizedOrigin = origin.replace(/\/$/, "");
         if (allowedOrigins.includes(normalizedOrigin)) {
+            console.log(`✅ CORS allowed for origin: ${origin}`);
             callback(null, true);
         }
         else {
-            console.warn(`CORS blocked request from origin: ${origin}`);
+            console.warn(`❌ CORS blocked request from origin: ${origin}`);
+            console.warn(`📋 Allowed origins:`, allowedOrigins);
             callback(new Error("Not allowed by CORS"));
         }
     },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // Critical for cross-origin cookies
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "Cookie",
+        "Set-Cookie",
+        "X-Requested-With",
+        "Accept",
+        "Origin"
+    ],
     exposedHeaders: ["Set-Cookie"],
+    optionsSuccessStatus: 200, // Some legacy browsers choke on 204
 }));
-// Handle preflight requests explicitly
-app.options("*", (0, cors_1.default)());
+// Handle preflight requests explicitly with enhanced logging
+app.options("*", (req, res) => {
+    console.log(`🔄 Preflight request from: ${req.get('Origin')}`);
+    console.log(`🔄 Requested method: ${req.get('Access-Control-Request-Method')}`);
+    console.log(`🔄 Requested headers: ${req.get('Access-Control-Request-Headers')}`);
+    (0, cors_1.default)({
+        origin: true,
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+            "Cookie",
+            "Set-Cookie",
+            "X-Requested-With",
+            "Accept",
+            "Origin"
+        ],
+    })(req, res, () => {
+        res.status(200).end();
+    });
+});
 // Other middleware
 app.use((0, helmet_1.default)());
 app.use((0, morgan_1.default)("dev"));
 app.use((0, cookie_parser_1.default)()); // Parse Cookie header and populate req.cookies
+// Enhanced middleware to handle cross-origin cookies with aggressive headers
+app.use((req, res, next) => {
+    const origin = req.get('Origin');
+    // For cross-origin requests, ensure proper headers are set
+    if (origin && allowedOrigins.includes(origin.replace(/\/$/, ""))) {
+        // Set CORS headers explicitly
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD');
+        res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,Cookie,Set-Cookie,X-Requested-With,Accept,Origin,Cache-Control,Pragma');
+        res.header('Access-Control-Expose-Headers', 'Set-Cookie,Authorization');
+        // Add headers to help with cookie handling
+        res.header('Vary', 'Origin, Access-Control-Request-Headers, Access-Control-Request-Method');
+        res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.header('Pragma', 'no-cache');
+        console.log(`🔧 Enhanced CORS headers set for origin: ${origin}`);
+    }
+    next();
+});
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 // Root endpoint for Cloud Run health checks

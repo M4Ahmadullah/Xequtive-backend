@@ -208,27 +208,30 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
                 },
             });
         }
-        // Set the ID token as HttpOnly cookie instead of returning in response
-        const isProduction = process.env.NODE_ENV === "production";
-        res.cookie("token", tokenData.idToken, {
+        // Set the ID token as HttpOnly cookie with consistent cross-origin support
+        const cookieOptions = {
             httpOnly: true,
-            secure: isProduction, // Only send over HTTPS in production
-            sameSite: isProduction ? "none" : "lax", // Allow cross-origin cookies in production
+            secure: true, // Always secure for cross-origin compatibility
+            sameSite: "none", // Always none for cross-origin compatibility
             maxAge: 432000 * 1000, // 5 days in milliseconds
             path: "/", // Ensure cookie is available for all paths
-        });
-        console.log('Sign-in successful', {
+        };
+        res.cookie("token", tokenData.idToken, cookieOptions);
+        // Add explicit Set-Cookie header logging
+        const setCookieHeaders = res.getHeaders()['set-cookie'];
+        console.log('🍪 Sign-in successful - Cookie set', {
             uid: authResult.uid,
             email: authResult.email,
             cookieSet: true,
             environment: process.env.NODE_ENV,
-            isProduction,
-            cookieOptions: {
-                secure: isProduction,
-                sameSite: isProduction ? "none" : "lax"
-            }
+            cookieOptions,
+            requestOrigin: req.get('Origin'),
+            requestHost: req.get('Host'),
+            tokenLength: tokenData.idToken.length,
+            setCookieHeaders,
+            allResponseHeaders: res.getHeaders(),
         });
-        // Return user data without the token
+        // Return user data (cookies-only approach)
         return res.json({
             success: true,
             data: {
@@ -298,16 +301,30 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
                     },
                 });
             }
-            // Set the ID token as HttpOnly cookie
-            const isProduction = process.env.NODE_ENV === "production";
-            res.cookie("token", tokenData.idToken, {
+            // Set the ID token as HttpOnly cookie with consistent cross-origin support
+            const cookieOptions = {
                 httpOnly: true,
-                secure: isProduction,
-                sameSite: isProduction ? "none" : "lax", // Allow cross-origin cookies in production
+                secure: true, // Always secure for cross-origin compatibility
+                sameSite: "none", // Always none for cross-origin compatibility
                 maxAge: 432000 * 1000, // 5 days in milliseconds
                 path: "/", // Ensure cookie is available for all paths
+            };
+            res.cookie("token", tokenData.idToken, cookieOptions);
+            // Add explicit Set-Cookie header logging
+            const setCookieHeaders = res.getHeaders()['set-cookie'];
+            console.log('🍪 Sign-up successful - Cookie set', {
+                uid: userData.uid,
+                email: userData.email,
+                cookieSet: true,
+                environment: process.env.NODE_ENV,
+                cookieOptions,
+                requestOrigin: req.get('Origin'),
+                requestHost: req.get('Host'),
+                tokenLength: tokenData.idToken.length,
+                setCookieHeaders,
+                allResponseHeaders: res.getHeaders(),
             });
-            // Return user data without the token
+            // Return user data (cookies-only approach)
             return res.status(201).json({
                 success: true,
                 data: {
@@ -348,17 +365,114 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
 });
 // Sign out endpoint
 router.post("/signout", async (req, res) => {
-    // Clear the auth cookie
-    const isProduction = process.env.NODE_ENV === "production";
+    // Clear the auth cookie with same settings as when it was set
     res.clearCookie("token", {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
+        secure: true, // Must match the settings used when setting the cookie
+        sameSite: "none", // Must match the settings used when setting the cookie
         path: "/",
     });
     return res.status(200).json({
         success: true,
         message: "Successfully logged out",
+    });
+});
+// Comprehensive cookie testing endpoint
+router.get("/debug-cookies", async (req, res) => {
+    const requestId = Math.random().toString(36).substring(7);
+    console.log(`🐛 [${requestId}] Cookie debug request`, {
+        timestamp: new Date().toISOString(),
+        origin: req.get('Origin'),
+        host: req.get('Host'),
+        userAgent: req.get('User-Agent'),
+        secFetchSite: req.get('Sec-Fetch-Site'),
+        secFetchMode: req.get('Sec-Fetch-Mode'),
+        secFetchDest: req.get('Sec-Fetch-Dest'),
+        rawCookieHeader: req.headers.cookie,
+        parsedCookies: req.cookies,
+        cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+        hasToken: !!req.cookies?.token,
+        allHeaders: Object.keys(req.headers),
+        responseHeaders: res.getHeaders(),
+    });
+    // Set multiple test cookies with different configurations
+    const testValue = "test-value-" + Date.now();
+    // Test cookie 1: Standard cross-origin settings
+    res.cookie("debug-test-1", testValue, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 300000, // 5 minutes
+        path: "/",
+    });
+    // Test cookie 2: Less restrictive (for comparison)
+    res.cookie("debug-test-2", testValue, {
+        httpOnly: false,
+        secure: true,
+        sameSite: "none",
+        maxAge: 300000, // 5 minutes
+        path: "/",
+    });
+    // Test cookie 3: Session cookie
+    res.cookie("debug-test-3", testValue, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: "/",
+    });
+    console.log(`🍪 [${requestId}] Test cookies set`, {
+        testValue,
+        cookiesSet: 3,
+        responseHeaders: res.getHeaders(),
+    });
+    return res.json({
+        success: true,
+        data: {
+            message: "Cookie debug info logged - check server logs",
+            requestId,
+            cookiesReceived: req.cookies || {},
+            cookieHeader: req.headers.cookie || null,
+            origin: req.get('Origin'),
+            secFetchSite: req.get('Sec-Fetch-Site'),
+            testCookiesSet: 3,
+            testValue,
+            instructions: "Call this endpoint again to see if cookies were received",
+        },
+    });
+});
+// Test endpoint that mimics exact auth cookie behavior
+router.post("/test-auth-cookie", async (req, res) => {
+    const requestId = Math.random().toString(36).substring(7);
+    console.log(`🧪 [${requestId}] Testing auth cookie behavior`, {
+        origin: req.get('Origin'),
+        secFetchSite: req.get('Sec-Fetch-Site'),
+        userAgent: req.get('User-Agent'),
+        existingCookies: req.cookies,
+    });
+    // Set a cookie with EXACTLY the same settings as our auth cookies
+    const testToken = "test-jwt-token-" + Date.now() + "-" + Math.random().toString(36);
+    const cookieOptions = {
+        httpOnly: true,
+        secure: true, // Always secure for cross-origin compatibility
+        sameSite: "none", // Always none for cross-origin compatibility
+        maxAge: 432000 * 1000, // 5 days in milliseconds (same as auth)
+        path: "/", // Ensure cookie is available for all paths
+    };
+    res.cookie("test-token", testToken, cookieOptions);
+    console.log(`🧪 [${requestId}] Test auth cookie set`, {
+        testToken: testToken.substring(0, 20) + '...',
+        cookieOptions,
+        responseHeaders: res.getHeaders(),
+    });
+    return res.json({
+        success: true,
+        data: {
+            message: "Test auth cookie set with exact same settings as real auth",
+            requestId,
+            testToken: testToken.substring(0, 20) + '...',
+            cookieOptions,
+            instructions: "Now call /api/auth/me to see if this test cookie is received",
+        },
     });
 });
 // Get current user from cookie
@@ -371,17 +485,31 @@ router.get("/me", rateLimiter_1.sessionCheckLimiter, async (req, res) => {
             userAgent: req.get('User-Agent'),
             origin: req.get('Origin'),
             referer: req.get('Referer'),
+            host: req.get('Host'),
             hasCookies: !!req.cookies,
             cookieNames: req.cookies ? Object.keys(req.cookies) : [],
             hasToken: !!req.cookies?.token,
             tokenLength: req.cookies?.token ? req.cookies.token.length : 0,
             environment: process.env.NODE_ENV,
+            // Enhanced cookie debugging
+            rawCookieHeader: req.headers.cookie,
+            allHeaders: Object.keys(req.headers),
+            cookieParserResult: req.cookies,
         });
         const token = req.cookies?.token;
         if (!token) {
             console.log(`❌ [${requestId}] No token found in cookies`, {
                 cookies: req.cookies,
-                headers: req.headers.cookie,
+                cookieHeaders: req.headers.cookie,
+                allCookieHeaders: req.headers,
+                // Check if cookie-parser is working
+                cookieParserWorking: typeof req.cookies === 'object',
+                // Enhanced cross-origin debugging
+                origin: req.get('Origin'),
+                referer: req.get('Referer'),
+                userAgent: req.get('User-Agent'),
+                secFetchSite: req.get('Sec-Fetch-Site'),
+                secFetchMode: req.get('Sec-Fetch-Mode'),
             });
             return res.status(401).json({
                 success: false,
@@ -458,11 +586,10 @@ router.get("/me", rateLimiter_1.sessionCheckLimiter, async (req, res) => {
                 processingTime: Date.now() - startTime,
             });
             // Token is invalid - clear it and return not authenticated
-            const isProduction = process.env.NODE_ENV === "production";
             res.clearCookie("token", {
                 httpOnly: true,
-                secure: isProduction,
-                sameSite: isProduction ? "none" : "lax",
+                secure: true, // Must match the settings used when setting the cookie
+                sameSite: "none", // Must match the settings used when setting the cookie
                 path: "/",
             });
             return res.status(401).json({
@@ -910,17 +1037,21 @@ router.post("/google/callback", async (req, res) => {
         // Set cookie with the ID token
         console.log("✅ Step 7: Setting authentication cookie");
         const isProduction = process.env.NODE_ENV === "production";
+        const requestOrigin = req.get('Origin');
+        const isCrossOrigin = requestOrigin && !requestOrigin.includes('localhost:5555');
         const cookieOptions = {
             httpOnly: true,
-            secure: isProduction, // Use HTTPS in production
-            sameSite: isProduction ? "none" : "lax", // Allow cross-origin in production
+            secure: Boolean(isProduction || isCrossOrigin), // Use HTTPS for production or cross-origin
+            sameSite: (isProduction || isCrossOrigin) ? "none" : "lax", // Force none for cross-origin
             maxAge: 432000 * 1000, // 5 days in milliseconds
             path: "/", // Ensure cookie is available for all paths
         };
-        console.log("🍪 Cookie options:", cookieOptions);
+        console.log("🍪 Google OAuth - Cookie options:", cookieOptions);
         console.log("🌍 Environment:", process.env.NODE_ENV);
         console.log("🔗 Request origin:", req.get('origin'));
         console.log("🔗 Request host:", req.get('host'));
+        console.log("🔗 Request referer:", req.get('referer'));
+        console.log("🔗 Is cross-origin:", isCrossOrigin);
         res.cookie("token", tokenData.idToken, cookieOptions);
         console.log("✅ Step 8: Preparing response data");
         const responseData = {
