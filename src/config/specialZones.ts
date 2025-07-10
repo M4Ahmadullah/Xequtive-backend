@@ -66,8 +66,8 @@ export const AIRPORTS: Record<string, Airport> = {
       west: -0.461946,
     },
     fees: {
-      pickup: 7.5,
-      dropoff: 6.0,
+      pickup: 7.5, // Standard class
+      dropoff: 6.0, // Standard class
     },
     region: "London",
   },
@@ -81,8 +81,8 @@ export const AIRPORTS: Record<string, Airport> = {
       west: -0.190532,
     },
     fees: {
-      pickup: 8.0,
-      dropoff: 6.0,
+      pickup: 8.0, // Standard class
+      dropoff: 6.0, // Standard class
     },
     region: "London",
   },
@@ -96,8 +96,8 @@ export const AIRPORTS: Record<string, Airport> = {
       west: -0.389516,
     },
     fees: {
-      pickup: 6.0,
-      dropoff: 6.0,
+      pickup: 6.0, // Standard class
+      dropoff: 6.0, // Standard class
     },
     region: "London",
   },
@@ -111,8 +111,8 @@ export const AIRPORTS: Record<string, Airport> = {
       west: 0.225384,
     },
     fees: {
-      pickup: 10.0,
-      dropoff: 7.0,
+      pickup: 10.0, // Standard class
+      dropoff: 7.0, // Standard class
     },
     region: "London",
   },
@@ -126,8 +126,8 @@ export const AIRPORTS: Record<string, Airport> = {
       west: 0.042487,
     },
     fees: {
-      pickup: 6.5,
-      dropoff: 6.5,
+      pickup: 6.5, // Standard class
+      dropoff: 0.0, // Standard class
     },
     region: "London",
   },

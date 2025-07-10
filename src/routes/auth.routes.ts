@@ -218,7 +218,7 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
 
     // Add explicit Set-Cookie header logging
     const setCookieHeaders = res.getHeaders()['set-cookie'];
-    
+
     console.log('🍪 Sign-in successful - Cookie set', {
       uid: authResult.uid,
       email: authResult.email,
@@ -327,7 +327,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
     };
     
     res.cookie("token", tokenData.idToken, cookieOptions);
-    
+
     // Add explicit Set-Cookie header logging
     const setCookieHeaders = res.getHeaders()['set-cookie'];
     
@@ -819,11 +819,11 @@ router.post(
       const { fullName, phoneNumber } = req.body;
 
       // Complete user profile
-              const updatedProfile = await AuthService.completeUserProfile(
-          req.user.uid,
-          fullName,
+      const updatedProfile = await AuthService.completeUserProfile(
+        req.user.uid,
+        fullName,
           phoneNumber
-        );
+      );
 
       return res.json({
         success: true,

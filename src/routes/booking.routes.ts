@@ -21,7 +21,7 @@ import {
 import { EnhancedFareService } from "../services/enhancedFare.service";
 import { Query } from "firebase-admin/firestore";
 import { bookingLimiter } from "../middleware/rateLimiter";
-import { FareService } from "../services/fare.service";
+import { FareCalculationService } from "../services/fare.service";
 import { EmailService } from "../services/email.service";
 
 const router = Router();

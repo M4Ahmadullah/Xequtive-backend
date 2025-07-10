@@ -67,56 +67,50 @@ For journeys crossing the River Thames via the Dartford Crossing:
 
 ## Vehicle Types and Base Pricing
 
-| Vehicle Type        | Capacity (Passengers) | Base Fare (£) | Per Mile Rate (£) |  Waiting Time   |
-| ------------------- | :-------------------: | :-----------: | :---------------: | :-------------: |
-| Standard Saloon     |           4           |     £5.00     |       £2.95       | £25.00 per hour |
-| Estate              |           4           |     £7.50     |       £3.95       | £30.00 per hour |
-| MPV-6               |           6           |    £12.50     |       £4.75       | £35.00 per hour |
-| MPV-8               |           8           |    £20.00     |       £3.95       | £45.00 per hour |
-| Executive Saloon    |           3           |    £12.50     |       £4.95       | £45.00 per hour |
-| VIP Executive\*     |           3           |      N/A      |        N/A        | £75.00 per hour |
-| VIP Executive MPV\* |           6           |      N/A      |        N/A        | £95.00 per hour |
-| WAV                 |           4           |    £12.50     |       £4.75       | £35.00 per hour |
-
-\*VIP vehicles are priced on a custom quote basis depending on specific requirements. These premium services are typically booked on an hourly basis (minimum 3-4 hours) rather than point-to-point journeys and include additional premium services by default. Please contact our team for a personalized quote.
+| Vehicle Type        | Capacity (Passengers) | Base Fare (£) | Per Mile Rate (£) | Waiting Time (per hour) |
+| ------------------- | :-------------------: | :-----------: | :---------------: | :---------------------: |
+| Standard Saloon     |           4           |     £6.50     |       £2.95       |         £25.00          |
+| Estate              |           4           |     £6.50     |       £3.45       |         £30.00          |
+| MPV-6               |           6           |    £12.50     |       £6.45       |         £35.00          |
+| MPV-8               |           8           |    £18.50     |       £6.95       |         £45.00          |
+| Executive Saloon    |           3           |    £10.50     |       £5.95       |         £45.00          |
+| Executive MPV-8     |           6           |    £20.50     |       £7.95       |         £55.00          |
+| VIP Executive       |           3           |    £35.00     |       £7.45       |         £75.00          |
+| VIP Executive MPV   |           6           |    £35.00     |       £7.95       |         £95.00          |
+| WAV                 |           4           |    £12.50     |       £4.75       |         £35.00          |
 
 ## Vehicle Features
 
 ### Standard Vehicles
 
 - **Standard Saloon**: Toyota Prius, Ford Mondeo
-
   - Accommodates 4 passengers with 2 standard luggage items
   - Economical and comfortable for city travel
   - Ideal for individual and small group travel
 
 - **Estate**: Mercedes E-Class Estate, Volkswagen Passat Estate
-
   - Accommodates 4 passengers with 4 standard luggage items
   - Extra luggage space for airport transfers or shopping trips
   - Perfect balance of comfort and capacity
 
 - **MPV-6**: Ford Galaxy, Volkswagen Sharan
-
   - Accommodates 6 passengers with 4 luggage items
-  - Spacious seating arrangement for family travel
+  - Spacious seating arrangement for group travel
   - Flexible interior configuration
 
 - **MPV-8**: Ford Tourneo, Mercedes Vito
   - Accommodates 8 passengers with 6 luggage items
   - Maximum capacity for both passengers and luggage
-  - Ideal for group travel or large families
+  - Ideal for group transportation
 
 ### Premium Vehicles
 
 - **Executive Saloon**: Mercedes E-Class, BMW 5-Series
-
   - Accommodates 3 passengers with 2 luggage items
   - WiFi, bottled water, professional chauffeur, flight tracking
   - Premium comfort for business travel and special occasions
 
 - **VIP Executive**: Mercedes S-Class, BMW 7-Series
-
   - Accommodates 3 passengers with 2 luggage items
   - WiFi, premium drinks, luxury interior, professional chauffeur, priority service, privacy partition
   - Ultimate luxury experience for high-profile clients
@@ -134,324 +128,154 @@ For journeys crossing the River Thames via the Dartford Crossing:
   - Trained drivers for wheelchair assistance
   - Ideal for accessible transportation needs
 
-## Fare Calculation Formula
+## Pricing Structure Overview
 
-The total fare is calculated using the following formula:
+### Distance-Based Pricing
+Our fare calculation uses a granular, multi-tiered distance-based pricing model. Each vehicle type has unique per-mile rates across 10 distinct distance ranges:
 
-```
-Total Fare = Base Fare + (Distance in miles × Per Mile Rate) + Additional Charges
-```
+1. 0-4 miles
+2. 4.1-10.9 miles
+3. 11-20 miles
+4. 21-40 miles
+5. 41-60 miles
+6. 61-80 miles
+7. 81-99 miles
+8. 100-149 miles
+9. 150-299 miles
+10. 300+ miles
 
-Where:
+### Detailed Per Mile Rates
 
-- Base Fare: Fixed starting fare for each vehicle type
-- Per Mile Rate: Rate charged per mile traveled
-- Additional Charges: Includes time multipliers, additional stops, waiting time, and other surcharges
+| Vehicle Type | 0-4 miles | 4.1-10.9 miles | 11-20 miles | 21-40 miles | 41-60 miles | 61-80 miles | 81-99 miles | 100-149 miles | 150-299 miles | 300+ miles |
+|-------------|-----------|----------------|-------------|-------------|-------------|-------------|-------------|---------------|---------------|------------|
+| Standard Saloon | £3.95 | £2.95 | £2.80 | £2.66 | £2.36 | £2.21 | £1.92 | £1.77 | £1.62 | £1.48 |
+| Estate | £4.95 | £3.45 | £3.28 | £3.11 | £2.76 | £2.59 | £2.24 | £2.07 | £1.90 | £1.73 |
+| MPV-6 Seater | £6.95 | £6.45 | £5.97 | £4.35 | £3.39 | £3.55 | £3.23 | £3.06 | £2.90 | £2.74 |
+| MPV-8 Seater | £7.95 | £6.95 | £6.43 | £4.69 | £4.00 | £3.82 | £3.48 | £3.30 | £3.13 | £2.95 |
+| Executive Saloon | £7.95 | £5.95 | £5.50 | £4.02 | £3.42 | £3.27 | £2.98 | £2.83 | £2.68 | £2.53 |
+| Executive MPV-8 | £7.95 | £7.95 | £6.56 | £6.16 | £5.96 | £5.76 | £4.77 | £4.57 | £3.78 | £3.58 |
+| VIP Executive | £7.95 | £7.45 | £7.26 | £5.03 | £4.28 | £4.10 | £3.73 | £3.54 | £3.35 | £3.17 |
+| VIP Executive MPV | £8.95 | £7.95 | £7.55 | £7.16 | £6.76 | £6.36 | £6.16 | £5.96 | £5.37 | £4.97 |
+
+### Time-Based Surcharges
+
+#### Weekdays (Monday-Thursday)
+- **Peak Time** (3 AM - 9 AM / 3 PM - 9 PM): Additional £3.54
+- **Off-Peak** (9:01 AM - 2:59 PM / 9 PM - 4 AM): No additional charge
+
+#### Weekend (Friday)
+- **Peak Time** (3 AM - 9 AM / 3 PM - 11:59 PM): Special rates apply
+- **Off-Peak** (9:01 AM - 2:59 PM): Standard weekend rates
+
+#### Weekend (Saturday-Sunday)
+- **All Day**: Special weekend rates apply
+
+### Minimum Fares
+
+| Vehicle Type | Minimum Fare |
+|-------------|--------------|
+| Standard Saloon | £12.40 |
+| Estate | £13.40 |
+| MPV-6 Seater | £16.40 |
+| MPV-8 Seater | £51.20 |
+| Executive Saloon | £20.40 |
+| Executive MPV-8 | £44.30 |
+| VIP Executive | £66.80 |
+| VIP Executive MPV | £70.80 |
 
 ## Additional Charges
 
 ### Additional Stops
 
-| Vehicle Type      | Per Additional Stop (£) |
-| ----------------- | :---------------------: |
-| Standard Saloon   |          £2.50          |
-| Estate            |          £3.50          |
-| MPV-6             |          £4.50          |
-| MPV-8             |          £4.50          |
-| Executive Saloon  |          £5.50          |
-| VIP Executive     |           N/A           |
-| VIP Executive MPV |           N/A           |
+| Vehicle Type | Per Additional Stop (£) |
+|-------------|-------------------------|
+| Standard Saloon | £2.50 |
+| Estate | £3.50 |
+| MPV-6 | £4.50 |
+| MPV-8 | £4.50 |
+| Executive Saloon | £5.50 |
+| VIP Executive | N/A |
+| VIP Executive MPV | N/A |
 
 ### Waiting Time
 
-Waiting time is charged at the following rates:
+| Vehicle Type | Per Minute (£) | Per Hour (£) |
+|-------------|----------------|--------------|
+| Standard Saloon | £0.42 | £25.00 |
+| Estate | £0.58 | £30.00 |
+| MPV-6 | £0.58 | £35.00 |
+| MPV-8 | £0.67 | £45.00 |
+| Executive Saloon | £0.67 | £45.00 |
+| VIP Executive | £1.25 | £75.00 |
+| VIP Executive MPV | £1.58 | £95.00 |
 
-| Vehicle Type      | Per Minute (£) | Per Hour (£) |
-| ----------------- | :------------: | :----------: |
-| Standard Saloon   |     £0.42      |    £25.00    |
-| Estate            |     £0.58      |    £30.00    |
-| MPV-6             |     £0.58      |    £35.00    |
-| MPV-8             |     £0.67      |    £45.00    |
-| Executive Saloon  |     £0.67      |    £45.00    |
-| VIP Executive     |     £1.25      |    £75.00    |
-| VIP Executive MPV |     £1.58      |    £95.00    |
+## Fare Calculation Formula
 
-### Day-Trip Rates
+```
+Total Fare = Base Fare + (Distance in miles × Per Mile Rate) + Additional Charges
+```
 
-For extended bookings, special day-trip rates apply:
+## Rounding and Minimum Fare
 
-| Vehicle Type      | 4-6 Hours (per hour) | 6-12 Hours (per hour) |
-| ----------------- | :------------------: | :-------------------: |
-| Standard Saloon   |        £25.00        |        £20.00         |
-| Estate            |        £30.00        |        £25.00         |
-| MPV-6             |        £40.00        |        £30.00         |
-| MPV-8             |        £45.00        |        £40.00         |
-| Executive Saloon  |        £45.00        |        £40.00         |
-| VIP Executive     |         N/A          |          N/A          |
-| VIP Executive MPV |         N/A          |          N/A          |
+- Fares are rounded up to the nearest £0.50
+- Minimum fares apply to protect driver earnings on short trips
 
-## Time-Based Multipliers
+## Seasonal and Event Pricing
 
-### Weekdays (Monday-Thursday)
+### Holiday Surcharges
+- Christmas Eve & Christmas Day: 50% surcharge
+- New Year's Eve (after 6pm) & New Year's Day: 50% surcharge
+- Bank Holidays: 25% surcharge
 
-- **Peak Time** (3 AM - 9 AM / 3 PM - 9 PM): Additional £3.54
-- **Off-Peak** (9:01 AM - 2:59 PM / 9 PM - 4 AM): No additional charge
+### Major Event Surcharges
+- Standard Event Surcharge: 15% on all fares
+- Premium Events: 25% on all fares
 
-### Weekend (Friday)
+## Special Location Fees
 
-- **Peak Time** (3 AM - 9 AM / 3 PM - 11:59 PM): Special rates apply
-- **Off-Peak** (9:01 AM - 2:59 PM): Standard weekend rates
-
-### Weekend (Saturday-Sunday)
-
-- **All Day**: Special weekend rates apply
-
-## Additional Fees
-
-### Toll Charges
-
-- **Congestion Charge Zone (CCZ)** - Zone 1: £7.50
-- **Dartford Crossing**: £4.00
+### Congestion Charge Zone
+- £7.50 (Monday-Friday, 7am-6pm)
 
 ### Airport Fees
 
 #### Airport Dropoff Fees
-
-| Airport      | Fee (£) |
-| ------------ | :-----: |
-| Heathrow     |  £6.00  |
-| Gatwick      |  £6.00  |
-| Luton        |  £6.00  |
-| Stansted     |  £7.00  |
-| City Airport |  £6.50  |
+| Airport | Fee (£) |
+|---------|---------|
+| Heathrow | £6.00 |
+| Gatwick | £6.00 |
+| Luton | £6.00 |
+| Stansted | £7.00 |
+| City Airport | £6.50 |
 
 #### Airport Pickup Fees
+| Airport | Fee (£) |
+|---------|---------|
+| Heathrow | £7.50 |
+| Gatwick | £8.00 |
+| Luton | £6.00 |
+| Stansted | £10.00 |
+| City Airport | £6.50 |
 
-| Airport      | Fee (£) |
-| ------------ | :-----: |
-| Heathrow     |  £7.50  |
-| Gatwick      |  £8.00  |
-| Luton        |  £6.00  |
-| Stansted     | £10.00  |
-| City Airport |  £6.50  |
+### Dartford Crossing
+- £4.00 per crossing
 
-## Additional Services and Premium Options
-
-### Meet and Greet Service
-
-For airport pickups, we offer a professional meet and greet service:
-
-- Driver meets customers at arrivals with a name board
-- 45 minutes of free waiting time from the actual flight arrival
-- **Additional Cost**: Included in the airport pickup fee
-
-### Corporate Account Benefits
-
-- Priority dispatch during peak hours
-- Dedicated account manager
-- Monthly invoicing and detailed trip reports
-- Volume-based discounts available
-- Custom branded service available for larger accounts
-
-### Special Occasions Package
-
-- Complimentary chilled water and refreshments
-- Decorative options available upon request (weddings, anniversaries)
-- Extended vehicle selection time
-- **Additional Cost**: From £25 depending on requirements
-
-## Seasonal and Event Pricing Adjustments
-
-### Holiday Season Surcharges
-
-- **Christmas Eve & Christmas Day**: 50% surcharge
-- **New Year's Eve (after 6pm) & New Year's Day**: 50% surcharge
-- **Bank Holidays**: 25% surcharge
-
-### Major Event Surcharges
-
-For major sporting events, concerts and festivals:
-
-- **Standard Event Surcharge**: 15% on all fares
-- **Premium Events** (Wimbledon Finals, FA Cup Final, etc.): 25% on all fares
-
-## Example Calculations
-
-### Example 1: Standard Saloon Journey
-
-- **Distance**: 10 miles
-- **Time**: Tuesday, 8:00 AM (Peak Time)
-- **Vehicle**: Standard Saloon
-- **Additional Stops**: None
-
-Calculation:
-
-```
-Base Fare = £5.00
-Distance Charge = 10 miles × £2.95 = £29.50
-Peak Time Charge = £3.54
-Total Fare = £5.00 + £29.50 + £3.54 = £38.04
-```
-
-### Example 2: Executive Journey with Airport Pickup
-
-- **Distance**: 25 miles
-- **Time**: Friday, 6:00 PM (Weekend Peak)
-- **Vehicle**: Executive
-- **Route**: Heathrow Airport to Central London
-
-Calculation:
-
-```
-Base Fare = £12.50
-Distance Charge = 25 miles × £4.95 = £123.75
-Airport Pickup Fee = £7.50
-Weekend Peak Charge = (Applicable rate)
-Total Fare = £12.50 + £123.75 + £7.50 + (Weekend charge) = £143.75 + (Weekend charge)
-```
-
-### Example 3: MPV-6 with Waiting Time and Additional Stops
-
-- **Distance**: 15 miles
-- **Time**: Monday, 2:00 PM (Off-Peak)
-- **Vehicle**: MPV-6
-- **Additional Stops**: 1
-- **Waiting Time**: 30 minutes
-
-Calculation:
-
-```
-Base Fare = £12.50
-Distance Charge = 15 miles × £4.75 = £71.25
-Additional Stop = £4.50
-Waiting Time = 30 minutes × £0.58 = £17.40
-Total Fare = £12.50 + £71.25 + £4.50 + £17.40 = £105.65
-```
-
-### Example 4: Day Trip with Executive MPV
-
-- **Distance**: Local use only
-- **Time**: Saturday, 10:00 AM - 6:00 PM (8 hours)
-- **Vehicle**: Executive MPV
-- **Service**: Wedding transportation
-
-Calculation:
-
-```
-6-12 Hours Rate = 8 hours × £50.00 = £400.00
-Special Occasions Package = £25.00
-Weekend Surcharge = (Applicable rate)
-Total Fare = £400.00 + £25.00 + (Weekend surcharge) = £425.00 + (Weekend surcharge)
-```
-
-### Example 5: Standard Saloon with Congestion Charge
-
-- **Distance**: 12 miles
-- **Time**: Wednesday, 4:00 PM (Peak Time)
-- **Vehicle**: Standard Saloon
-- **Route**: Through Congestion Charge Zone
-
-Calculation:
-
-```
-Base Fare = £5.00
-Distance Charge = 12 miles × £2.95 = £35.40
-Peak Time Charge = £3.54
-Congestion Charge = £7.50
-Total Fare = £5.00 + £35.40 + £3.54 + £7.50 = £51.44
-```
-
-### Example 6: Journey with Automated Zone Detection
-
-- **Distance**: 18 miles
-- **Time**: Monday, 10:00 AM (Off-Peak)
-- **Vehicle**: Estate
-- **Route**: Westminster to Canary Wharf via CCZ, then to Stansted Airport
-
-Calculation:
-
-```
-Base Fare = £7.50
-Distance Charge = 18 miles × £3.95 = £71.10
-Congestion Charge (automatically detected) = £7.50
-Airport Dropoff Fee (automatically detected) = £7.00
-Total Fare = £7.50 + £71.10 + £7.50 + £7.00 = £93.10
-
-User Notifications:
-- "Your route passes through the Congestion Charge Zone. A £7.50 charge has been added."
-- "Your destination is Stansted Airport. An airport dropoff fee of £7.00 has been added."
-```
-
-## Minimum Fare Protection
-
-To ensure driver earnings on very short journeys, a minimum fare is applied if the calculated fare is lower than the minimum threshold for each vehicle type.
-
-## Fare Rounding
-
-For customer convenience, all final fares are rounded up to the nearest £0.50.
-
-## Additional Notes
-
-1. All prices are inclusive of VAT where applicable.
-2. Fares may be subject to change during major public holidays or events.
-3. For journeys over 100 miles, special rates may apply.
-4. Corporate accounts may receive discounted rates according to contract terms.
-5. Pre-booked journeys more than 24 hours in advance may be eligible for off-peak rates regardless of actual journey time.
-6. For journeys requiring a toll or crossing fee not listed, the actual cost will be added to the final fare.
-7. Multiple hour waiting periods may be eligible for reduced hourly rates.
-8. All prices are effective from June 2023 and subject to periodic review.
-
-## Booking Terms
-
-1. Cancellation fees apply for bookings cancelled with less than 24 hours notice.
-2. For airport pickups, flight details must be provided at the time of booking.
-3. Child seats must be requested at the time of booking.
-4. A non-refundable deposit may be required for certain premium services or peak time bookings.
-5. Our drivers will wait up to 15 minutes beyond the scheduled pickup time for standard bookings, and 45 minutes for airport pickups (based on actual flight arrival time).
-
-## Passenger Information and Additional Services
-
-### Luggage Types and Charges
-
-1. **Hand Luggage**
-
-   - Small bags and carry-on items
-   - No additional charge
-   - Included in base fare
-
-2. **Medium Luggage** (NEW)
-
-   - Medium-sized bags
-   - Pricing: Every 2 medium bags are charged as 1 large bag at £10.00
-   - Example: 4 medium bags = 2 large bag equivalents = £20.00
-
-3. **Checked Luggage**
-   - Large suitcases and bags
-   - Standard rates apply based on vehicle type
+## Additional Services
 
 ### Child Safety Equipment
-
-1. **Baby Seat (0-18 Months)**
-
-   - Maximum: 5 baby seats
-   - Price: £10.00 per seat
-   - Age Range: 0-18 Months
-
-2. **Child Seat (18 Months - 4 Years)**
-
-   - Maximum: 5 child seats
-   - Price: £10.00 per seat
-   - Age Range: 18 Months - 4 Years
-
-3. **Booster Seat (4-6 Years)**
-   - Maximum: 5 booster seats
-   - Price: £10.00 per seat
-   - Age Range: 4-6 Years
+- Baby Seat (0-18 Months): £10.00 per seat
+- Child Seat (18 Months - 4 Years): £10.00 per seat
+- Booster Seat (4-6 Years): £10.00 per seat
 
 ### Accessibility Equipment
+- Foldable Wheelchair: £25.00 per wheelchair
 
-1. **Foldable Wheelchair**
-   - £25.00 per wheelchair
-   - Must be foldable to fit in vehicle
-   - Driver assistance with loading/unloading included
-   - Available with all vehicle types except VIP Executive
+## Notes
+- Prices effective from June 2023
+- Subject to periodic review
+- VAT inclusive where applicable
+- Corporate and volume discounts may apply
+
+## Future Enhancements
+- Machine learning-based dynamic pricing
+- Real-time traffic integration
+- Personalized pricing models

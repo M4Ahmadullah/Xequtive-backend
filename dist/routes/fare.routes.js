@@ -21,11 +21,18 @@ router.post("/", authMiddleware_1.verifyToken, async (req, res) => {
         // Validate request body
         const fareRequest = booking_schema_1.fareEstimateSchema.parse(req.body);
         // Calculate fare estimate
-        const fareEstimate = await fare_service_1.FareService.calculateFares(fareRequest);
+        const fareCalculationService = new fare_service_1.FareCalculationService();
+        const fareEstimate = fareCalculationService.calculateFare({
+            vehicleType: fareRequest.vehicleType,
+            distance: Math.sqrt(Math.pow(fareRequest.dropoffLocation.lat - fareRequest.pickupLocation.lat, 2) +
+                Math.pow(fareRequest.dropoffLocation.lng - fareRequest.pickupLocation.lng, 2)) * 69.172, // Convert to miles (approximate)
+            additionalStops: fareRequest.additionalStops?.length || 0,
+            // Optionally add more parameters if needed
+        });
         res.status(200).json({
             success: true,
             data: {
-                ...fareEstimate,
+                fareEstimate: fareEstimate,
                 userId: req.user.uid, // Include user ID in response
             },
         });

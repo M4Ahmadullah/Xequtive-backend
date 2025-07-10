@@ -179,10 +179,19 @@ async function logout() {
 
 The enhanced fare estimation endpoint calculates fares for all available vehicle types, taking into account:
 
-- Distance and duration
+- Distance and duration using slab-based pricing
+- Minimum fare requirements per vehicle type
 - Time-based pricing (peak hours, weekends)
 - Special zones (airports, congestion charge)
 - Additional services (child seats, luggage)
+
+**Important**: Our fare calculation system has been updated to remove base rates/reservation fees. Fares are now calculated using:
+1. **Distance-based charges** using a slab pricing system (different rates for different distance ranges)
+2. **Minimum fare enforcement** to ensure fair pricing for short journeys
+3. **Additional fees** for airports, special zones, and extra services
+4. **Time-based surcharges** for peak hours and weekends
+
+The minimum fare acts as a floor price - if the distance-based calculation plus additional fees is less than the minimum fare, the minimum fare is applied instead.
 
 **Endpoint**: `POST /api/fare-estimate/enhanced`
 
@@ -331,11 +340,12 @@ The enhanced fare estimation endpoint calculates fares for all available vehicle
               "Booster seat fee: £10.00"
             ],
             "breakdown": {
-              "baseFare": 5.0,
-              "distanceFare": 35.5,
+              "distanceCharge": 40.5,
+              "minimumFare": 16.40,
+              "additionalStopFee": 0,
               "timeSurcharge": 3.54,
-              "additionalStopFees": 0,
-              "specialFees": [{ "name": "Airport Pickup", "amount": 15.0 }],
+              "airportFee": 15.0,
+              "specialZoneFees": 0,
               "additionalRequestFees": [
                 { "name": "Baby Seat", "amount": 10.0 },
                 { "name": "Booster Seat", "amount": 10.0 }

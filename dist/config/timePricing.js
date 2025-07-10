@@ -1,248 +1,344 @@
 "use strict";
-// Time-based Pricing Configuration
-// Contains pricing rules based on time factors (peak hours, weekends, holidays)
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_SURCHARGES = exports.DEFAULT_MULTIPLIERS = exports.UK_HOLIDAYS = exports.WEEKEND_DAYS = exports.WEEKEND_PEAK = exports.WEEKDAY_PEAK = exports.WEEKEND_PEAK_HOURS = exports.WEEKDAY_PEAK_HOURS = exports.DayOfWeek = void 0;
-exports.isHoliday = isHoliday;
-exports.isWeekend = isWeekend;
-exports.isPeakHour = isPeakHour;
-exports.getTimeMultiplier = getTimeMultiplier;
+exports.timePricing = exports.timeSurcharges = exports.airportFees = exports.vehicleClassPricing = void 0;
 exports.getTimeSurcharge = getTimeSurcharge;
-exports.updateHolidays = updateHolidays;
-// Days of the week for easier reference
-var DayOfWeek;
-(function (DayOfWeek) {
-    DayOfWeek[DayOfWeek["SUNDAY"] = 0] = "SUNDAY";
-    DayOfWeek[DayOfWeek["MONDAY"] = 1] = "MONDAY";
-    DayOfWeek[DayOfWeek["TUESDAY"] = 2] = "TUESDAY";
-    DayOfWeek[DayOfWeek["WEDNESDAY"] = 3] = "WEDNESDAY";
-    DayOfWeek[DayOfWeek["THURSDAY"] = 4] = "THURSDAY";
-    DayOfWeek[DayOfWeek["FRIDAY"] = 5] = "FRIDAY";
-    DayOfWeek[DayOfWeek["SATURDAY"] = 6] = "SATURDAY";
-})(DayOfWeek || (exports.DayOfWeek = DayOfWeek = {}));
-// Define peak hours for weekdays
-exports.WEEKDAY_PEAK_HOURS = [
-    { startHour: 7, endHour: 10 }, // Morning peak: 7am-10am
-    { startHour: 16, endHour: 19 }, // Evening peak: 4pm-7pm
-];
-// Define peak hours for weekends
-exports.WEEKEND_PEAK_HOURS = [
-    { startHour: 10, endHour: 14 }, // Late morning: 10am-2pm
-    { startHour: 17, endHour: 22 }, // Evening: 5pm-10pm
-];
-// Define weekday peak periods
-exports.WEEKDAY_PEAK = {
-    days: [
-        DayOfWeek.MONDAY,
-        DayOfWeek.TUESDAY,
-        DayOfWeek.WEDNESDAY,
-        DayOfWeek.THURSDAY,
-        DayOfWeek.FRIDAY,
-    ],
-    timeSlots: exports.WEEKDAY_PEAK_HOURS,
-};
-// Define weekend peak periods
-exports.WEEKEND_PEAK = {
-    days: [DayOfWeek.SATURDAY, DayOfWeek.SUNDAY],
-    timeSlots: exports.WEEKEND_PEAK_HOURS,
-};
-// Define weekend days (including Friday evening)
-exports.WEEKEND_DAYS = {
-    days: [DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY],
-    timeSlots: [
-        { startHour: 18, endHour: 24 }, // Friday evening from 6pm
-        { startHour: 0, endHour: 24 }, // All day Saturday and Sunday
-    ],
-};
-// Define UK holidays for current year
-exports.UK_HOLIDAYS = [
-    // New Year's Day
-    { name: "New Year's Day", month: 1, day: 1, fixedDate: true },
-    // Easter holidays (approximate - these change each year)
-    {
-        name: "Good Friday",
-        month: 4,
-        day: 7,
-        fixedDate: false,
-        year: new Date().getFullYear(),
-    },
-    {
-        name: "Easter Monday",
-        month: 4,
-        day: 10,
-        fixedDate: false,
-        year: new Date().getFullYear(),
-    },
-    // Early May Bank Holiday
-    { name: "Early May Bank Holiday", month: 5, day: 1, fixedDate: true },
-    // Spring Bank Holiday
-    {
-        name: "Spring Bank Holiday",
-        month: 5,
-        day: 29,
-        fixedDate: false,
-        year: new Date().getFullYear(),
-    },
-    // Summer Bank Holiday
-    {
-        name: "Summer Bank Holiday",
-        month: 8,
-        day: 28,
-        fixedDate: false,
-        year: new Date().getFullYear(),
-    },
-    // Christmas holidays
-    { name: "Christmas Day", month: 12, day: 25, fixedDate: true },
-    { name: "Boxing Day", month: 12, day: 26, fixedDate: true },
-];
-// Define pricing multipliers
-exports.DEFAULT_MULTIPLIERS = {
-    standard: 1.0, // Base rate (no multiplier)
-    weekdayPeak: 1.5, // 50% increase during peak hours
-    weekdayOffPeak: 1.0, // No increase during off-peak
-    weekendPeak: 1.3, // 30% increase during weekend peaks
-    weekendStandard: 1.2, // 20% increase on weekends
-    holiday: 1.5, // 50% increase on holidays
-};
-// Define pricing surcharges
-exports.DEFAULT_SURCHARGES = {
-    weekdayPeak: 3.54, // £3.54 additional during peak weekday
-    weekdayOffPeak: 0, // No additional charge
-    weekendPeak: 5.0, // £5.00 additional during peak weekend hours
-    weekendStandard: 3.0, // £3.00 additional on standard weekend hours
-    holiday: 5.0, // £5.00 additional on holidays
-};
-/**
- * Checks if a given date is a holiday
- * @param date The date to check
- * @returns Boolean indicating if the date is a holiday
- */
-function isHoliday(date) {
-    const day = date.getDate();
-    const month = date.getMonth() + 1; // JavaScript months are 0-indexed
-    const year = date.getFullYear();
-    for (const holiday of exports.UK_HOLIDAYS) {
-        if (holiday.month === month && holiday.day === day) {
-            // For fixed date holidays
-            if (holiday.fixedDate) {
-                return true;
+exports.getTimeMultiplier = getTimeMultiplier;
+// Exact pricing configuration as specified by the user
+exports.vehicleClassPricing = {
+    standardComfortClass: {
+        vehicles: ['saloon', 'estate', 'mpv-6', 'mpv-8'],
+        additionalStopFees: {
+            'saloon': 2.50,
+            'estate': 2.50,
+            'mpv-6': 4.50,
+            'mpv-8': 4.50
+        },
+        pricing: {
+            'saloon': {
+                reservationFee: 8.50,
+                minimumFare: 16.40,
+                perMilePricing: {
+                    overall: 2.95,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 3.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 2.95 },
+                        { range: { min: 11, max: 20 }, rate: 2.80 },
+                        { range: { min: 20.1, max: 40 }, rate: 2.66 },
+                        { range: { min: 41, max: 60 }, rate: 2.36 },
+                        { range: { min: 60.1, max: 80 }, rate: 2.21 },
+                        { range: { min: 81, max: 99 }, rate: 1.92 },
+                        { range: { min: 100, max: 149 }, rate: 1.77 },
+                        { range: { min: 150, max: 299 }, rate: 1.62 },
+                        { range: { min: 300, max: Infinity }, rate: 1.48 }
+                    ]
+                }
+            },
+            'estate': {
+                reservationFee: 8.50,
+                minimumFare: 18.40,
+                perMilePricing: {
+                    overall: 3.45,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 4.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 3.45 },
+                        { range: { min: 11, max: 20 }, rate: 3.28 },
+                        { range: { min: 20.1, max: 40 }, rate: 3.11 },
+                        { range: { min: 41, max: 60 }, rate: 2.76 },
+                        { range: { min: 60.1, max: 80 }, rate: 2.59 },
+                        { range: { min: 81, max: 99 }, rate: 2.24 },
+                        { range: { min: 100, max: 149 }, rate: 2.07 },
+                        { range: { min: 150, max: 299 }, rate: 1.90 },
+                        { range: { min: 300, max: Infinity }, rate: 1.73 }
+                    ]
+                }
+            },
+            'mpv-6': {
+                reservationFee: 12.50,
+                minimumFare: 26.40,
+                perMilePricing: {
+                    overall: 6.45,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 6.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 6.45 },
+                        { range: { min: 11, max: 20 }, rate: 5.97 },
+                        { range: { min: 20.1, max: 40 }, rate: 4.35 },
+                        { range: { min: 41, max: 60 }, rate: 3.39 },
+                        { range: { min: 60.1, max: 80 }, rate: 3.55 },
+                        { range: { min: 81, max: 99 }, rate: 3.23 },
+                        { range: { min: 100, max: 149 }, rate: 3.06 },
+                        { range: { min: 150, max: 299 }, rate: 2.90 },
+                        { range: { min: 300, max: Infinity }, rate: 2.74 }
+                    ]
+                }
+            },
+            'mpv-8': {
+                reservationFee: 18.50,
+                minimumFare: 50.30,
+                perMilePricing: {
+                    overall: 6.95,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 7.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 6.95 },
+                        { range: { min: 11, max: 20 }, rate: 6.43 },
+                        { range: { min: 20.1, max: 40 }, rate: 4.69 },
+                        { range: { min: 41, max: 60 }, rate: 4.00 },
+                        { range: { min: 60.1, max: 80 }, rate: 3.82 },
+                        { range: { min: 81, max: 99 }, rate: 3.48 },
+                        { range: { min: 100, max: 149 }, rate: 3.30 },
+                        { range: { min: 150, max: 299 }, rate: 3.13 },
+                        { range: { min: 300, max: Infinity }, rate: 2.95 }
+                    ]
+                }
             }
-            // For non-fixed holidays, check the year too
-            else if (holiday.year === year) {
-                return true;
+        }
+    },
+    businessClass: {
+        vehicles: ['executive-saloon', 'executive-mpv', 'vip-saloon', 'vip-suv'],
+        additionalStopFees: {
+            'executive-saloon': 5.50,
+            'executive-mpv': 5.50,
+            'vip-saloon': 5.50,
+            'vip-suv': 5.50
+        },
+        pricing: {
+            'executive-saloon': {
+                reservationFee: 18.50,
+                minimumFare: 34.40,
+                perMilePricing: {
+                    overall: 5.95,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 7.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 5.95 },
+                        { range: { min: 11, max: 20 }, rate: 5.50 },
+                        { range: { min: 20.1, max: 40 }, rate: 4.02 },
+                        { range: { min: 41, max: 60 }, rate: 3.42 },
+                        { range: { min: 60.1, max: 80 }, rate: 3.27 },
+                        { range: { min: 81, max: 99 }, rate: 2.98 },
+                        { range: { min: 100, max: 149 }, rate: 2.83 },
+                        { range: { min: 150, max: 299 }, rate: 2.68 },
+                        { range: { min: 300, max: Infinity }, rate: 2.53 }
+                    ]
+                }
+            },
+            'executive-mpv': {
+                reservationFee: 18.50,
+                minimumFare: 50.30,
+                perMilePricing: {
+                    overall: 7.95,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 7.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 7.95 },
+                        { range: { min: 11, max: 20 }, rate: 6.56 },
+                        { range: { min: 20.1, max: 40 }, rate: 6.16 },
+                        { range: { min: 41, max: 60 }, rate: 5.96 },
+                        { range: { min: 60.1, max: 80 }, rate: 5.76 },
+                        { range: { min: 81, max: 99 }, rate: 4.77 },
+                        { range: { min: 100, max: 149 }, rate: 4.57 },
+                        { range: { min: 150, max: 299 }, rate: 3.78 },
+                        { range: { min: 300, max: Infinity }, rate: 3.58 }
+                    ]
+                }
+            },
+            'vip-saloon': {
+                reservationFee: 35.00,
+                minimumFare: 66.80,
+                perMilePricing: {
+                    overall: 7.45,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 7.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 7.45 },
+                        { range: { min: 11, max: 20 }, rate: 7.26 },
+                        { range: { min: 20.1, max: 40 }, rate: 5.03 },
+                        { range: { min: 41, max: 60 }, rate: 4.28 },
+                        { range: { min: 60.1, max: 80 }, rate: 4.10 },
+                        { range: { min: 81, max: 99 }, rate: 3.73 },
+                        { range: { min: 100, max: 149 }, rate: 3.54 },
+                        { range: { min: 150, max: 299 }, rate: 3.35 },
+                        { range: { min: 300, max: Infinity }, rate: 3.17 }
+                    ]
+                }
+            },
+            'vip-suv': {
+                reservationFee: 35.00,
+                minimumFare: 70.80,
+                perMilePricing: {
+                    overall: 7.95,
+                    mileageRanges: [
+                        { range: { min: 0, max: 4 }, rate: 8.95 },
+                        { range: { min: 4.1, max: 10.9 }, rate: 7.95 },
+                        { range: { min: 11, max: 20 }, rate: 7.55 },
+                        { range: { min: 20.1, max: 40 }, rate: 7.16 },
+                        { range: { min: 41, max: 60 }, rate: 6.76 },
+                        { range: { min: 60.1, max: 80 }, rate: 6.36 },
+                        { range: { min: 81, max: 99 }, rate: 6.16 },
+                        { range: { min: 100, max: 149 }, rate: 5.96 },
+                        { range: { min: 150, max: 299 }, rate: 5.37 },
+                        { range: { min: 300, max: Infinity }, rate: 4.97 }
+                    ]
+                }
             }
         }
     }
-    return false;
-}
-/**
- * Checks if a given date falls on a weekend
- * @param date The date to check
- * @returns Boolean indicating if the date is a weekend
- */
-function isWeekend(date) {
+};
+// Airport fees configuration
+exports.airportFees = {
+    dropoffFees: {
+        standard: {
+            'heathrow': 6.00,
+            'gatwick': 6.00,
+            'luton': 6.00,
+            'stansted': 7.00,
+            'city': 0.00
+        },
+        executive: {
+            'heathrow': 6.00,
+            'gatwick': 6.00,
+            'luton': 6.00,
+            'stansted': 7.00,
+            'city': 0.00
+        }
+    },
+    pickupFees: {
+        standard: {
+            'heathrow': 7.50,
+            'gatwick': 8.00,
+            'luton': 6.00,
+            'stansted': 10.00,
+            'city': 6.50
+        },
+        executive: {
+            'heathrow': 16.00,
+            'gatwick': 10.00,
+            'luton': 10.00,
+            'stansted': 10.00,
+            'city': 10.00
+        }
+    }
+};
+// Time-based surcharges configuration
+exports.timeSurcharges = {
+    weekdays: {
+        nonPeak: {
+            startTime: '00:00',
+            endTime: '05:59',
+            surcharges: {
+                'saloon': 0.00,
+                'estate': 0.00,
+                'mpv-6': 0.00,
+                'mpv-8': 0.00,
+                'executive': 0.00,
+                'executive-mpv': 0.00,
+                'vip-saloon': 0.00,
+                'vip-suv': 0.00
+            }
+        },
+        peakMedium: {
+            startTime: '06:00',
+            endTime: '14:59',
+            surcharges: {
+                'saloon': 3.00,
+                'estate': 3.00,
+                'mpv-6': 5.00,
+                'mpv-8': 5.00,
+                'executive': 7.00,
+                'executive-mpv': 7.00,
+                'vip-saloon': 7.00,
+                'vip-suv': 7.00
+            }
+        },
+        peakHigh: {
+            startTime: '15:00',
+            endTime: '23:59',
+            surcharges: {
+                'saloon': 5.00,
+                'estate': 5.00,
+                'mpv-6': 7.00,
+                'mpv-8': 7.00,
+                'executive': 9.00,
+                'executive-mpv': 9.00,
+                'vip-saloon': 9.00,
+                'vip-suv': 9.00
+            }
+        }
+    },
+    weekends: {
+        nonPeak: {
+            startTime: '00:00',
+            endTime: '05:59',
+            surcharges: {
+                'saloon': 0.00,
+                'estate': 0.00,
+                'mpv-6': 0.00,
+                'mpv-8': 0.00,
+                'executive': 0.00,
+                'executive-mpv': 0.00,
+                'vip-saloon': 0.00,
+                'vip-suv': 0.00
+            }
+        },
+        peakMedium: {
+            startTime: '06:00',
+            endTime: '14:59',
+            surcharges: {
+                'saloon': 0.00,
+                'estate': 0.00,
+                'mpv-6': 0.00,
+                'mpv-8': 0.00,
+                'executive': 0.00,
+                'executive-mpv': 0.00,
+                'vip-saloon': 0.00,
+                'vip-suv': 0.00
+            }
+        },
+        peakHigh: {
+            startTime: '15:00',
+            endTime: '23:59',
+            surcharges: {
+                'saloon': 5.00,
+                'estate': 5.00,
+                'mpv-6': 7.00,
+                'mpv-8': 7.00,
+                'executive': 9.00,
+                'executive-mpv': 9.00,
+                'vip-saloon': 9.00,
+                'vip-suv': 9.00
+            }
+        }
+    }
+};
+// Legacy exports for backward compatibility
+exports.timePricing = exports.vehicleClassPricing;
+// Simple helper functions
+function getTimeSurcharge(date, vehicleTypeId) {
     const day = date.getDay();
-    const hour = date.getHours();
-    // Saturday or Sunday
-    if (day === DayOfWeek.SATURDAY || day === DayOfWeek.SUNDAY) {
-        return true;
+    const hours = date.getHours();
+    // Map vehicle type IDs to surcharge keys
+    const vehicleMap = {
+        'saloon': 'saloon',
+        'estate': 'estate',
+        'mpv-6': 'mpv-6',
+        'mpv-8': 'mpv-8',
+        'executive-saloon': 'executive-saloon',
+        'executive-mpv': 'executive-mpv',
+        'vip-saloon': 'executive-saloon',
+        'vip-mpv': 'executive-mpv'
+    };
+    const mappedVehicleType = vehicleMap[vehicleTypeId] || 'saloon';
+    // Determine if it's weekend
+    const isWeekend = day === 5 || day === 6 || day === 0; // Friday, Saturday, Sunday
+    // Determine time period
+    let period = 'nonPeak';
+    if (hours >= 6 && hours < 15) {
+        period = 'peakMedium';
     }
-    // Friday evening (after 6pm)
-    if (day === DayOfWeek.FRIDAY && hour >= 18) {
-        return true;
+    else if (hours >= 15) {
+        period = 'peakHigh';
     }
-    return false;
+    // Get surcharge
+    const timeCategory = isWeekend ? 'weekends' : 'weekdays';
+    const timePeriod = exports.timeSurcharges[timeCategory][period];
+    return timePeriod?.surcharges[mappedVehicleType] || 0;
 }
-/**
- * Checks if a given date falls within peak hours
- * @param date The date to check
- * @returns Boolean indicating if the date is during peak hours
- */
-function isPeakHour(date) {
-    const day = date.getDay();
-    const hour = date.getHours();
-    // Check weekday peak hours
-    if ([
-        DayOfWeek.MONDAY,
-        DayOfWeek.TUESDAY,
-        DayOfWeek.WEDNESDAY,
-        DayOfWeek.THURSDAY,
-        DayOfWeek.FRIDAY,
-    ].includes(day)) {
-        for (const slot of exports.WEEKDAY_PEAK_HOURS) {
-            if (hour >= slot.startHour && hour < slot.endHour) {
-                return true;
-            }
-        }
-    }
-    // Check weekend peak hours
-    if (day === DayOfWeek.SATURDAY || day === DayOfWeek.SUNDAY) {
-        for (const slot of exports.WEEKEND_PEAK_HOURS) {
-            if (hour >= slot.startHour && hour < slot.endHour) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-/**
- * Gets the time-based multiplier for a given date
- * @param date The date to get the multiplier for
- * @returns The applicable multiplier for the given date and time
- */
 function getTimeMultiplier(date) {
-    // Check holidays first
-    if (isHoliday(date)) {
-        return exports.DEFAULT_MULTIPLIERS.holiday;
-    }
-    // Check weekend status
-    const weekend = isWeekend(date);
-    const peak = isPeakHour(date);
-    if (weekend) {
-        return peak
-            ? exports.DEFAULT_MULTIPLIERS.weekendPeak
-            : exports.DEFAULT_MULTIPLIERS.weekendStandard;
-    }
-    return peak
-        ? exports.DEFAULT_MULTIPLIERS.weekdayPeak
-        : exports.DEFAULT_MULTIPLIERS.weekdayOffPeak;
-}
-/**
- * Gets the time-based surcharge for a given date
- * @param date The date to get the surcharge for
- * @returns The applicable surcharge for the given date and time
- */
-function getTimeSurcharge(date) {
-    // Check holidays first
-    if (isHoliday(date)) {
-        return exports.DEFAULT_SURCHARGES.holiday;
-    }
-    // Check weekend status
-    const weekend = isWeekend(date);
-    const peak = isPeakHour(date);
-    if (weekend) {
-        return peak
-            ? exports.DEFAULT_SURCHARGES.weekendPeak
-            : exports.DEFAULT_SURCHARGES.weekendStandard;
-    }
-    return peak
-        ? exports.DEFAULT_SURCHARGES.weekdayPeak
-        : exports.DEFAULT_SURCHARGES.weekdayOffPeak;
-}
-/**
- * Updates the holiday list for a specific year
- * @param year The year to update holidays for
- * @param holidayUpdates The updated holiday list
- */
-function updateHolidays(year, holidayUpdates) {
-    // Filter out non-fixed holidays from the current year
-    const fixedHolidays = exports.UK_HOLIDAYS.filter((h) => h.fixedDate);
-    // Add the updated holidays for the specified year
-    const yearSpecificHolidays = holidayUpdates.map((h) => ({
-        ...h,
-        year: year,
-    }));
-    // Combine fixed and year-specific holidays
-    exports.UK_HOLIDAYS.length = 0; // Clear the array
-    exports.UK_HOLIDAYS.push(...fixedHolidays, ...yearSpecificHolidays);
+    return 1.0; // Simple implementation
 }

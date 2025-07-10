@@ -88,12 +88,12 @@ The booking process follows these steps:
           "amount": 128,
           "currency": "GBP",
           "breakdown": {
-            "baseFare": 12.5,
             "distanceCharge": 108.0,
+            "minimumFare": 34.40,
             "additionalStopFee": 0,
-            "timeMultiplier": 0,
-            "specialLocationFees": 7.5,
-            "waitingCharge": 0
+            "timeSurcharge": 0,
+            "airportFee": 7.5,
+            "specialZoneFees": 0
           }
         },
         "journey": {
@@ -236,12 +236,12 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
         "amount": 128,
         "currency": "GBP",
         "breakdown": {
-          "baseFare": 12.5,
           "distanceCharge": 108.0,
+          "minimumFare": 34.40,
           "additionalStopFee": 0,
-          "timeMultiplier": 0,
-          "specialLocationFees": 7.5,
-          "waitingCharge": 0
+          "timeSurcharge": 0,
+          "airportFee": 7.5,
+          "specialZoneFees": 0
         }
       },
       "journey": {
@@ -261,19 +261,21 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 
 To ensure fare integrity and prevent manipulation, the booking endpoint implements these security measures:
 
-1. **Server-side Fare Calculation**: All fares are recalculated on the server using the same algorithm as the fare estimation endpoint
+1. **Server-side Fare Calculation**: All fares are recalculated on the server using the same slab-based distance pricing algorithm as the fare estimation endpoint
 2. **No Client-Side Fare Input**: The API never accepts fare values from the client, preventing price manipulation
-3. **Client Data Validation**: All input data is validated against strict schemas
-4. **Authentication Required**: All booking endpoints require valid user authentication
-5. **Fare Breakdown**: Detailed fare breakdown is provided in the response for transparency
+3. **Minimum Fare Enforcement**: The system automatically applies minimum fare rules to ensure fair pricing
+4. **Client Data Validation**: All input data is validated against strict schemas
+5. **Authentication Required**: All booking endpoints require valid user authentication
+6. **Fare Breakdown**: Detailed fare breakdown is provided in the response for transparency
 
 When the client submits a booking request, the server:
 
 1. Validates all journey details (locations, date/time, vehicle type, etc.)
-2. Recalculates the fare completely from scratch using the validated data
-3. Applies any special charges automatically (based on locations, time, etc.)
-4. Creates the booking with the server-calculated fare
-5. Returns the complete fare details including a breakdown
+2. Recalculates the fare completely from scratch using the validated data and slab-based pricing
+3. Applies minimum fare rules if the calculated fare is below the vehicle's minimum
+4. Applies any special charges automatically (based on locations, time, etc.)
+5. Creates the booking with the server-calculated fare
+6. Returns the complete fare details including a breakdown
 
 This approach ensures that users cannot manipulate fare prices even if they modify API requests.
 

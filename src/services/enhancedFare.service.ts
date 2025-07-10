@@ -19,13 +19,11 @@ import {
   getZonesForRoute,
   getAirportsNearLocation,
 } from "../config/specialZones";
-import { getTimeMultiplier, getTimeSurcharge } from "../config/timePricing";
+import { getTimeMultiplier, getTimeSurcharge, timeSurcharges } from "../config/timePricing";
 import { isRouteServiceable } from "../config/serviceArea";
+import { GoogleDistanceService } from "./googleDistance.service";
 
 export class EnhancedFareService {
-  private static readonly BASE_URL =
-    "https://api.mapbox.com/directions/v5/mapbox/driving";
-
   // Default currency
   private static readonly DEFAULT_CURRENCY = "GBP";
 
@@ -82,9 +80,9 @@ export class EnhancedFareService {
         throw error;
       }
 
-      // Call the MapBox API to get distance and duration
-      console.log("Calling MapBox API to get route details...");
-      const routeDetails = await this.getRouteDetails(
+      // Call the Google Distance API to get distance and duration
+      console.log("Calling Google Distance API to get route details...");
+      const routeDetails = await GoogleDistanceService.getRouteDetails(
         pickupLocation,
         dropoffLocation,
         additionalStops.map((stop) => stop.location)
@@ -102,7 +100,7 @@ export class EnhancedFareService {
       );
 
       // Get the routing information including leg details
-      const routeLegs = routeDetails.legs;
+      const routeLegs = routeDetails.legs || [];
 
       // Detect special zones using the helper method
       const specialZones = getZonesForRoute(routeLegs);
@@ -149,7 +147,7 @@ export class EnhancedFareService {
           AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
         if (airport) {
           notifications.push(
-            `Your journey includes airport pickup at ${airport.name}. A £${airport.fees.pickup.toFixed(2)} fee has been added.`
+            `Your journey includes airport pickup at ${airport.name}. Airport fees will be applied based on vehicle class.`
           );
         }
       }
@@ -254,34 +252,6 @@ export class EnhancedFareService {
   }
 
   /**
-   * Get route details from MapBox API
-   */
-  private static async getRouteDetails(
-    pickup: Coordinates,
-    dropoff: Coordinates,
-    waypoints: Coordinates[] = []
-  ): Promise<any> {
-    try {
-      // Format coordinates
-      const coordinates = [
-        `${pickup.lng},${pickup.lat}`,
-        ...waypoints.map((wp) => `${wp.lng},${wp.lat}`),
-        `${dropoff.lng},${dropoff.lat}`,
-      ].join(";");
-
-      const url = `${this.BASE_URL}/${coordinates}?access_token=${env.mapbox.token}&geometries=geojson&overview=full&annotations=duration,distance,speed`;
-
-      const response = await axios.get(url);
-      const data = response.data;
-      // Return the selected route
-      return data.routes[0];
-    } catch (error) {
-      console.error("Error fetching route details:", error);
-      throw new Error("Failed to get route details from MapBox API");
-    }
-  }
-
-  /**
    * Calculate fare for a specific vehicle type with enhanced options
    */
   private static calculateVehicleOptionFare({
@@ -309,213 +279,231 @@ export class EnhancedFareService {
     serviceZones: string[];
     passengers?: BookingPassengersData;
   }): VehiclePriceInfo {
-    console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
-    console.log(`Base fare: £${vehicleType.baseRate}`);
-    console.log(`Per-mile rate: £${vehicleType.perMileRate}/mile`);
+    console.log(`===== Calculating fare for ${vehicleType.name} =====`);
+    console.log(`Minimum fare: £${vehicleType.minimumFare}`);
     console.log(`Distance: ${distance.toFixed(2)} miles`);
-    console.log(`Estimated duration: ${duration.toFixed(0)} minutes`);
+    console.log(`Estimated duration: ${Math.round(duration)} minutes`);
     console.log(`Additional stops: ${additionalStops}`);
 
-    // Initialize fare breakdown structure
-    const fareBreakdown = {
-      baseFare: vehicleType.baseRate,
-      distanceFare: 0,
-      timeSurcharge: 0,
-      additionalStopFees: 0,
-      specialFees: [] as { name: string; amount: number }[],
-    };
+    // Calculate distance charge using slab-based system
+    const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
+    console.log(`Distance charge (${distance.toFixed(2)} miles): £${distanceCharge.toFixed(2)}`);
 
-    // STEP 1: Calculate base fare (different logic for VIP vehicles)
-    let initialFare = 0;
+    // Calculate additional stops charge
+    const stopCharge = additionalStops * vehicleType.additionalStopFee;
+    console.log(`Additional stops: ${additionalStops}`);
+    console.log(`Stop charge: £${stopCharge.toFixed(2)}`);
 
-    if (vehicleType.id === "vip" || vehicleType.id === "vip-mpv") {
-      // For VIP vehicles, calculate based on hourly rate
-      const hourlyRate = vehicleType.id === "vip" ? 75.0 : 95.0; // £75/hour for VIP, £95/hour for VIP-MPV
+    // Calculate base fare (distance + stops)
+    const baseFare = distanceCharge + stopCharge;
+    console.log(`Base fare (distance + stops): £${baseFare.toFixed(2)}`);
 
-      // Calculate hours (min 2 hours)
-      const hours = Math.max(Math.ceil(duration / 60), 2);
-      fareBreakdown.baseFare = hourlyRate * hours;
-      initialFare = fareBreakdown.baseFare;
+    // Apply minimum fare rule - use minimum fare if base fare is less than minimum
+    let totalFare = Math.max(baseFare, vehicleType.minimumFare);
+    console.log(`Fare after minimum fare rule: £${totalFare.toFixed(2)}`);
 
-      console.log(`VIP vehicle: Using hourly rate of £${hourlyRate}/hour`);
-      console.log(
-        `Journey duration: ${duration.toFixed(
-          0
-        )} minutes (${hours} billable hours)`
-      );
-      console.log(`VIP hourly charge: £${fareBreakdown.baseFare.toFixed(2)}`);
-    } else {
-      // Standard calculation: Base Fare + (Distance × Per Mile Rate)
-      fareBreakdown.baseFare = vehicleType.baseRate;
-      fareBreakdown.distanceFare = vehicleType.perMileRate * distance;
-      initialFare = fareBreakdown.baseFare + fareBreakdown.distanceFare;
-
-      console.log(`Base fare: £${fareBreakdown.baseFare.toFixed(2)}`);
-      console.log(
-        `Distance charge (${distance.toFixed(2)} miles × £${
-          vehicleType.perMileRate
-        }/mile): £${fareBreakdown.distanceFare.toFixed(2)}`
-      );
-      console.log(`Initial fare: £${initialFare.toFixed(2)}`);
-    }
-
-    // STEP 2: Apply time-based adjustments
-    const timeSurcharge = getTimeSurcharge(requestDate);
-    fareBreakdown.timeSurcharge = timeSurcharge;
-    initialFare += timeSurcharge;
-
-    // STEP 3: Add additional stop fees
-    if (additionalStops > 0 && vehicleType.additionalStopFee) {
-      const stopFee = additionalStops * vehicleType.additionalStopFee;
-      fareBreakdown.additionalStopFees = stopFee;
-      initialFare += stopFee;
-      console.log(
-        `Additional stops (${additionalStops} × £${
-          vehicleType.additionalStopFee
-        }): £${stopFee.toFixed(2)}`
-      );
-    }
-
-    // STEP 4: Add special zone charges and additional requests
-    let totalFare = initialFare;
-    const specialMessages = [];
-
-    // Calculate additional request fees
-    const additionalRequestFees: { name: string; amount: number }[] = [];
-    const messages: string[] = [];
-
-    if (passengers) {
-      // Handle baby seats
-      if (passengers.babySeat > 0) {
-        const babySeatCharge = passengers.babySeat * 10; // £10.00 per baby seat
-        additionalRequestFees.push({
-          name: "Baby Seat (0-18 Months)",
-          amount: babySeatCharge,
-        });
-      }
-
-      // Handle child seats
-      if (passengers.childSeat > 0) {
-        const childSeatCharge = passengers.childSeat * 10; // £10.00 per child seat
-        additionalRequestFees.push({
-          name: "Child Seat (18 Months - 4 Years)",
-          amount: childSeatCharge,
-        });
-      }
-
-      // Handle booster seats
-      if (passengers.boosterSeat > 0) {
-        const boosterSeatCharge = passengers.boosterSeat * 10; // £10.00 per booster seat
-        additionalRequestFees.push({
-          name: "Booster Seat (4-6 Years)",
-          amount: boosterSeatCharge,
-        });
-      }
-
-      // Handle wheelchair
-      if (passengers.wheelchair > 0) {
-        const wheelchairCharge = passengers.wheelchair * 25; // £25.00 per wheelchair
-        additionalRequestFees.push({
-          name: "Foldable Wheelchair",
-          amount: wheelchairCharge,
-        });
-      }
-
-      // Add all additional request fees to the total fare
-      const totalAdditionalRequestFees = additionalRequestFees.reduce(
-        (sum, fee) => sum + fee.amount,
-        0
-      );
-      totalFare += totalAdditionalRequestFees;
-    }
-
-    // Add existing special charges (congestion, airports, etc.)
-    if (passesThroughCCZ && isZoneActive("CONGESTION_CHARGE", requestDate)) {
-      const congestionCharge = SPECIAL_ZONES.CONGESTION_CHARGE.fee;
-      totalFare += congestionCharge;
-      fareBreakdown.specialFees.push({
-        name: "Congestion Charge",
-        amount: congestionCharge,
-      });
-    }
-
-    if (hasDartfordCrossing) {
-      const dartfordFee = SPECIAL_ZONES.DARTFORD_CROSSING.fee;
-      totalFare += dartfordFee;
-      fareBreakdown.specialFees.push({
-        name: "Dartford Crossing",
-        amount: dartfordFee,
-      });
-    }
+    // Time surcharge
+    const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
+    console.log(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
+    totalFare += timeSurcharge;
 
     // Airport fees
+    let airportFee = 0;
     if (airports.pickupAirport) {
       const airport = AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
       if (airport) {
-        const pickupFee = airport.fees.pickup;
-        totalFare += pickupFee;
-        fareBreakdown.specialFees.push({
-          name: `${airport.name} Pickup Fee`,
-          amount: pickupFee,
-        });
-        specialMessages.push(
-          `Airport pickup fee at ${airport.name}: £${pickupFee.toFixed(2)}`
-        );
+        // Apply different fees based on vehicle class
+        const isExecutive = vehicleType.class === 'Business';
+        let pickupFee = airport.fees.pickup; // Default to standard
+        
+        // Apply executive fees based on new pricing structure
+        if (isExecutive) {
+          switch (airports.pickupAirport.toLowerCase()) {
+            case 'heathrow':
+              pickupFee = 16.00;
+              break;
+            case 'gatwick':
+              pickupFee = 10.00;
+              break;
+            case 'luton':
+              pickupFee = 10.00;
+              break;
+            case 'stansted':
+              pickupFee = 10.00;
+              break;
+            case 'city':
+              pickupFee = 10.00;
+              break;
+            default:
+              pickupFee = airport.fees.pickup; // Keep standard for other airports
+          }
+        }
+        
+        airportFee += pickupFee;
+        console.log(`Airport pickup fee (${isExecutive ? 'Executive' : 'Standard'}): £${pickupFee.toFixed(2)}`);
       }
     }
-
     if (airports.dropoffAirport) {
-      const airport =
-        AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
+      const airport = AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
       if (airport) {
-        const dropoffFee = airport.fees.dropoff;
-        totalFare += dropoffFee;
-        fareBreakdown.specialFees.push({
-          name: `${airport.name} Dropoff Fee`,
-          amount: dropoffFee,
-        });
-        specialMessages.push(
-          `Airport dropoff fee at ${airport.name}: £${dropoffFee.toFixed(2)}`
-        );
+        // Dropoff fees are same for both Standard and Executive classes
+        airportFee += airport.fees.dropoff;
+        console.log(`Airport dropoff fee: £${airport.fees.dropoff.toFixed(2)}`);
       }
     }
+    totalFare += airportFee;
 
-    // STEP 5: Apply minimum fare if needed
-    if (totalFare < vehicleType.minimumFare) {
-      console.log(
-        `Calculated fare (£${totalFare.toFixed(
-          2
-        )}) is below minimum fare (£${vehicleType.minimumFare.toFixed(2)})`
-      );
-      totalFare = vehicleType.minimumFare;
-      console.log(`Applied minimum fare: £${totalFare.toFixed(2)}`);
+    // Special zone fees
+    if (passesThroughCCZ && isZoneActive("CONGESTION_CHARGE", requestDate)) {
+      const congestionCharge = SPECIAL_ZONES.CONGESTION_CHARGE.fee;
+      totalFare += congestionCharge;
+      console.log(`Congestion charge: £${congestionCharge.toFixed(2)}`);
+    }
+    if (hasDartfordCrossing) {
+      const dartfordCharge = SPECIAL_ZONES.DARTFORD_CROSSING.fee;
+      totalFare += dartfordCharge;
+      console.log(`Dartford crossing charge: £${dartfordCharge.toFixed(2)}`);
     }
 
-    // STEP 6: Apply final adjustments - round up to nearest £0.50
-    const roundedFare = Math.ceil(totalFare * 2) / 2;
-    if (roundedFare !== totalFare) {
-      console.log(
-        `Rounded fare from £${totalFare.toFixed(2)} to £${roundedFare.toFixed(
-          2
-        )}`
-      );
-    }
+    console.log(`DEBUG: totalFare before rounding: £${totalFare.toFixed(2)}`);
 
-    console.log(`Final fare: £${roundedFare.toFixed(2)}`);
+    // Round to nearest 0.50
+    const roundedFare = Math.round(totalFare * 2) / 2;
+    console.log(`Final rounded fare: £${roundedFare.toFixed(2)}`);
 
-    // Return the price info with all messages
     return {
       amount: roundedFare,
       currency: this.DEFAULT_CURRENCY,
-      messages: specialMessages.length > 0 ? specialMessages : undefined,
       breakdown: {
-        baseFare: fareBreakdown.baseFare,
-        distanceFare: fareBreakdown.distanceFare,
-        timeSurcharge: fareBreakdown.timeSurcharge,
-        additionalStopFees: fareBreakdown.additionalStopFees,
-        specialFees: fareBreakdown.specialFees,
-        additionalRequestFees,
+        baseFare: 0, // No base rate anymore
+        distanceCharge,
+        minimumFare: vehicleType.minimumFare,
+        additionalStopFee: stopCharge,
+        timeSurcharge,
+        airportFee,
+        specialZoneFees: passesThroughCCZ || hasDartfordCrossing 
+          ? (passesThroughCCZ ? SPECIAL_ZONES.CONGESTION_CHARGE.fee : 0) + 
+            (hasDartfordCrossing ? SPECIAL_ZONES.DARTFORD_CROSSING.fee : 0)
+          : 0,
       },
     };
+  }
+
+  /**
+   * Calculate distance fare using proper slab system
+   */
+  private static calculateSlabBasedDistanceFare(vehicleType: VehicleType, distance: number): number {
+    const rates = vehicleType.perMileRates;
+    let totalCharge = 0;
+
+    // Slab-based distance calculation
+    if (distance <= 4) {
+      totalCharge = distance * rates['0-4'];
+    } else if (distance <= 10.9) {
+      totalCharge = 4 * rates['0-4'] + 
+                    (distance - 4) * rates['4.1-10.9'];
+    } else if (distance <= 20) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    (distance - 10.9) * rates['11-20'];
+    } else if (distance <= 40) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    (distance - 20) * rates['20.1-40'];
+    } else if (distance <= 60) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    20 * rates['20.1-40'] + 
+                    (distance - 40) * rates['41-60'];
+    } else if (distance <= 80) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    20 * rates['20.1-40'] + 
+                    20 * rates['41-60'] + 
+                    (distance - 60) * rates['60.1-80'];
+    } else if (distance <= 99) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    20 * rates['20.1-40'] + 
+                    20 * rates['41-60'] + 
+                    20 * rates['60.1-80'] + 
+                    (distance - 80) * rates['81-99'];
+    } else if (distance <= 149) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    20 * rates['20.1-40'] + 
+                    20 * rates['41-60'] + 
+                    20 * rates['60.1-80'] + 
+                    19 * rates['81-99'] + 
+                    (distance - 99) * rates['100-149'];
+    } else if (distance <= 299) {
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    20 * rates['20.1-40'] + 
+                    20 * rates['41-60'] + 
+                    20 * rates['60.1-80'] + 
+                    19 * rates['81-99'] + 
+                    50 * rates['100-149'] + 
+                    (distance - 149) * rates['150-299'];
+    } else {
+      // Long trip discount
+      totalCharge = 4 * rates['0-4'] + 
+                    6.9 * rates['4.1-10.9'] + 
+                    9.1 * rates['11-20'] + 
+                    20 * rates['20.1-40'] + 
+                    20 * rates['41-60'] + 
+                    20 * rates['60.1-80'] + 
+                    19 * rates['81-99'] + 
+                    50 * rates['100-149'] + 
+                    150 * rates['150-299'] + 
+                    (distance - 299) * rates['300+'];
+    }
+
+    return totalCharge;
+  }
+
+  /**
+   * Calculate time-based surcharge
+   */
+  private static calculateTimeSurcharge(date: Date, vehicleTypeId: string): number {
+    const day = date.getDay();
+    const hours = date.getHours();
+
+    // Map vehicle type IDs to surcharge keys
+    const vehicleMap: { [key: string]: string } = {
+      'saloon': 'saloon',
+      'estate': 'estate',
+      'mpv-6': 'mpv-6',
+      'mpv-8': 'mpv-8',
+      'executive': 'executive',
+      'executive-mpv': 'executive-mpv',
+      'vip-saloon': 'vip-saloon',
+      'vip-suv': 'vip-suv'
+    };
+
+    const mappedVehicleType = vehicleMap[vehicleTypeId] || 'saloon';
+
+    // Determine if it's weekend (Friday, Saturday, Sunday)
+    const isWeekend = day === 5 || day === 6 || day === 0; // Friday, Saturday, Sunday
+
+    // Determine time period
+    let period = 'nonPeak';
+    if (hours >= 6 && hours < 15) {
+      period = 'peakMedium';
+    } else if (hours >= 15) {
+      period = 'peakHigh';
+    }
+
+    // Get surcharge from timeSurcharges configuration
+    const timeCategory = isWeekend ? 'weekends' : 'weekdays';
+    const timePeriod = timeSurcharges[timeCategory][period as keyof typeof timeSurcharges.weekdays];
+    
+    return timePeriod?.surcharges[mappedVehicleType] || 0;
   }
 }

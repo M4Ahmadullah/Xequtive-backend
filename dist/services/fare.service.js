@@ -1,225 +1,214 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FareService = void 0;
-const axios_1 = __importDefault(require("axios"));
-const env_1 = require("../config/env");
-const vehicleTypes_1 = require("../config/vehicleTypes");
-const specialZones_1 = require("../config/specialZones");
+exports.fareCalculationService = exports.FareCalculationService = void 0;
 const timePricing_1 = require("../config/timePricing");
-// Additional equipment fees
-const EQUIPMENT_FEES = {
-    BABY_SEAT: 10.0, // Baby Seat (0-18 Months)
-    CHILD_SEAT: 10.0, // Child Seat (18 Months - 4 Years)
-    BOOSTER_SEAT: 10.0, // Booster Seat (4-6 Years)
-    WHEELCHAIR: 25.0, // Foldable Wheelchair
-};
-class FareService {
+class FareCalculationService {
     /**
-     * Calculate fare estimates for different vehicle types
+     * Calculate fare based on comprehensive pricing rules
+     * @param params Fare calculation parameters
+     * @returns Calculated fare details
      */
-    static async calculateFares(request) {
-        try {
-            const { pickupLocation, dropoffLocation, additionalStops = [] } = request;
-            // Use the request date or current date
-            const requestDate = request.date ? new Date(request.date) : new Date();
-            // Call the MapBox API to get distance and duration
-            console.log("Calling MapBox API to get route details...");
-            const routeDetails = await this.getRouteDetails(pickupLocation, dropoffLocation);
-            // Convert distance from meters to miles
-            const distance = routeDetails.distance / 1609.34;
-            // Convert duration from seconds to minutes
-            const duration = routeDetails.duration / 60;
-            console.log(`Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(0)} minutes`);
-            // Get the routing information including leg details
-            const routeLegs = routeDetails.legs;
-            // Detect special zones using the new helper method
-            const specialZones = (0, specialZones_1.getZonesForRoute)(routeLegs);
-            // Check if specific zones are present
-            const hasCongeistionCharge = specialZones.includes("CONGESTION_CHARGE");
-            const hasDartfordCrossing = specialZones.includes("DARTFORD_CROSSING");
-            // Check for airports
-            const airportsPickup = (0, specialZones_1.getAirportsNearLocation)(pickupLocation);
-            const airportsDropoff = (0, specialZones_1.getAirportsNearLocation)(dropoffLocation);
-            const airports = {
-                pickupAirport: airportsPickup.length > 0 ? airportsPickup[0] : null,
-                dropoffAirport: airportsDropoff.length > 0 ? airportsDropoff[0] : null,
-            };
-            // Calculate fare for each vehicle type
-            const allVehicleTypes = Object.values(vehicleTypes_1.vehicleTypes);
-            const vehicleOptions = [];
-            for (const vehicleType of allVehicleTypes) {
-                console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
-                // Calculate fare for this vehicle type
-                const priceInfo = this.calculateVehicleFare(vehicleType, distance, duration, additionalStops.length, requestDate, airports, hasCongeistionCharge &&
-                    (0, specialZones_1.isZoneActive)("CONGESTION_CHARGE", requestDate), hasDartfordCrossing, request.passengers);
-                // Return vehicle option with calculated price
-                vehicleOptions.push({
-                    id: vehicleType.id,
-                    name: vehicleType.name,
-                    description: vehicleType.description,
-                    capacity: vehicleType.capacity,
-                    imageUrl: "", // Add default or empty values for required fields
-                    eta: 0, // Add default or empty values for required fields
-                    price: priceInfo,
-                });
-            }
-            // Sort vehicle options by price (ascending)
-            vehicleOptions.sort((a, b) => a.price.amount - b.price.amount);
-            // Return just what the FareEstimateResponse interface expects
-            return {
-                fareEstimate: vehicleOptions[0]?.price.amount || 0,
-                distance_miles: parseFloat(distance.toFixed(2)),
-                duration_minutes: Math.ceil(duration),
-            };
+    calculateFare(params) {
+        const { vehicleType, distance, additionalStops = 0, airport, isWeekend = false, timeOfDay = '12:00 AM', isAirportPickup = false } = params;
+        // Find vehicle class configuration
+        const vehicleClassConfig = this.findVehicleClassConfig(vehicleType);
+        if (!vehicleClassConfig) {
+            throw new Error(`Invalid vehicle type: ${vehicleType}`);
         }
-        catch (error) {
-            console.error("Error calculating fares:", error);
-            throw new Error("Failed to calculate fare estimates");
+        // Get specific vehicle pricing
+        const vehiclePricing = vehicleClassConfig.pricing[vehicleType];
+        if (!vehiclePricing) {
+            throw new Error(`No pricing found for vehicle type: ${vehicleType}`);
         }
+        // Step 1: Calculate distance-based fare using proper slab system
+        const distanceFare = this.calculateDistanceFare(vehiclePricing, distance);
+        // Step 2: Calculate additional stops charge
+        const additionalStopsFare = this.calculateAdditionalStopsFare(vehicleClassConfig.additionalStopFees[vehicleType] || 0, additionalStops);
+        // Step 3: Calculate core fare (distance + stops)
+        const coreFare = distanceFare + additionalStopsFare;
+        // Step 4: Apply minimum fare rule to core fare
+        const fareAfterMinimum = Math.max(coreFare, vehiclePricing.minimumFare);
+        // Step 5: Calculate additional fees (applied after minimum fare check)
+        const airportFee = this.calculateAirportFee(vehicleType, airport, isAirportPickup);
+        // Step 6: Calculate time-based surcharge
+        const timeSurcharge = this.calculateTimeSurcharge(vehicleType, isWeekend, timeOfDay);
+        // Step 7: Combine all components
+        const totalFare = fareAfterMinimum + airportFee + timeSurcharge;
+        // Step 8: Round to nearest 0.50 (not aggressively)
+        const roundedFare = Math.round(totalFare * 2) / 2;
+        return roundedFare;
     }
     /**
-     * Get route details from MapBox API
+     * Calculate fare with detailed breakdown for debugging and transparency
+     * @param params Fare calculation parameters
+     * @returns Detailed fare breakdown
      */
-    static async getRouteDetails(pickup, dropoff) {
-        const pickupCoords = `${pickup.lng},${pickup.lat}`;
-        const dropoffCoords = `${dropoff.lng},${dropoff.lat}`;
-        const url = `${this.BASE_URL}/${pickupCoords};${dropoffCoords}?access_token=${env_1.env.mapbox.token}&geometries=geojson&overview=full&annotations=duration,distance,speed`;
-        try {
-            const response = await axios_1.default.get(url);
-            const data = response.data;
-            // Return the selected route
-            return data.routes[0];
+    calculateFareWithBreakdown(params) {
+        const { vehicleType, distance, additionalStops = 0, airport, isWeekend = false, timeOfDay = '12:00 AM', isAirportPickup = false } = params;
+        // Find vehicle class configuration
+        const vehicleClassConfig = this.findVehicleClassConfig(vehicleType);
+        if (!vehicleClassConfig) {
+            throw new Error(`Invalid vehicle type: ${vehicleType}`);
         }
-        catch (error) {
-            console.error("Error fetching route details:", error);
-            throw new Error("Failed to get route details from MapBox API");
+        // Get specific vehicle pricing
+        const vehiclePricing = vehicleClassConfig.pricing[vehicleType];
+        if (!vehiclePricing) {
+            throw new Error(`No pricing found for vehicle type: ${vehicleType}`);
         }
-    }
-    /**
-     * Calculate fare for a specific vehicle type
-     */
-    static calculateVehicleFare(vehicleType, distance, duration, additionalStops, requestDate, airports, hasCongestionCharge, hasDartfordCrossing, passengers) {
-        console.log(`Base fare: £${vehicleType.baseRate}`);
-        console.log(`Per-mile rate: £${vehicleType.perMileRate}/mile`);
-        console.log(`Distance: ${distance.toFixed(2)} miles`);
-        console.log(`Additional stops: ${additionalStops}`);
-        // Calculate time-based multiplier using the new configuration
-        const timeMultiplier = (0, timePricing_1.getTimeMultiplier)(requestDate);
-        console.log(`Time multiplier: ${timeMultiplier}`);
-        // Get time-based surcharge (silently applied)
-        const timeSurcharge = (0, timePricing_1.getTimeSurcharge)(requestDate);
-        // Calculate base fare
-        const baseFare = vehicleType.baseRate;
-        const distanceFare = vehicleType.perMileRate * distance;
-        console.log(`Base fare: £${baseFare.toFixed(2)}`);
-        console.log(`Distance charge: £${distanceFare.toFixed(2)}`);
-        // Apply time multiplier to the distance fare only
-        const timeAdjustedDistanceFare = distanceFare * timeMultiplier;
-        console.log(`Time-adjusted distance charge: £${timeAdjustedDistanceFare.toFixed(2)}`);
-        // Calculate initial fare (including time surcharge)
-        let fareAmount = baseFare + timeAdjustedDistanceFare + timeSurcharge;
-        console.log(`Initial fare: £${fareAmount.toFixed(2)}`);
-        const specialLocationMessages = [];
-        const specialFees = [];
-        const additionalRequestFees = [];
-        // Add special equipment fees if requested
-        if (passengers) {
-            // Add special equipment fees
-            if (passengers.babySeat > 0) {
-                const fee = passengers.babySeat * EQUIPMENT_FEES.BABY_SEAT;
-                fareAmount += fee;
-                additionalRequestFees.push({ name: "Baby Seats", amount: fee });
-            }
-            if (passengers.childSeat > 0) {
-                const fee = passengers.childSeat * EQUIPMENT_FEES.CHILD_SEAT;
-                fareAmount += fee;
-                additionalRequestFees.push({ name: "Child Seats", amount: fee });
-            }
-            if (passengers.boosterSeat > 0) {
-                const fee = passengers.boosterSeat * EQUIPMENT_FEES.BOOSTER_SEAT;
-                fareAmount += fee;
-                additionalRequestFees.push({ name: "Booster Seats", amount: fee });
-            }
-            if (passengers.wheelchair > 0) {
-                const fee = passengers.wheelchair * EQUIPMENT_FEES.WHEELCHAIR;
-                fareAmount += fee;
-                additionalRequestFees.push({ name: "Wheelchairs", amount: fee });
-            }
-        }
-        // Add special location fees
-        if (airports.pickupAirport) {
-            const airport = specialZones_1.AIRPORTS[airports.pickupAirport];
-            if (airport) {
-                fareAmount += airport.fees.pickup;
-                specialFees.push({
-                    name: "Airport Pickup",
-                    amount: airport.fees.pickup,
-                });
-                specialLocationMessages.push(`Airport pickup at ${airport.name}: £${airport.fees.pickup.toFixed(2)}`);
-            }
-        }
-        if (airports.dropoffAirport) {
-            const airport = specialZones_1.AIRPORTS[airports.dropoffAirport];
-            if (airport) {
-                fareAmount += airport.fees.dropoff;
-                specialFees.push({
-                    name: "Airport Dropoff",
-                    amount: airport.fees.dropoff,
-                });
-                specialLocationMessages.push(`Airport dropoff at ${airport.name}: £${airport.fees.dropoff.toFixed(2)}`);
-            }
-        }
-        if (hasCongestionCharge) {
-            fareAmount += specialZones_1.SPECIAL_ZONES.CONGESTION_CHARGE.fee;
-            specialFees.push({
-                name: "Congestion Charge",
-                amount: specialZones_1.SPECIAL_ZONES.CONGESTION_CHARGE.fee,
-            });
-            specialLocationMessages.push(`Congestion charge: £${specialZones_1.SPECIAL_ZONES.CONGESTION_CHARGE.fee.toFixed(2)}`);
-        }
-        if (hasDartfordCrossing) {
-            fareAmount += specialZones_1.SPECIAL_ZONES.DARTFORD_CROSSING.fee;
-            specialFees.push({
-                name: "Dartford Crossing",
-                amount: specialZones_1.SPECIAL_ZONES.DARTFORD_CROSSING.fee,
-            });
-            specialLocationMessages.push(`Dartford crossing fee: £${specialZones_1.SPECIAL_ZONES.DARTFORD_CROSSING.fee.toFixed(2)}`);
-        }
-        // Add additional stop fees
-        let additionalStopFees = 0;
-        if (additionalStops > 0 && vehicleType.additionalStopFee) {
-            additionalStopFees = additionalStops * vehicleType.additionalStopFee;
-            fareAmount += additionalStopFees;
-            specialLocationMessages.push(`Additional stop fees: £${additionalStopFees.toFixed(2)}`);
-        }
-        // Apply minimum fare if needed
-        if (fareAmount < vehicleType.minimumFare) {
-            console.log(`Fare £${fareAmount.toFixed(2)} is below minimum fare £${vehicleType.minimumFare.toFixed(2)}, using minimum fare`);
-            fareAmount = vehicleType.minimumFare;
-        }
-        // Round to nearest 0.5
-        const roundedFare = Math.ceil(fareAmount * 2) / 2;
-        console.log(`Final rounded fare: £${roundedFare.toFixed(2)}`);
+        // Step 1: Calculate distance-based fare using proper slab system
+        const distanceFare = this.calculateDistanceFare(vehiclePricing, distance);
+        // Step 2: Calculate additional stops charge
+        const additionalStopsFare = this.calculateAdditionalStopsFare(vehicleClassConfig.additionalStopFees[vehicleType] || 0, additionalStops);
+        // Step 3: Calculate core fare (distance + stops)
+        const coreFare = distanceFare + additionalStopsFare;
+        // Step 4: Apply minimum fare rule to core fare
+        const fareAfterMinimum = Math.max(coreFare, vehiclePricing.minimumFare);
+        const minimumFareApplied = fareAfterMinimum > coreFare;
+        // Step 5: Calculate additional fees (applied after minimum fare check)
+        const airportFee = this.calculateAirportFee(vehicleType, airport, isAirportPickup);
+        // Step 6: Calculate time-based surcharge
+        const timeSurcharge = this.calculateTimeSurcharge(vehicleType, isWeekend, timeOfDay);
+        // Step 7: Combine all components
+        const totalFare = fareAfterMinimum + airportFee + timeSurcharge;
+        // Step 8: Round to nearest 0.50 (not aggressively)
+        const finalFare = Math.round(totalFare * 2) / 2;
         return {
-            amount: roundedFare,
-            currency: this.DEFAULT_CURRENCY,
-            messages: specialLocationMessages.length > 0
-                ? specialLocationMessages
-                : undefined,
+            totalFare: finalFare,
             breakdown: {
-                baseFare,
-                distanceFare: timeAdjustedDistanceFare,
-                additionalStopFees,
-                specialFees,
-                additionalRequestFees,
-            },
+                distanceFare,
+                additionalStopsFare,
+                coreFare,
+                minimumFareApplied,
+                fareAfterMinimum,
+                airportFee,
+                timeSurcharge,
+                finalFare
+            }
         };
     }
+    /**
+     * Find the vehicle class configuration
+     * @param vehicleType
+     * @returns Vehicle class configuration or undefined
+     */
+    findVehicleClassConfig(vehicleType) {
+        // Iterate through vehicle types in the pricing configuration
+        for (const [className, config] of Object.entries(timePricing_1.vehicleClassPricing)) {
+            if (config.vehicles.includes(vehicleType)) {
+                return config;
+            }
+        }
+        return undefined;
+    }
+    /**
+     * Calculate fare based on tiered mileage pricing (FIXED SLAB SYSTEM)
+     * @param vehiclePricing Vehicle-specific pricing details
+     * @param distance Total trip distance
+     * @returns Calculated distance-based fare
+     */
+    calculateDistanceFare(vehiclePricing, distance) {
+        let totalDistanceFare = 0;
+        let remainingDistance = distance;
+        // Sort mileage ranges from lowest to highest
+        const sortedRanges = [...vehiclePricing.perMilePricing.mileageRanges]
+            .sort((a, b) => a.range.min - b.range.min);
+        for (const range of sortedRanges) {
+            if (remainingDistance <= 0)
+                break;
+            // Calculate the distance that applies to this range
+            const rangeStart = range.range.min;
+            const rangeEnd = range.range.max === Infinity ? Infinity : range.range.max;
+            // For each range, calculate how much of the trip falls within it
+            let rangeDistance = 0;
+            if (distance <= rangeStart) {
+                // Trip doesn't reach this range
+                continue;
+            }
+            else if (distance <= rangeEnd) {
+                // Trip ends within this range
+                rangeDistance = distance - rangeStart;
+            }
+            else {
+                // Trip goes beyond this range
+                rangeDistance = rangeEnd - rangeStart;
+            }
+            // Make sure we don't exceed remaining distance
+            rangeDistance = Math.min(rangeDistance, remainingDistance);
+            if (rangeDistance > 0) {
+                totalDistanceFare += rangeDistance * range.rate;
+                remainingDistance -= rangeDistance;
+            }
+        }
+        return totalDistanceFare;
+    }
+    /**
+     * Calculate additional stops fare
+     * @param stopFee Fee per additional stop
+     * @param additionalStops Number of additional stops
+     * @returns Total additional stops fare
+     */
+    calculateAdditionalStopsFare(stopFee, additionalStops) {
+        return stopFee * additionalStops;
+    }
+    /**
+     * Calculate airport-related fees
+     * @param vehicleType
+     * @param airport
+     * @param isPickup
+     * @returns Airport fee
+     */
+    calculateAirportFee(vehicleType, airport, isPickup = false) {
+        if (!airport)
+            return 0;
+        // Determine if it's standard or executive class
+        const vehicleClass = this.findVehicleClassConfig(vehicleType);
+        const classType = vehicleClass?.vehicles.some((v) => ['executive-saloon', 'executive-mpv', 'vip-saloon', 'vip-suv'].includes(v)) ? 'executive' : 'standard';
+        // Get appropriate fee based on pickup/dropoff
+        const feeType = isPickup ? 'pickupFees' : 'dropoffFees';
+        // Safely handle airport fee lookup
+        const airportFeesByClass = timePricing_1.airportFees[feeType][classType];
+        return airportFeesByClass && airport in airportFeesByClass
+            ? airportFeesByClass[airport]
+            : 0;
+    }
+    /**
+     * Calculate time-based surcharge
+     * @param vehicleType
+     * @param isWeekend
+     * @param timeOfDay
+     * @returns Surcharge amount
+     */
+    calculateTimeSurcharge(vehicleType, isWeekend, timeOfDay) {
+        const timeCategory = isWeekend ? 'weekends' : 'weekdays';
+        // Determine time period
+        const getPeriod = () => {
+            const time = this.parseTime(timeOfDay);
+            if (time >= this.parseTime('12:00 AM') && time < this.parseTime('06:00 AM'))
+                return 'nonPeak';
+            if (time >= this.parseTime('06:00 AM') && time < this.parseTime('03:00 PM'))
+                return 'peakMedium';
+            return 'peakHigh';
+        };
+        const period = getPeriod();
+        // Safely access surcharges
+        const timeSurchargesData = isWeekend ? timePricing_1.timeSurcharges.weekends : timePricing_1.timeSurcharges.weekdays;
+        return timeSurchargesData[period].surcharges[vehicleType] || 0;
+    }
+    /**
+     * Parse time string to minutes since midnight
+     * @param timeStr Time in format 'HH:MM AM/PM'
+     * @returns Minutes since midnight
+     */
+    parseTime(timeStr) {
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (modifier === 'PM' && hours !== 12)
+            hours += 12;
+        if (modifier === 'AM' && hours === 12)
+            hours = 0;
+        return hours * 60 + minutes;
+    }
 }
-exports.FareService = FareService;
-FareService.BASE_URL = "https://api.mapbox.com/directions/v5/mapbox/driving";
-// Default currency
-FareService.DEFAULT_CURRENCY = "GBP";
+exports.FareCalculationService = FareCalculationService;
+// Export a singleton instance
+exports.fareCalculationService = new FareCalculationService();

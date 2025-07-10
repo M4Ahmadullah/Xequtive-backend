@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_SERVICE_DISTANCE = exports.EXCLUDED_AREAS = exports.SERVICED_ISLANDS = exports.UK_BOUNDARIES = void 0;
+exports.EQUIPMENT_FEES = exports.MAX_SERVICE_DISTANCE = exports.EXCLUDED_AREAS = exports.SERVICED_ISLANDS = exports.UK_BOUNDARIES = void 0;
 exports.isLocationInUK = isLocationInUK;
 exports.isLocationInExcludedArea = isLocationInExcludedArea;
 exports.isLocationServiceable = isLocationServiceable;
@@ -67,6 +67,15 @@ exports.EXCLUDED_AREAS = [
  * We don't support journeys longer than this distance
  */
 exports.MAX_SERVICE_DISTANCE = 300; // miles
+/**
+ * Equipment fees for additional passenger requirements
+ */
+exports.EQUIPMENT_FEES = {
+    BABY_SEAT: 5.00, // Fee for baby seat
+    CHILD_SEAT: 7.50, // Fee for child seat
+    BOOSTER_SEAT: 5.50, // Fee for booster seat
+    WHEELCHAIR: 10.00, // Fee for wheelchair accommodation
+};
 /**
  * Check if a location is within the UK service area
  * @param location - The coordinates to check

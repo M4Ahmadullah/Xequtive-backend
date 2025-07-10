@@ -112,20 +112,22 @@ export interface VehicleCapacityInfo {
   passengers: number;
   luggage: number;
   wheelchair?: boolean;
+  class?: VehicleClass;
 }
+
+export type VehicleClass = 'Standard Comfort' | 'Business';
 
 export interface VehiclePriceInfo {
   amount: number;
   currency: string;
-  message?: string; // Optional message for special cases (e.g., VIP vehicles)
-  messages?: string[]; // Optional array of messages about special charges
-  breakdown?: {
+  breakdown: {
     baseFare: number;
-    distanceFare: number;
-    timeSurcharge?: number;
-    additionalStopFees: number;
-    specialFees: { name: string; amount: number }[]; // Contains airport fees, congestion charge, etc.
-    additionalRequestFees: { name: string; amount: number }[]; // Contains baby seat, child seat, etc.
+    distanceCharge: number;
+    minimumFare: number;
+    additionalStopFee: number;
+    timeSurcharge: number;
+    airportFee: number;
+    specialZoneFees: number;
   };
 }
 
@@ -411,4 +413,151 @@ export interface TrainInformation {
   scheduledDeparture: string; // ISO datetime
   actualDeparture?: string; // ISO datetime
   status?: "on-time" | "delayed" | "cancelled";
+}
+
+export interface TimePricingPeriod {
+  startTime: string;
+  endTime?: string;
+  surchargeRanges: {
+    [vehicleType: string]: number;
+  };
+}
+
+export interface WeekdayTimePricing {
+  nonPeak: TimePricingPeriod;
+  peakMedium: TimePricingPeriod;
+  peakHigh: TimePricingPeriod;
+  offPeak?: TimePricingPeriod;
+}
+
+export interface WeekendTimePricing {
+  nonPeak: TimePricingPeriod;
+  peakMedium: TimePricingPeriod;
+  peakHigh: TimePricingPeriod;
+  allDay?: TimePricingPeriod;
+}
+
+export interface ReservationFeesPricing {
+  nonPeak: TimePricingPeriod;
+  peakHigh: TimePricingPeriod;
+}
+
+export interface PerMilePricing {
+  nonPeak: {
+    [vehicleType: string]: number;
+  };
+  peakMediumHigh: {
+    [vehicleType: string]: number;
+  };
+}
+
+export interface AirportPickupPricing {
+  [distance: string]: {
+    [vehicleType: string]: number;
+  };
+}
+
+export interface TimePricing {
+  weekdays: WeekdayTimePricing;
+  weekends: {
+    friday: WeekendTimePricing;
+    satSun: WeekendTimePricing;
+  };
+  reservationFees: ReservationFeesPricing;
+  perMilePricing: PerMilePricing;
+  airportPickupPricing: AirportPickupPricing;
+}
+
+export interface MileageRange {
+  range: {
+    min: number;
+    max: number;
+  };
+  rates: {
+    [vehicleType: string]: number;
+  };
+}
+
+export interface MileageRangeRate {
+  range: {
+    min: number;
+    max: number;
+  };
+  rate: number;
+}
+
+export interface VehicleTypePricing {
+  reservationFee: number;
+  minimumFare: number;
+  perMilePricing: {
+    overall: number;
+    mileageRanges: MileageRangeRate[];
+  };
+}
+
+export interface VehicleClassConfig {
+  vehicles: string[];
+  additionalStopFees: {
+    [vehicleType: string]: number;
+  };
+  pricing: {
+    [vehicleType: string]: VehicleTypePricing;
+  };
+}
+
+export interface AirportFees {
+  dropoffFees: {
+    standard: {
+      [airport: string]: number;
+    };
+    executive?: {
+      [airport: string]: number;
+    };
+  };
+  pickupFees: {
+    standard: {
+      [airport: string]: number;
+    };
+    executive: {
+      [airport: string]: number;
+    };
+  };
+}
+
+export interface TimeSurchargeConfig {
+  startTime: string;
+  endTime: string;
+  surcharges: {
+    [vehicleType: string]: number;
+  };
+}
+
+export interface TimeSurcharges {
+  weekdays: {
+    nonPeak: TimeSurchargeConfig;
+    peakMedium: TimeSurchargeConfig;
+    peakHigh: TimeSurchargeConfig;
+  };
+  weekends: {
+    nonPeak: TimeSurchargeConfig;
+    peakMedium: TimeSurchargeConfig;
+    peakHigh: TimeSurchargeConfig;
+  };
+}
+
+// Add index signatures to resolve type checking issues
+export interface VehicleClassPricing {
+  [className: string]: VehicleClassConfig;
+}
+
+export interface VehicleAdditionalStopFees {
+  [className: string]: {
+    [vehicleType: string]: number;
+  };
+}
+
+export interface VehicleTimeSurcharges {
+  [timeCategory: string]: {
+    [period: string]: TimeSurchargeConfig;
+  };
 }

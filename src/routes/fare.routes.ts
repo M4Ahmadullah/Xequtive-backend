@@ -5,7 +5,7 @@ import {
   AuthenticatedRequest,
   EnhancedFareEstimateResponse,
 } from "../types";
-import { FareService } from "../services/fare.service";
+import { FareCalculationService } from "../services/fare.service";
 import { EnhancedFareService } from "../services/enhancedFare.service";
 import {
   fareEstimateSchema,
@@ -35,12 +35,21 @@ router.post(
       const fareRequest = fareEstimateSchema.parse(req.body);
 
       // Calculate fare estimate
-      const fareEstimate = await FareService.calculateFares(fareRequest);
+      const fareCalculationService = new FareCalculationService();
+      const fareEstimate = fareCalculationService.calculateFare({
+        vehicleType: fareRequest.vehicleType,
+        distance: Math.sqrt(
+          Math.pow(fareRequest.dropoffLocation.lat - fareRequest.pickupLocation.lat, 2) +
+          Math.pow(fareRequest.dropoffLocation.lng - fareRequest.pickupLocation.lng, 2)
+        ) * 69.172, // Convert to miles (approximate)
+        additionalStops: fareRequest.additionalStops?.length || 0,
+        // Optionally add more parameters if needed
+      });
 
       res.status(200).json({
         success: true,
         data: {
-          ...fareEstimate,
+          fareEstimate: fareEstimate,
           userId: req.user.uid, // Include user ID in response
         },
       } as ApiResponse<FareEstimateResponse & { userId: string }>);

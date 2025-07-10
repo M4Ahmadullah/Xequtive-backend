@@ -26,6 +26,9 @@ const envSchema = z.object({
   // Mapbox
   MAPBOX_TOKEN: z.string(),
 
+  // Google APIs
+  GOOGLE_PLACES_API_KEY: z.string(),
+
   // Google OAuth
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
@@ -68,6 +71,7 @@ try {
       JWT_SECRET: process.env.JWT_SECRET || "missing",
       ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || "https://localhost:3000",
       MAPBOX_TOKEN: process.env.MAPBOX_TOKEN || "missing",
+      GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY || "missing",
       BACKEND_GOOGLE_CALLBACK_URL: process.env.BACKEND_GOOGLE_CALLBACK_URL || "missing",
       FRONTEND_URL: process.env.FRONTEND_URL || "https://localhost:3000",
       LOGO_URL: process.env.LOGO_URL || "https://example.com/logo.png",
@@ -111,6 +115,9 @@ export const env = {
     senderAddress: validatedEnv.EMAIL_SENDER_ADDRESS,
     frontendUrl: validatedEnv.FRONTEND_URL!,
     logoUrl: validatedEnv.LOGO_URL!,
+  },
+  googlePlaces: {
+    apiKey: validatedEnv.GOOGLE_PLACES_API_KEY!,
   },
 };
 
