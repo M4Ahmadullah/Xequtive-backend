@@ -15,14 +15,14 @@ exports.AIRPORTS = {
         name: "Heathrow Airport",
         code: "LHR",
         boundaries: {
-            north: 51.490746,
-            south: 51.453873,
-            east: -0.414696,
-            west: -0.461946,
+            north: 51.500,
+            south: 51.445,
+            east: -0.405,
+            west: -0.500, // Extended to include all terminals
         },
         fees: {
-            pickup: 7.5, // Standard class
-            dropoff: 6.0, // Standard class
+            pickup: 7.5,
+            dropoff: 7.5,
         },
         region: "London",
     },
@@ -30,14 +30,14 @@ exports.AIRPORTS = {
         name: "Gatwick Airport",
         code: "LGW",
         boundaries: {
-            north: 51.167842,
-            south: 51.141653,
-            east: -0.156885,
-            west: -0.190532,
+            north: 51.175,
+            south: 51.135,
+            east: -0.145,
+            west: -0.205, // Extended boundaries
         },
         fees: {
-            pickup: 8.0, // Standard class
-            dropoff: 6.0, // Standard class
+            pickup: 8.0,
+            dropoff: 8.0,
         },
         region: "London",
     },
@@ -45,14 +45,14 @@ exports.AIRPORTS = {
         name: "Luton Airport",
         code: "LTN",
         boundaries: {
-            north: 51.886328,
-            south: 51.868648,
-            east: -0.360506,
-            west: -0.389516,
+            north: 51.895,
+            south: 51.860,
+            east: -0.350,
+            west: -0.400, // Extended boundaries
         },
         fees: {
-            pickup: 6.0, // Standard class
-            dropoff: 6.0, // Standard class
+            pickup: 6.0,
+            dropoff: 6.0,
         },
         region: "London",
     },
@@ -60,14 +60,14 @@ exports.AIRPORTS = {
         name: "Stansted Airport",
         code: "STN",
         boundaries: {
-            north: 51.895683,
-            south: 51.875186,
-            east: 0.251262,
-            west: 0.225384,
+            north: 51.905,
+            south: 51.865,
+            east: 0.265,
+            west: 0.215, // Extended boundaries
         },
         fees: {
-            pickup: 10.0, // Standard class
-            dropoff: 7.0, // Standard class
+            pickup: 10.0,
+            dropoff: 7.0,
         },
         region: "London",
     },
@@ -75,30 +75,29 @@ exports.AIRPORTS = {
         name: "London City Airport",
         code: "LCY",
         boundaries: {
-            north: 51.508354,
-            south: 51.500822,
-            east: 0.058022,
-            west: 0.042487,
+            north: 51.515,
+            south: 51.495,
+            east: 0.070,
+            west: 0.035, // Extended boundaries
         },
         fees: {
-            pickup: 6.5, // Standard class
-            dropoff: 0.0, // Standard class
+            pickup: 6.5,
+            dropoff: 0.0,
         },
         region: "London",
     },
-    // Manchester area airports
     MANCHESTER: {
         name: "Manchester Airport",
         code: "MAN",
         boundaries: {
-            north: 53.372,
-            south: 53.358,
-            east: -2.265,
-            west: -2.288,
+            north: 53.380,
+            south: 53.350,
+            east: -2.255,
+            west: -2.295, // Extended boundaries
         },
         fees: {
-            pickup: 5.0,
-            dropoff: 4.0,
+            pickup: 8.0,
+            dropoff: 8.0,
         },
         region: "Manchester",
     },
@@ -106,46 +105,44 @@ exports.AIRPORTS = {
         name: "Liverpool John Lennon Airport",
         code: "LPL",
         boundaries: {
-            north: 53.341,
-            south: 53.329,
-            east: -2.839,
-            west: -2.858,
+            north: 53.350,
+            south: 53.320,
+            east: -2.830,
+            west: -2.870, // Extended boundaries
         },
         fees: {
-            pickup: 4.0,
-            dropoff: 3.0,
+            pickup: 7.0,
+            dropoff: 7.0,
         },
         region: "Manchester",
     },
-    // Birmingham area
     BIRMINGHAM: {
         name: "Birmingham Airport",
         code: "BHX",
         boundaries: {
-            north: 52.461,
-            south: 52.445,
-            east: -1.724,
-            west: -1.749,
+            north: 52.470,
+            south: 52.435,
+            east: -1.715,
+            west: -1.760, // Extended boundaries
         },
         fees: {
-            pickup: 5.0,
-            dropoff: 4.0,
+            pickup: 7.5,
+            dropoff: 7.5,
         },
         region: "Birmingham",
     },
-    // Scotland
     EDINBURGH: {
         name: "Edinburgh Airport",
         code: "EDI",
         boundaries: {
-            north: 55.957,
-            south: 55.939,
-            east: -3.351,
-            west: -3.373,
+            north: 55.965,
+            south: 55.930,
+            east: -3.340,
+            west: -3.385, // Extended boundaries
         },
         fees: {
-            pickup: 5.0,
-            dropoff: 4.0,
+            pickup: 8.0,
+            dropoff: 8.0,
         },
         region: "Scotland",
     },
@@ -153,46 +150,44 @@ exports.AIRPORTS = {
         name: "Glasgow Airport",
         code: "GLA",
         boundaries: {
-            north: 55.876,
-            south: 55.858,
-            east: -4.416,
-            west: -4.44,
+            north: 55.885,
+            south: 55.850,
+            east: -4.405,
+            west: -4.455, // Extended boundaries
         },
         fees: {
-            pickup: 4.5,
-            dropoff: 3.5,
+            pickup: 8.0,
+            dropoff: 8.0,
         },
         region: "Scotland",
     },
-    // Wales
     CARDIFF: {
         name: "Cardiff Airport",
         code: "CWL",
         boundaries: {
-            north: 51.405,
-            south: 51.39,
-            east: -3.333,
-            west: -3.355,
+            north: 51.415,
+            south: 51.380,
+            east: -3.320,
+            west: -3.370, // Extended boundaries
         },
         fees: {
-            pickup: 4.0,
-            dropoff: 3.0,
+            pickup: 7.0,
+            dropoff: 7.0,
         },
         region: "Wales",
     },
-    // Northern Ireland
     BELFAST_INTL: {
         name: "Belfast International Airport",
         code: "BFS",
         boundaries: {
-            north: 54.673,
-            south: 54.645,
-            east: -6.205,
-            west: -6.235,
+            north: 54.685,
+            south: 54.635,
+            east: -6.190,
+            west: -6.250, // Extended boundaries
         },
         fees: {
-            pickup: 4.0,
-            dropoff: 3.0,
+            pickup: 8.0,
+            dropoff: 8.0,
         },
         region: "Northern Ireland",
     },
@@ -200,30 +195,29 @@ exports.AIRPORTS = {
         name: "George Best Belfast City Airport",
         code: "BHD",
         boundaries: {
-            north: 54.623,
-            south: 54.61,
-            east: -5.865,
-            west: -5.885,
+            north: 54.635,
+            south: 54.600,
+            east: -5.850,
+            west: -5.900, // Extended boundaries
         },
         fees: {
-            pickup: 4.0,
-            dropoff: 3.0,
+            pickup: 7.5,
+            dropoff: 7.5,
         },
         region: "Northern Ireland",
     },
-    // Other major airports
     BRISTOL: {
         name: "Bristol Airport",
         code: "BRS",
         boundaries: {
-            north: 51.391,
-            south: 51.377,
-            east: -2.71,
-            west: -2.728,
+            north: 51.400,
+            south: 51.365,
+            east: -2.700,
+            west: -2.740, // Extended boundaries
         },
         fees: {
-            pickup: 4.5,
-            dropoff: 3.5,
+            pickup: 7.0,
+            dropoff: 7.0,
         },
         region: "Other",
     },
@@ -231,44 +225,45 @@ exports.AIRPORTS = {
         name: "East Midlands Airport",
         code: "EMA",
         boundaries: {
-            north: 52.84,
-            south: 52.825,
-            east: -1.318,
-            west: -1.338,
+            north: 52.850,
+            south: 52.815,
+            east: -1.305,
+            west: -1.350, // Extended boundaries
         },
         fees: {
-            pickup: 4.0,
-            dropoff: 3.0,
+            pickup: 7.5,
+            dropoff: 7.5,
         },
-        region: "Other",
+        region: "Birmingham",
     },
     NEWCASTLE: {
         name: "Newcastle Airport",
         code: "NCL",
         boundaries: {
-            north: 55.045,
-            south: 55.032,
-            east: -1.685,
-            west: -1.71,
+            north: 55.055,
+            south: 55.020,
+            east: -1.670,
+            west: -1.725, // Extended boundaries
         },
         fees: {
-            pickup: 4.0,
-            dropoff: 3.0,
+            pickup: 7.5,
+            dropoff: 7.5,
         },
         region: "Other",
     },
 };
 // Extract airport codes for easy iteration
 exports.AIRPORT_CODES = Object.keys(exports.AIRPORTS);
-// Group airports by region for easier filtering
-exports.AIRPORTS_BY_REGION = Object.values(exports.AIRPORTS).reduce((acc, airport) => {
-    const region = airport.region || "Other";
-    if (!acc[region]) {
-        acc[region] = [];
-    }
-    acc[region].push(airport.code);
-    return acc;
-}, {});
+// Airports grouped by region for efficient lookup
+exports.AIRPORTS_BY_REGION = {
+    London: ["HEATHROW", "GATWICK", "LUTON", "STANSTED", "CITY"],
+    Manchester: ["MANCHESTER", "LIVERPOOL"],
+    Birmingham: ["BIRMINGHAM", "EAST_MIDLANDS"],
+    Scotland: ["EDINBURGH", "GLASGOW"],
+    Wales: ["CARDIFF"],
+    "Northern Ireland": ["BELFAST_INTL", "BELFAST_CITY"],
+    Other: ["BRISTOL", "NEWCASTLE"],
+};
 // Define special zones
 exports.SPECIAL_ZONES = {
     // London zones
@@ -486,10 +481,12 @@ function getAirportsNearLocation(location, regionFilter) {
 function isAtAirport(location, airportCode) {
     try {
         const airport = exports.AIRPORTS[airportCode];
-        if (!airport)
+        if (!airport) {
             return false;
+        }
         const { lat, lng } = location;
-        return isWithinBoundaries(lat, lng, airport.boundaries);
+        const withinBounds = isWithinBoundaries(lat, lng, airport.boundaries);
+        return withinBounds;
     }
     catch (error) {
         console.error(`Error checking if location is at ${airportCode}:`, error);

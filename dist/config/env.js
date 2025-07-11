@@ -24,8 +24,6 @@ const envSchema = zod_1.z.object({
     // Security
     JWT_SECRET: zod_1.z.string(),
     ALLOWED_ORIGINS: zod_1.z.string(),
-    // Mapbox
-    MAPBOX_TOKEN: zod_1.z.string(),
     // Google APIs
     GOOGLE_PLACES_API_KEY: zod_1.z.string(),
     // Google OAuth
@@ -63,7 +61,6 @@ catch (error) {
             FIREBASE_API_KEY: process.env.FIREBASE_API_KEY || "missing",
             JWT_SECRET: process.env.JWT_SECRET || "missing",
             ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || "https://localhost:3000",
-            MAPBOX_TOKEN: process.env.MAPBOX_TOKEN || "missing",
             GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY || "missing",
             BACKEND_GOOGLE_CALLBACK_URL: process.env.BACKEND_GOOGLE_CALLBACK_URL || "missing",
             FRONTEND_URL: process.env.FRONTEND_URL || "https://localhost:3000",
@@ -95,9 +92,6 @@ exports.env = {
         jwtSecret: validatedEnv.JWT_SECRET,
         allowedOrigins: (validatedEnv.ALLOWED_ORIGINS || "").split(","),
     },
-    mapbox: {
-        token: validatedEnv.MAPBOX_TOKEN,
-    },
     googleOAuth: {
         clientId: validatedEnv.GOOGLE_CLIENT_ID,
         clientSecret: validatedEnv.GOOGLE_CLIENT_SECRET,
@@ -124,7 +118,6 @@ console.log("Environment configuration loaded:", {
         allowedOrigins: exports.env.security.allowedOrigins,
         // Omit secrets
     },
-    mapbox: { token: "***" }, // Redact token
     email: {
         senderAddress: exports.env.email.senderAddress,
         frontendUrl: exports.env.email.frontendUrl,

@@ -23,9 +23,6 @@ const envSchema = z.object({
   JWT_SECRET: z.string(),
   ALLOWED_ORIGINS: z.string(),
 
-  // Mapbox
-  MAPBOX_TOKEN: z.string(),
-
   // Google APIs
   GOOGLE_PLACES_API_KEY: z.string(),
 
@@ -70,7 +67,6 @@ try {
       FIREBASE_API_KEY: process.env.FIREBASE_API_KEY || "missing",
       JWT_SECRET: process.env.JWT_SECRET || "missing",
       ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || "https://localhost:3000",
-      MAPBOX_TOKEN: process.env.MAPBOX_TOKEN || "missing",
       GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY || "missing",
       BACKEND_GOOGLE_CALLBACK_URL: process.env.BACKEND_GOOGLE_CALLBACK_URL || "missing",
       FRONTEND_URL: process.env.FRONTEND_URL || "https://localhost:3000",
@@ -102,9 +98,6 @@ export const env = {
     jwtSecret: validatedEnv.JWT_SECRET!,
     allowedOrigins: (validatedEnv.ALLOWED_ORIGINS! || "").split(","),
   },
-  mapbox: {
-    token: validatedEnv.MAPBOX_TOKEN!,
-  },
   googleOAuth: {
     clientId: validatedEnv.GOOGLE_CLIENT_ID,
     clientSecret: validatedEnv.GOOGLE_CLIENT_SECRET,
@@ -132,7 +125,6 @@ console.log("Environment configuration loaded:", {
     allowedOrigins: env.security.allowedOrigins,
     // Omit secrets
   },
-  mapbox: { token: "***" }, // Redact token
   email: {
     senderAddress: env.email.senderAddress,
     frontendUrl: env.email.frontendUrl,

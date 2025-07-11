@@ -11,43 +11,39 @@ class GoogleDistanceService {
      * Calculate distance and duration between locations using Google Distance Matrix API
      * This uses the shortest/fastest route which is what we want for fare calculation
      */
-    static async getRouteDetails(pickup, dropoff, waypoints = []) {
+    static async getDistance(origin, destination, waypoints = []) {
         try {
-            // If we have waypoints, use Directions API for multi-stop routes
+            console.log('📍 Using Google Distance Matrix API for shortest route calculation (not real-time traffic)');
+            let url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&key=${env_1.env.googlePlaces.apiKey}&units=imperial&mode=driving`;
+            // Add waypoints if provided
             if (waypoints.length > 0) {
-                return await this.getDirectionsWithWaypoints(pickup, dropoff, waypoints);
+                const waypointsStr = waypoints.map(wp => encodeURIComponent(wp)).join('|');
+                url += `&waypoints=${waypointsStr}`;
             }
-            // For simple point-to-point, use Distance Matrix API (more efficient)
-            const origins = `${pickup.lat},${pickup.lng}`;
-            const destinations = `${dropoff.lat},${dropoff.lng}`;
-            const response = await axios_1.default.get(this.DISTANCE_MATRIX_URL, {
-                params: {
-                    origins,
-                    destinations,
-                    key: env_1.env.googlePlaces.apiKey,
-                    units: 'metric',
-                    mode: 'driving',
-                    avoid: 'tolls', // Avoid tolls to get shortest route
-                    departure_time: 'now' // Get current traffic conditions
-                }
-            });
-            const data = response.data;
-            if (data.status !== 'OK') {
-                throw new Error(`Google Distance Matrix API error: ${data.status}`);
+            console.log('Google Distance API URL:', url);
+            const response = await axios_1.default.get(url);
+            if (response.data.status !== 'OK') {
+                console.error('Google Distance API error:', response.data);
+                throw new Error(`Google API error: ${response.data.status} - ${response.data.error_message || 'Unknown error'}`);
             }
-            const element = data.rows[0]?.elements[0];
+            const element = response.data.rows[0]?.elements[0];
             if (!element || element.status !== 'OK') {
-                throw new Error(`No route found: ${element?.status || 'Unknown error'}`);
+                console.error('No route found:', element);
+                throw new Error('No route found between the specified locations');
             }
+            // Convert distance from meters to miles
+            const distanceInMiles = element.distance.value * 0.000621371;
+            // Convert duration from seconds to minutes
+            const durationInMinutes = element.duration.value / 60;
+            console.log(`✅ Distance: ${distanceInMiles.toFixed(2)} miles, Duration: ${durationInMinutes.toFixed(0)} minutes`);
             return {
-                distance: element.distance.value, // meters
-                duration: element.duration.value, // seconds
-                legs: []
+                distance: distanceInMiles,
+                duration: durationInMinutes
             };
         }
         catch (error) {
-            console.error("Error fetching route details from Google:", error);
-            throw new Error("Failed to get route details from Google Distance Matrix API");
+            console.error('Google Distance API error:', error);
+            throw new Error('Failed to calculate distance using Google API');
         }
     }
     /**

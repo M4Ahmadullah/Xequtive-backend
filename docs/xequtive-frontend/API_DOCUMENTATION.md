@@ -16,7 +16,7 @@ The platform focuses on providing a seamless, high-end transportation experience
 - **Multiple Vehicle Classes**: Standard Saloon, Executive Saloon, Executive MPV, and Luxury Vehicle options
 - **Additional Stops**: Support for multi-stop journeys with accurate fare adjustments
 - **Firebase Authentication**: Secure user authentication
-- **Mapbox Integration**: Precise distance and traffic calculations
+- **Google Distance Matrix Integration**: Precise distance and traffic calculations
 
 ## API Security
 
@@ -465,7 +465,7 @@ The API may return the following error codes related to service area restriction
 | Error Code                 | Description                                                       |
 | -------------------------- | ----------------------------------------------------------------- |
 | `LOCATION_NOT_SERVICEABLE` | Indicates that one or more locations are outside our service area |
-| `INVALID_LOCATION`         | Indicates that Mapbox couldn't find a route between the locations |
+| `INVALID_LOCATION`         | Indicates that Google couldn't find a route between the locations |
 
 #### Examples of Error Responses
 

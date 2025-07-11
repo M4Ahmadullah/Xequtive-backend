@@ -93,8 +93,8 @@ FIREBASE_API_KEY=your-api-key
 JWT_SECRET=your-jwt-secret
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 
-# Mapbox
-MAPBOX_TOKEN=your-mapbox-token
+# Google APIs
+GOOGLE_PLACES_API_KEY=your-google-places-api-key
 ```
 
 For production, use `.env.production` with appropriate values.

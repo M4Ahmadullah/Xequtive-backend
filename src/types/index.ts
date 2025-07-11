@@ -120,6 +120,7 @@ export type VehicleClass = 'Standard Comfort' | 'Business';
 export interface VehiclePriceInfo {
   amount: number;
   currency: string;
+  messages?: string[]; // Optional array of messages about fees and charges
   breakdown: {
     baseFare: number;
     distanceCharge: number;

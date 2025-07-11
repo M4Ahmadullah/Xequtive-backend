@@ -52,14 +52,15 @@ class EnhancedFareService {
             }
             // Call the Google Distance API to get distance and duration
             console.log("Calling Google Distance API to get route details...");
-            const routeDetails = await googleDistance_service_1.GoogleDistanceService.getRouteDetails(pickupLocation, dropoffLocation, additionalStops.map((stop) => stop.location));
-            // Convert distance from meters to miles
-            const distance = routeDetails.distance / 1609.34;
-            // Convert duration from seconds to minutes
-            const duration = routeDetails.duration / 60;
+            const routeDetails = await googleDistance_service_1.GoogleDistanceService.getDistance(`${pickupLocation.lat},${pickupLocation.lng}`, `${dropoffLocation.lat},${dropoffLocation.lng}`, additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`));
+            // Distance is already in miles from the new API
+            const distance = routeDetails.distance;
+            // Duration is already in minutes from the new API
+            const duration = routeDetails.duration;
             console.log(`Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(0)} minutes`);
-            // Get the routing information including leg details
-            const routeLegs = routeDetails.legs || [];
+            // Since we're using Distance Matrix API, we don't have leg details
+            // For airport detection, we'll use the pickup and dropoff locations directly
+            const routeLegs = [];
             // Detect special zones using the helper method
             const specialZones = (0, specialZones_1.getZonesForRoute)(routeLegs);
             // Check if specific zones are present
@@ -154,7 +155,7 @@ class EnhancedFareService {
                 routeDetails: {
                     distance_miles: parseFloat(distance.toFixed(2)),
                     duration_minutes: Math.ceil(duration),
-                    polyline: routeDetails.geometry || null,
+                    polyline: null, // No polyline data from Distance Matrix API
                 },
                 notifications,
                 journey: {
@@ -177,6 +178,8 @@ class EnhancedFareService {
         console.log(`Distance: ${distance.toFixed(2)} miles`);
         console.log(`Estimated duration: ${Math.round(duration)} minutes`);
         console.log(`Additional stops: ${additionalStops}`);
+        // Array to collect messages for this vehicle type
+        const messages = [];
         // Calculate distance charge using slab-based system
         const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
         console.log(`Distance charge (${distance.toFixed(2)} miles): £${distanceCharge.toFixed(2)}`);
@@ -187,9 +190,18 @@ class EnhancedFareService {
         // Calculate base fare (distance + stops)
         const baseFare = distanceCharge + stopCharge;
         console.log(`Base fare (distance + stops): £${baseFare.toFixed(2)}`);
-        // Apply minimum fare rule - use minimum fare if base fare is less than minimum
-        let totalFare = Math.max(baseFare, vehicleType.minimumFare);
-        console.log(`Fare after minimum fare rule: £${totalFare.toFixed(2)}`);
+        // Apply minimum fare rule - IMPORTANT: Only use minimum fare if base fare is less than minimum
+        let totalFare;
+        if (baseFare < vehicleType.minimumFare) {
+            totalFare = vehicleType.minimumFare;
+            console.log(`Base fare (£${baseFare.toFixed(2)}) is less than minimum fare (£${vehicleType.minimumFare.toFixed(2)})`);
+            console.log(`Using minimum fare: £${vehicleType.minimumFare.toFixed(2)}`);
+        }
+        else {
+            totalFare = baseFare;
+            console.log(`Base fare (£${baseFare.toFixed(2)}) is above minimum fare (£${vehicleType.minimumFare.toFixed(2)})`);
+            console.log(`Using calculated fare: £${baseFare.toFixed(2)}`);
+        }
         // Time surcharge
         const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
         console.log(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
@@ -199,54 +211,59 @@ class EnhancedFareService {
         if (airports.pickupAirport) {
             const airport = specialZones_1.AIRPORTS[airports.pickupAirport];
             if (airport) {
-                // Apply different fees based on vehicle class
-                const isExecutive = vehicleType.class === 'Business';
-                let pickupFee = airport.fees.pickup; // Default to standard
-                // Apply executive fees based on new pricing structure
-                if (isExecutive) {
-                    switch (airports.pickupAirport.toLowerCase()) {
-                        case 'heathrow':
-                            pickupFee = 16.00;
-                            break;
-                        case 'gatwick':
-                            pickupFee = 10.00;
-                            break;
-                        case 'luton':
-                            pickupFee = 10.00;
-                            break;
-                        case 'stansted':
-                            pickupFee = 10.00;
-                            break;
-                        case 'city':
-                            pickupFee = 10.00;
-                            break;
-                        default:
-                            pickupFee = airport.fees.pickup; // Keep standard for other airports
-                    }
-                }
-                airportFee += pickupFee;
-                console.log(`Airport pickup fee (${isExecutive ? 'Executive' : 'Standard'}): £${pickupFee.toFixed(2)}`);
+                airportFee += airport.fees.pickup;
+                console.log(`✈️ Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
+                messages.push(`Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
             }
         }
         if (airports.dropoffAirport) {
             const airport = specialZones_1.AIRPORTS[airports.dropoffAirport];
             if (airport) {
-                // Dropoff fees are same for both Standard and Executive classes
                 airportFee += airport.fees.dropoff;
-                console.log(`Airport dropoff fee: £${airport.fees.dropoff.toFixed(2)}`);
+                console.log(`✈️ Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
+                messages.push(`Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
             }
+        }
+        if (airportFee > 0) {
+            console.log(`Total airport fees: £${airportFee.toFixed(2)}`);
         }
         totalFare += airportFee;
         // Special zone fees
+        let specialZoneFees = 0;
         if (passesThroughCCZ && (0, specialZones_1.isZoneActive)("CONGESTION_CHARGE", requestDate)) {
             const congestionCharge = specialZones_1.SPECIAL_ZONES.CONGESTION_CHARGE.fee;
-            totalFare += congestionCharge;
-            console.log(`Congestion charge: £${congestionCharge.toFixed(2)}`);
+            specialZoneFees += congestionCharge;
+            console.log(`🏙️ Congestion charge: £${congestionCharge.toFixed(2)}`);
+            messages.push(`Congestion charge: £${congestionCharge.toFixed(2)}`);
         }
         if (hasDartfordCrossing) {
             const dartfordCharge = specialZones_1.SPECIAL_ZONES.DARTFORD_CROSSING.fee;
-            totalFare += dartfordCharge;
-            console.log(`Dartford crossing charge: £${dartfordCharge.toFixed(2)}`);
+            specialZoneFees += dartfordCharge;
+            console.log(`🌉 Dartford crossing charge: £${dartfordCharge.toFixed(2)}`);
+            messages.push(`Dartford crossing: £${dartfordCharge.toFixed(2)}`);
+        }
+        if (specialZoneFees > 0) {
+            console.log(`Total special zone fees: £${specialZoneFees.toFixed(2)}`);
+        }
+        totalFare += specialZoneFees;
+        // Add time surcharge message if applicable
+        if (timeSurcharge > 0) {
+            const day = requestDate.getDay();
+            const hours = requestDate.getHours();
+            const isWeekend = day === 5 || day === 6 || day === 0; // Friday, Saturday, Sunday
+            const timeType = isWeekend ? 'Weekend' : 'Weekday';
+            let period = 'Non-peak';
+            if (hours >= 6 && hours < 15) {
+                period = 'Peak medium';
+            }
+            else if (hours >= 15) {
+                period = 'Peak high';
+            }
+            messages.push(`${timeType} ${period.toLowerCase()} surcharge: £${timeSurcharge.toFixed(2)}`);
+        }
+        // Add additional stops message if applicable
+        if (additionalStops > 0) {
+            messages.push(`Additional stops (${additionalStops}): £${stopCharge.toFixed(2)}`);
         }
         console.log(`DEBUG: totalFare before rounding: £${totalFare.toFixed(2)}`);
         // Round to nearest 0.50
@@ -255,6 +272,7 @@ class EnhancedFareService {
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,
+            messages, // Include the messages array
             breakdown: {
                 baseFare: 0, // No base rate anymore
                 distanceCharge,
@@ -262,96 +280,64 @@ class EnhancedFareService {
                 additionalStopFee: stopCharge,
                 timeSurcharge,
                 airportFee,
-                specialZoneFees: passesThroughCCZ || hasDartfordCrossing
-                    ? (passesThroughCCZ ? specialZones_1.SPECIAL_ZONES.CONGESTION_CHARGE.fee : 0) +
-                        (hasDartfordCrossing ? specialZones_1.SPECIAL_ZONES.DARTFORD_CROSSING.fee : 0)
-                    : 0,
+                specialZoneFees,
             },
         };
     }
     /**
      * Calculate distance fare using proper slab system
+     * The rate is determined by the total distance, and ALL miles are charged at that rate
      */
     static calculateSlabBasedDistanceFare(vehicleType, distance) {
         const rates = vehicleType.perMileRates;
-        let totalCharge = 0;
-        // Slab-based distance calculation
+        let ratePerMile = 0;
+        let rangeDescription = '';
+        console.log(`Calculating slab-based fare for ${distance.toFixed(2)} miles:`);
+        // Determine which rate applies based on total distance
         if (distance <= 4) {
-            totalCharge = distance * rates['0-4'];
+            ratePerMile = rates['0-4'];
+            rangeDescription = '0-4 miles';
         }
         else if (distance <= 10.9) {
-            totalCharge = 4 * rates['0-4'] +
-                (distance - 4) * rates['4.1-10.9'];
+            ratePerMile = rates['4.1-10.9'];
+            rangeDescription = '4.1-10.9 miles';
         }
         else if (distance <= 20) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                (distance - 10.9) * rates['11-20'];
+            ratePerMile = rates['11-20'];
+            rangeDescription = '11-20 miles';
         }
         else if (distance <= 40) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                (distance - 20) * rates['20.1-40'];
+            ratePerMile = rates['20.1-40'];
+            rangeDescription = '20.1-40 miles';
         }
         else if (distance <= 60) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                20 * rates['20.1-40'] +
-                (distance - 40) * rates['41-60'];
+            ratePerMile = rates['41-60'];
+            rangeDescription = '41-60 miles';
         }
         else if (distance <= 80) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                20 * rates['20.1-40'] +
-                20 * rates['41-60'] +
-                (distance - 60) * rates['60.1-80'];
+            ratePerMile = rates['60.1-80'];
+            rangeDescription = '60.1-80 miles';
         }
         else if (distance <= 99) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                20 * rates['20.1-40'] +
-                20 * rates['41-60'] +
-                20 * rates['60.1-80'] +
-                (distance - 80) * rates['81-99'];
+            ratePerMile = rates['81-99'];
+            rangeDescription = '81-99 miles';
         }
         else if (distance <= 149) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                20 * rates['20.1-40'] +
-                20 * rates['41-60'] +
-                20 * rates['60.1-80'] +
-                19 * rates['81-99'] +
-                (distance - 99) * rates['100-149'];
+            ratePerMile = rates['100-149'];
+            rangeDescription = '100-149 miles';
         }
         else if (distance <= 299) {
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                20 * rates['20.1-40'] +
-                20 * rates['41-60'] +
-                20 * rates['60.1-80'] +
-                19 * rates['81-99'] +
-                50 * rates['100-149'] +
-                (distance - 149) * rates['150-299'];
+            ratePerMile = rates['150-299'];
+            rangeDescription = '150-299 miles';
         }
         else {
-            // Long trip discount
-            totalCharge = 4 * rates['0-4'] +
-                6.9 * rates['4.1-10.9'] +
-                9.1 * rates['11-20'] +
-                20 * rates['20.1-40'] +
-                20 * rates['41-60'] +
-                20 * rates['60.1-80'] +
-                19 * rates['81-99'] +
-                50 * rates['100-149'] +
-                150 * rates['150-299'] +
-                (distance - 299) * rates['300+'];
+            ratePerMile = rates['300+'];
+            rangeDescription = '300+ miles (Long Trip Discount)';
         }
+        const totalCharge = distance * ratePerMile;
+        console.log(`  Distance: ${distance.toFixed(2)} miles falls in ${rangeDescription} range`);
+        console.log(`  Rate: £${ratePerMile.toFixed(2)} per mile`);
+        console.log(`  Total distance charge: ${distance.toFixed(2)} × £${ratePerMile.toFixed(2)} = £${totalCharge.toFixed(2)}`);
         return totalCharge;
     }
     /**
