@@ -16,6 +16,7 @@ This document provides a comprehensive guide to the Xequtive Dashboard, includin
    - [Analytics](#analytics-endpoints)
    - [Bookings Management](#bookings-management)
    - [User Management](#user-management)
+   - [Vehicle Information](#vehicle-information)
    - [System Settings](#system-settings)
    - [System Logs](#system-logs)
 3. [Implementation Guide](#implementation-guide)
@@ -501,7 +502,7 @@ Get a dashboard overview of key metrics.
 
 #### Revenue Analytics
 
-Provides revenue analytics data.
+Provides comprehensive revenue analytics data with detailed breakdowns.
 
 **Endpoint:** `GET /api/dashboard/analytics/revenue`
 
@@ -532,12 +533,21 @@ Provides revenue analytics data.
         "type": "VIP",
         "amount": 55129.5,
         "percentage": 98
+      },
+      {
+        "type": "Standard Saloon",
+        "amount": 951.5,
+        "percentage": 2
       }
     ],
     "byStatus": [
       {
-        "status": "cancelled",
-        "amount": 56081
+        "status": "completed",
+        "amount": 45000
+      },
+      {
+        "status": "confirmed",
+        "amount": 11081
       }
     ]
   }
@@ -546,7 +556,7 @@ Provides revenue analytics data.
 
 #### Bookings Analytics
 
-Provides booking analytics data.
+Provides detailed booking analytics with comprehensive breakdowns.
 
 **Endpoint:** `GET /api/dashboard/analytics/bookings`
 
@@ -577,24 +587,48 @@ Provides booking analytics data.
       {
         "hour": 0,
         "count": 4
+      },
+      {
+        "hour": 8,
+        "count": 15
+      },
+      {
+        "hour": 14,
+        "count": 22
       }
     ],
     "byWeekday": [
       {
         "day": "Monday",
-        "count": 0
+        "count": 12
+      },
+      {
+        "day": "Tuesday",
+        "count": 8
+      },
+      {
+        "day": "Wednesday",
+        "count": 15
       }
     ],
     "byVehicleType": [
       {
         "type": "Standard Saloon",
         "count": 2
+      },
+      {
+        "type": "Executive Saloon",
+        "count": 1
       }
     ],
     "cancellationReasons": [
       {
         "reason": "Cancelled by user",
         "count": 5
+      },
+      {
+        "reason": "Weather conditions",
+        "count": 2
       }
     ]
   }
@@ -603,7 +637,7 @@ Provides booking analytics data.
 
 #### User Analytics
 
-Provides user analytics data.
+Provides user analytics data with retention and engagement metrics.
 
 **Endpoint:** `GET /api/dashboard/analytics/users`
 
@@ -634,7 +668,7 @@ Provides user analytics data.
         "uid": "8Z7t5GsOmTdCKukau97p2TZzGyq1",
         "email": "user1@example.com",
         "bookings": 4,
-        "spent": 0
+        "spent": 245.50
       }
     ],
     "retention": {
@@ -645,6 +679,14 @@ Provides user analytics data.
       {
         "device": "Mobile",
         "percentage": 65
+      },
+      {
+        "device": "Desktop",
+        "percentage": 30
+      },
+      {
+        "device": "Tablet",
+        "percentage": 5
       }
     ]
   }
@@ -653,7 +695,7 @@ Provides user analytics data.
 
 #### Traffic Analytics
 
-Provides website traffic analytics data.
+Provides website traffic analytics data with visitor insights.
 
 **Endpoint:** `GET /api/dashboard/analytics/traffic`
 
@@ -685,24 +727,44 @@ Provides website traffic analytics data.
       {
         "path": "/",
         "views": 190
+      },
+      {
+        "path": "/booking",
+        "views": 85
       }
     ],
     "referrers": [
       {
         "source": "Google",
         "visits": 152
+      },
+      {
+        "source": "Direct",
+        "visits": 98
       }
     ],
     "devices": [
       {
         "type": "Mobile",
         "percentage": 65
+      },
+      {
+        "type": "Desktop",
+        "percentage": 30
+      },
+      {
+        "type": "Tablet",
+        "percentage": 5
       }
     ],
     "locations": [
       {
         "city": "London",
         "visits": 40
+      },
+      {
+        "city": "Manchester",
+        "visits": 25
       }
     ],
     "conversionRate": 10
@@ -714,20 +776,20 @@ Provides website traffic analytics data.
 
 #### Get All Bookings
 
-Retrieves a list of all bookings with filtering options.
+Retrieves a list of all bookings with comprehensive filtering options.
 
 **Endpoint:** `GET /api/dashboard/bookings`
 
 **Query Parameters:**
 
-- `startDate` (optional): Filter by start date
-- `endDate` (optional): Filter by end date
-- `status` (optional): Filter by booking status
-- `vehicleType` (optional): Filter by vehicle type
-- `page` (optional): Page number for pagination
-- `limit` (optional): Number of bookings per page
-- `sort` (optional): Field to sort by
-- `order` (optional): Sort order (`asc` or `desc`)
+- `startDate` (optional): Filter by start date (YYYY-MM-DD)
+- `endDate` (optional): Filter by end date (YYYY-MM-DD)
+- `status` (optional): Filter by booking status (`pending`, `confirmed`, `completed`, `cancelled`)
+- `vehicleType` (optional): Filter by vehicle type ID
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of bookings per page (default: 20)
+- `sort` (optional): Field to sort by (default: `pickupDate`)
+- `order` (optional): Sort order (`asc` or `desc`, default: `desc`)
 
 **Response:**
 
@@ -759,7 +821,26 @@ Retrieves a list of all bookings with filtering options.
               "lat": 51.5074,
               "lng": -0.1278
             }
-          }
+          },
+          "additionalStops": [
+            {
+              "address": "Baker Street, London",
+              "coordinates": {
+                "lat": 51.5226,
+                "lng": -0.1571
+              }
+            }
+          ]
+        },
+        "passengers": {
+          "count": 2,
+          "checkedLuggage": 1,
+          "handLuggage": 1,
+          "mediumLuggage": 0,
+          "babySeat": 0,
+          "childSeat": 0,
+          "boosterSeat": 0,
+          "wheelchair": 0
         },
         "vehicle": {
           "id": "standard-saloon",
@@ -769,8 +850,22 @@ Retrieves a list of all bookings with filtering options.
             "currency": "GBP"
           }
         },
+        "journey": {
+          "distance_miles": 15.2,
+          "duration_minutes": 35
+        },
         "status": "confirmed",
-        "createdAt": "2025-05-10T10:30:00.000Z"
+        "specialRequests": "Please call when arriving",
+        "travelInformation": {
+          "type": "flight",
+          "details": {
+            "airline": "British Airways",
+            "flightNumber": "BA123",
+            "scheduledDeparture": "2025-05-15T16:00:00Z"
+          }
+        },
+        "createdAt": "2025-05-10T10:30:00.000Z",
+        "updatedAt": "2025-05-10T11:15:00.000Z"
       }
     ],
     "pagination": {
@@ -791,8 +886,8 @@ Retrieves booking data formatted for calendar view.
 
 **Query Parameters:**
 
-- `startDate`: Start date for calendar view (required)
-- `endDate`: End date for calendar view (required)
+- `startDate`: Start date for calendar view (required, YYYY-MM-DD)
+- `endDate`: End date for calendar view (required, YYYY-MM-DD)
 - `status` (optional): Filter by booking status
 
 **Response:**
@@ -820,7 +915,7 @@ Retrieves booking data formatted for calendar view.
 
 #### Get Booking Details
 
-Retrieves details of a specific booking.
+Retrieves comprehensive details of a specific booking including timeline.
 
 **Endpoint:** `GET /api/dashboard/bookings/:id`
 
@@ -852,7 +947,26 @@ Retrieves details of a specific booking.
           "lat": 51.5074,
           "lng": -0.1278
         }
-      }
+      },
+      "additionalStops": [
+        {
+          "address": "Baker Street, London",
+          "coordinates": {
+            "lat": 51.5226,
+            "lng": -0.1571
+          }
+        }
+      ]
+    },
+    "passengers": {
+      "count": 2,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
     },
     "vehicle": {
       "id": "standard-saloon",
@@ -862,7 +976,20 @@ Retrieves details of a specific booking.
         "currency": "GBP"
       }
     },
+    "journey": {
+      "distance_miles": 15.2,
+      "duration_minutes": 35
+    },
     "status": "confirmed",
+    "specialRequests": "Please call when arriving",
+    "travelInformation": {
+      "type": "flight",
+      "details": {
+        "airline": "British Airways",
+        "flightNumber": "BA123",
+        "scheduledDeparture": "2025-05-15T16:00:00Z"
+      }
+    },
     "timeline": [
       {
         "status": "pending",
@@ -882,7 +1009,7 @@ Retrieves details of a specific booking.
 
 #### Update Booking
 
-Updates a booking.
+Updates a booking's status and other editable fields.
 
 **Endpoint:** `PUT /api/dashboard/bookings/:id`
 
@@ -891,7 +1018,9 @@ Updates a booking.
 ```json
 {
   "status": "completed",
-  "notes": "Driver arrived on time"
+  "notes": "Driver arrived on time",
+  "actualPickupTime": "14:35",
+  "actualDropoffTime": "15:10"
 }
 ```
 
@@ -903,14 +1032,14 @@ Updates a booking.
   "data": {
     "id": "booking123",
     "message": "Booking updated successfully",
-    "updatedFields": ["status", "notes"]
+    "updatedFields": ["status", "notes", "actualPickupTime", "actualDropoffTime"]
   }
 }
 ```
 
 #### Delete Booking
 
-Deletes a booking.
+Deletes a booking (admin only).
 
 **Endpoint:** `DELETE /api/dashboard/bookings/:id`
 
@@ -930,16 +1059,16 @@ Deletes a booking.
 
 #### Get All Users
 
-Retrieves a list of all users.
+Retrieves a list of all users with booking statistics.
 
 **Endpoint:** `GET /api/dashboard/users`
 
 **Query Parameters:**
 
-- `role` (optional): Filter by user role
+- `role` (optional): Filter by user role (`user`, `admin`)
 - `query` (optional): Search query for email/name
-- `page` (optional): Page number for pagination
-- `limit` (optional): Number of users per page
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of users per page (default: 20)
 
 **Response:**
 
@@ -955,7 +1084,9 @@ Retrieves a list of all users.
         "phone": "+44123456789",
         "role": "user",
         "createdAt": "2025-05-01T10:30:00.000Z",
-        "bookingsCount": 5
+        "bookingsCount": 5,
+        "lastBookingDate": "2025-05-10T14:30:00.000Z",
+        "totalSpent": 245.50
       }
     ],
     "pagination": {
@@ -970,7 +1101,7 @@ Retrieves a list of all users.
 
 #### Get User Details
 
-Retrieves details of a specific user.
+Retrieves comprehensive details of a specific user.
 
 **Endpoint:** `GET /api/dashboard/users/:uid`
 
@@ -999,7 +1130,8 @@ Retrieves details of a specific user.
         "id": "booking123",
         "pickupDate": "2025-05-09",
         "status": "completed",
-        "amount": 45.5
+        "amount": 45.5,
+        "vehicleType": "Standard Saloon"
       }
     ]
   }
@@ -1008,7 +1140,7 @@ Retrieves details of a specific user.
 
 #### Update User
 
-Updates a user.
+Updates a user's information.
 
 **Endpoint:** `PUT /api/dashboard/users/:uid`
 
@@ -1017,7 +1149,8 @@ Updates a user.
 ```json
 {
   "fullName": "John Smith",
-  "phone": "+44987654321"
+  "phone": "+44987654321",
+  "role": "user"
 }
 ```
 
@@ -1052,6 +1185,146 @@ Disables a user account.
 }
 ```
 
+### Vehicle Information
+
+#### Available Vehicle Types
+
+The system supports the following vehicle types with detailed specifications:
+
+| Vehicle Type | ID | Capacity | Class | Minimum Fare | Additional Stop Fee |
+|--------------|----|---------:|-------|-------------:|-------------------:|
+| Standard Saloon | `saloon` | 4 passengers | Standard Comfort | £16.40 | £2.50 |
+| Estate | `estate` | 4 passengers | Standard Comfort | £18.40 | £2.50 |
+| MPV-6 Seater | `mpv-6` | 6 passengers | Standard Comfort | £26.40 | £4.50 |
+| MPV-8 Seater | `mpv-8` | 8 passengers | Standard Comfort | £50.30 | £4.50 |
+| Executive Saloon | `executive` | 3 passengers | Business | £34.40 | £5.50 |
+| Executive MPV-8 | `executive-mpv` | 6 passengers | Business | £50.30 | £5.50 |
+| VIP-Saloon | `vip-saloon` | 3 passengers | Business | £66.80 | £5.50 |
+| VIP-SUV/MPV | `vip-suv` | 6 passengers | Business | £70.80 | £5.50 |
+
+#### Per-Mile Pricing Structure
+
+Each vehicle type has a slab-based pricing structure:
+
+**Standard Saloon:**
+- 0-4 miles: £3.95/mile
+- 4.1-10.9 miles: £2.95/mile
+- 11-20 miles: £2.80/mile
+- 20.1-40 miles: £2.66/mile
+- 41-60 miles: £2.36/mile
+- 60.1-80 miles: £2.21/mile
+- 81-99 miles: £1.92/mile
+- 100-149 miles: £1.77/mile
+- 150-299 miles: £1.62/mile
+- 300+ miles: £1.48/mile
+
+**Estate:**
+- 0-4 miles: £4.95/mile
+- 4.1-10.9 miles: £3.45/mile
+- 11-20 miles: £3.28/mile
+- 20.1-40 miles: £3.11/mile
+- 41-60 miles: £2.76/mile
+- 60.1-80 miles: £2.59/mile
+- 81-99 miles: £2.24/mile
+- 100-149 miles: £2.07/mile
+- 150-299 miles: £1.90/mile
+- 300+ miles: £1.73/mile
+
+**MPV-6 Seater:**
+- 0-4 miles: £6.95/mile
+- 4.1-10.9 miles: £6.45/mile
+- 11-20 miles: £5.97/mile
+- 20.1-40 miles: £4.35/mile
+- 41-60 miles: £3.39/mile
+- 60.1-80 miles: £3.55/mile
+- 81-99 miles: £3.23/mile
+- 100-149 miles: £3.06/mile
+- 150-299 miles: £2.90/mile
+- 300+ miles: £2.74/mile
+
+**MPV-8 Seater:**
+- 0-4 miles: £7.95/mile
+- 4.1-10.9 miles: £6.95/mile
+- 11-20 miles: £6.43/mile
+- 20.1-40 miles: £4.69/mile
+- 41-60 miles: £4.00/mile
+- 60.1-80 miles: £3.82/mile
+- 81-99 miles: £3.48/mile
+- 100-149 miles: £3.30/mile
+- 150-299 miles: £3.13/mile
+- 300+ miles: £2.95/mile
+
+**Executive Saloon:**
+- 0-4 miles: £7.95/mile
+- 4.1-10.9 miles: £5.95/mile
+- 11-20 miles: £5.50/mile
+- 20.1-40 miles: £4.02/mile
+- 41-60 miles: £3.42/mile
+- 60.1-80 miles: £3.27/mile
+- 81-99 miles: £2.98/mile
+- 100-149 miles: £2.83/mile
+- 150-299 miles: £2.68/mile
+- 300+ miles: £2.53/mile
+
+**Executive MPV-8:**
+- 0-4 miles: £7.95/mile
+- 4.1-10.9 miles: £7.95/mile
+- 11-20 miles: £6.56/mile
+- 20.1-40 miles: £6.16/mile
+- 41-60 miles: £5.96/mile
+- 60.1-80 miles: £5.76/mile
+- 81-99 miles: £4.77/mile
+- 100-149 miles: £4.57/mile
+- 150-299 miles: £3.78/mile
+- 300+ miles: £3.58/mile
+
+**VIP-Saloon:**
+- 0-4 miles: £7.95/mile
+- 4.1-10.9 miles: £7.45/mile
+- 11-20 miles: £7.26/mile
+- 20.1-40 miles: £5.03/mile
+- 41-60 miles: £4.28/mile
+- 60.1-80 miles: £4.10/mile
+- 81-99 miles: £3.73/mile
+- 100-149 miles: £3.54/mile
+- 150-299 miles: £3.35/mile
+- 300+ miles: £3.17/mile
+
+**VIP-SUV/MPV:**
+- 0-4 miles: £8.95/mile
+- 4.1-10.9 miles: £7.95/mile
+- 11-20 miles: £7.55/mile
+- 20.1-40 miles: £7.16/mile
+- 41-60 miles: £6.76/mile
+- 60.1-80 miles: £6.36/mile
+- 81-99 miles: £6.16/mile
+- 100-149 miles: £5.96/mile
+- 150-299 miles: £5.37/mile
+- 300+ miles: £4.97/mile
+
+#### Airport Fees
+
+The system applies airport fees for pickups and drop-offs at major UK airports:
+
+| Airport | Fee |
+|---------|----:|
+| London Heathrow | £10.00 |
+| London Gatwick | £8.00 |
+| London Stansted | £8.00 |
+| London Luton | £8.00 |
+| London City | £8.00 |
+| Manchester | £8.00 |
+| Birmingham | £7.00 |
+| Edinburgh | £7.00 |
+| Glasgow | £7.00 |
+| Liverpool | £6.00 |
+| Bristol | £6.00 |
+| Cardiff | £6.00 |
+| Belfast International | £6.00 |
+| Belfast City | £6.00 |
+| East Midlands | £6.00 |
+| Newcastle | £6.00 |
+
 ### System Settings
 
 #### Get System Settings
@@ -1068,7 +1341,14 @@ Retrieves the current system settings.
   "data": {
     "pricing": {
       "congestionCharge": 8.0,
-      "dartfordCrossing": 4.0
+      "dartfordCrossing": 4.0,
+      "airportFees": {
+        "heathrow": 10.0,
+        "gatwick": 8.0,
+        "stansted": 8.0,
+        "luton": 8.0,
+        "city": 8.0
+      }
     },
     "serviceAreas": {
       "maxDistance": 350,
@@ -1081,7 +1361,20 @@ Retrieves the current system settings.
     },
     "notifications": {
       "emailEnabled": true,
-      "smsEnabled": true
+      "smsEnabled": true,
+      "bookingConfirmations": true,
+      "statusUpdates": true
+    },
+    "businessHours": {
+      "timezone": "Europe/London",
+      "weekdays": {
+        "start": "06:00",
+        "end": "23:00"
+      },
+      "weekends": {
+        "start": "07:00",
+        "end": "22:00"
+      }
     },
     "updatedAt": "2025-05-15T03:36:28.537Z",
     "updatedBy": "admin123"
@@ -1101,14 +1394,20 @@ Updates the system settings.
 {
   "pricing": {
     "congestionCharge": 8.0,
-    "dartfordCrossing": 4.0
+    "dartfordCrossing": 4.0,
+    "airportFees": {
+      "heathrow": 10.0,
+      "gatwick": 8.0
+    }
   },
   "serviceAreas": {
     "maxDistance": 350
   },
   "notifications": {
     "emailEnabled": true,
-    "smsEnabled": true
+    "smsEnabled": true,
+    "bookingConfirmations": true,
+    "statusUpdates": true
   }
 }
 ```
@@ -1136,10 +1435,10 @@ Retrieves system logs with optional filtering.
 **Query Parameters:**
 
 - `level` (optional): Filter logs by level (`info`, `warn`, `error`)
-- `startDate` (optional): Filter logs from this date
-- `endDate` (optional): Filter logs to this date
-- `page` (optional): Page number for pagination
-- `limit` (optional): Number of logs per page
+- `startDate` (optional): Filter logs from this date (YYYY-MM-DD)
+- `endDate` (optional): Filter logs to this date (YYYY-MM-DD)
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of logs per page (default: 20)
 
 **Response:**
 
@@ -1155,12 +1454,23 @@ Retrieves system logs with optional filtering.
         "message": "User logged in",
         "metadata": {
           "userId": "user123",
-          "ipAddress": "192.168.1.1"
+          "ipAddress": "192.168.1.1",
+          "userAgent": "Mozilla/5.0..."
+        }
+      },
+      {
+        "id": "log124",
+        "timestamp": "2025-05-15T03:25:00.000Z",
+        "level": "error",
+        "message": "Failed to process booking",
+        "metadata": {
+          "bookingId": "booking123",
+          "error": "Payment gateway timeout"
         }
       }
     ],
     "pagination": {
-      "total": 1,
+      "total": 2,
       "pages": 1,
       "currentPage": 1,
       "limit": 20
@@ -1367,6 +1677,47 @@ async function fetchWithErrorHandling(endpoint) {
 }
 ```
 
+### Dashboard Features Summary
+
+The Xequtive Dashboard provides comprehensive admin functionality including:
+
+#### Analytics & Reporting
+- **Overview Dashboard**: Key metrics with period comparison
+- **Revenue Analytics**: Detailed revenue breakdowns by vehicle type, status, and timeline
+- **Booking Analytics**: Booking patterns by hour, weekday, vehicle type, and cancellation reasons
+- **User Analytics**: User growth, retention metrics, and top customer insights
+- **Traffic Analytics**: Website visitor data and conversion rates
+
+#### Booking Management
+- **Comprehensive Booking List**: Filter by date, status, vehicle type with pagination
+- **Calendar View**: Visual booking calendar for scheduling
+- **Detailed Booking View**: Complete booking information with timeline
+- **Booking Updates**: Status changes and notes
+- **Booking Deletion**: Admin-only booking removal
+
+#### User Management
+- **User Directory**: Complete user list with search and filtering
+- **User Profiles**: Detailed user information with booking history
+- **User Statistics**: Booking counts, spending, and activity metrics
+- **User Management**: Update user information and disable accounts
+
+#### System Configuration
+- **Pricing Settings**: Airport fees, congestion charges, and special zone pricing
+- **Service Areas**: Coverage zones and excluded areas
+- **Notification Settings**: Email and SMS configuration
+- **Business Hours**: Operating hours and timezone settings
+
+#### System Monitoring
+- **System Logs**: Comprehensive logging with filtering and search
+- **Error Tracking**: System errors and performance monitoring
+- **Audit Trail**: User actions and system changes
+
+#### Vehicle Fleet Information
+- **8 Vehicle Types**: From Standard Saloon to VIP-SUV/MPV
+- **Detailed Pricing**: Slab-based per-mile pricing for each vehicle type
+- **Capacity Information**: Passenger and luggage capacity for each vehicle
+- **Airport Fee Structure**: Comprehensive airport fees for 16 UK airports
+
 ## Security Considerations
 
 When implementing the dashboard authentication, keep these security considerations in mind:
@@ -1392,3 +1743,5 @@ When implementing the dashboard authentication, keep these security consideratio
 10. **Session Verification**: The client should call `/api/dashboard/auth/check-admin` when loading protected pages to verify the user's session.
 
 For maximum security, prefer the Firebase SDK approach over the Fetch API approach in production environments, as it provides additional security measures and session management features.
+
+> **Note**: The dashboard does not support creating new bookings. All bookings are created through the customer-facing API endpoints. The dashboard is designed for monitoring, managing, and analyzing existing bookings and system performance.

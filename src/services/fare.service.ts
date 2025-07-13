@@ -74,7 +74,7 @@ export class FareCalculationService {
     const additionalStopsFare = this.calculateAdditionalStopsFare(
       vehicleClassConfig.additionalStopFees[vehicleType] || 0, 
       additionalStops
-    );
+      );
 
     // Step 3: Calculate core fare (distance + stops)
     const coreFare = distanceFare + additionalStopsFare;
@@ -137,7 +137,7 @@ export class FareCalculationService {
     const vehicleClassConfig = this.findVehicleClassConfig(vehicleType);
     if (!vehicleClassConfig) {
       throw new Error(`Invalid vehicle type: ${vehicleType}`);
-    }
+      }
 
     // Get specific vehicle pricing
     const vehiclePricing = vehicleClassConfig.pricing[vehicleType];
@@ -181,7 +181,7 @@ export class FareCalculationService {
     // Step 8: Round to nearest 0.50 (not aggressively)
     const finalFare = Math.round(totalFare * 2) / 2;
 
-    return {
+      return {
       totalFare: finalFare,
       breakdown: {
         distanceFare,
@@ -194,7 +194,7 @@ export class FareCalculationService {
         finalFare
       }
     };
-  }
+    }
 
   /**
    * Find the vehicle class configuration
@@ -259,7 +259,7 @@ export class FareCalculationService {
     }
 
     return totalDistanceFare;
-  }
+      }
 
   /**
    * Calculate additional stops fare
@@ -272,7 +272,7 @@ export class FareCalculationService {
     additionalStops: number
   ): number {
     return stopFee * additionalStops;
-  }
+    }
 
   /**
    * Calculate airport-related fees
@@ -302,7 +302,7 @@ export class FareCalculationService {
     return airportFeesByClass && airport in airportFeesByClass 
       ? airportFeesByClass[airport as keyof typeof airportFeesByClass]
       : 0;
-  }
+      }
 
   /**
    * Calculate time-based surcharge
@@ -347,7 +347,7 @@ export class FareCalculationService {
     
     if (modifier === 'PM' && hours !== 12) hours += 12;
     if (modifier === 'AM' && hours === 12) hours = 0;
-    
+
     return hours * 60 + minutes;
   }
 }

@@ -340,7 +340,7 @@ export function getTimeSurcharge(date: Date, vehicleTypeId: string): number {
     period = 'peakMedium';
   } else if (hours >= 15) {
     period = 'peakHigh';
-  }
+}
 
   // Get surcharge
   const timeCategory = isWeekend ? 'weekends' : 'weekdays';
