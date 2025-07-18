@@ -94,7 +94,7 @@ JWT_SECRET=your-jwt-secret
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 
 # Google APIs
-GOOGLE_PLACES_API_KEY=your-google-places-api-key
+MAPBOX_TOKEN=your-mapbox-token
 ```
 
 For production, use `.env.production` with appropriate values.

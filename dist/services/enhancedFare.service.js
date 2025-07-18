@@ -5,7 +5,7 @@ const vehicleTypes_1 = require("../config/vehicleTypes");
 const specialZones_1 = require("../config/specialZones");
 const timePricing_1 = require("../config/timePricing");
 const serviceArea_1 = require("../config/serviceArea");
-const googleDistance_service_1 = require("./googleDistance.service");
+const mapboxDistance_service_1 = require("./mapboxDistance.service");
 class EnhancedFareService {
     /**
      * Calculate fare estimates for different vehicle types with enhanced features
@@ -50,19 +50,17 @@ class EnhancedFareService {
                 });
                 throw error;
             }
-            // Call the Google Distance API to get distance and duration
-            console.log("Calling Google Distance API to get route details...");
-            const routeDetails = await googleDistance_service_1.GoogleDistanceService.getDistance(`${pickupLocation.lat},${pickupLocation.lng}`, `${dropoffLocation.lat},${dropoffLocation.lng}`, additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`));
+            // Call the Mapbox Directions API to get distance and duration
+            console.log("Calling Mapbox Directions API to get route details...");
+            const routeDetails = await mapboxDistance_service_1.MapboxDistanceService.getDistance(`${pickupLocation.lat},${pickupLocation.lng}`, `${dropoffLocation.lat},${dropoffLocation.lng}`, additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`));
             // Distance is already in miles from the new API
             const distance = routeDetails.distance;
             // Duration is already in minutes from the new API
             const duration = routeDetails.duration;
             console.log(`Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(0)} minutes`);
-            // Since we're using Distance Matrix API, we don't have leg details
+            // Since we're using Mapbox Directions API, we don't have detailed leg information
             // For airport detection, we'll use the pickup and dropoff locations directly
-            const routeLegs = [];
-            // Detect special zones using the helper method
-            const specialZones = (0, specialZones_1.getZonesForRoute)(routeLegs);
+            const specialZones = [];
             // Check if specific zones are present
             const passesThroughCCZ = specialZones.includes("CONGESTION_CHARGE");
             const hasDartfordCrossing = specialZones.includes("DARTFORD_CROSSING");
@@ -132,7 +130,6 @@ class EnhancedFareService {
                     airports,
                     passesThroughCCZ,
                     hasDartfordCrossing,
-                    routeLegs,
                     serviceZones: specialZones,
                     passengers: request.passengers,
                 });
@@ -172,7 +169,7 @@ class EnhancedFareService {
     /**
      * Calculate fare for a specific vehicle type with enhanced options
      */
-    static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, routeLegs, serviceZones, passengers, }) {
+    static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, serviceZones, passengers, }) {
         console.log(`===== Calculating fare for ${vehicleType.name} =====`);
         console.log(`Minimum fare: £${vehicleType.minimumFare}`);
         console.log(`Distance: ${distance.toFixed(2)} miles`);

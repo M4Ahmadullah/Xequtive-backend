@@ -21,7 +21,7 @@ import {
 } from "../config/specialZones";
 import { getTimeMultiplier, getTimeSurcharge, timeSurcharges } from "../config/timePricing";
 import { isRouteServiceable } from "../config/serviceArea";
-import { GoogleDistanceService } from "./googleDistance.service";
+import { MapboxDistanceService } from "./mapboxDistance.service";
 
 export class EnhancedFareService {
   // Default currency
@@ -80,9 +80,9 @@ export class EnhancedFareService {
         throw error;
       }
 
-      // Call the Google Distance API to get distance and duration
-      console.log("Calling Google Distance API to get route details...");
-      const routeDetails = await GoogleDistanceService.getDistance(
+      // Call the Mapbox Directions API to get distance and duration
+      console.log("Calling Mapbox Directions API to get route details...");
+      const routeDetails = await MapboxDistanceService.getDistance(
         `${pickupLocation.lat},${pickupLocation.lng}`,
         `${dropoffLocation.lat},${dropoffLocation.lng}`,
         additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`)
@@ -99,12 +99,9 @@ export class EnhancedFareService {
         )} minutes`
       );
 
-      // Since we're using Distance Matrix API, we don't have leg details
+      // Since we're using Mapbox Directions API, we don't have detailed leg information
       // For airport detection, we'll use the pickup and dropoff locations directly
-      const routeLegs: any[] = [];
-
-      // Detect special zones using the helper method
-      const specialZones = getZonesForRoute(routeLegs);
+      const specialZones: string[] = [];
 
       // Check if specific zones are present
       const passesThroughCCZ = specialZones.includes("CONGESTION_CHARGE");
@@ -212,7 +209,6 @@ export class EnhancedFareService {
           airports,
           passesThroughCCZ,
           hasDartfordCrossing,
-          routeLegs,
           serviceZones: specialZones,
           passengers: request.passengers,
         });
@@ -264,7 +260,6 @@ export class EnhancedFareService {
     airports,
     passesThroughCCZ,
     hasDartfordCrossing,
-    routeLegs,
     serviceZones,
     passengers,
   }: {
@@ -276,7 +271,6 @@ export class EnhancedFareService {
     airports: { pickupAirport: string | null; dropoffAirport: string | null };
     passesThroughCCZ: boolean;
     hasDartfordCrossing: boolean;
-    routeLegs: any[];
     serviceZones: string[];
     passengers?: BookingPassengersData;
   }): VehiclePriceInfo {

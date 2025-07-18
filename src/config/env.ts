@@ -23,10 +23,10 @@ const envSchema = z.object({
   JWT_SECRET: z.string(),
   ALLOWED_ORIGINS: z.string(),
 
-  // Google APIs
-  GOOGLE_PLACES_API_KEY: z.string(),
+  // Mapbox Configuration
+  MAPBOX_TOKEN: z.string(),
 
-  // Google OAuth
+  // Google OAuth (deprecated - keeping for backward compatibility)
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   BACKEND_GOOGLE_CALLBACK_URL: z.string(),
@@ -67,7 +67,7 @@ try {
       FIREBASE_API_KEY: process.env.FIREBASE_API_KEY || "missing",
       JWT_SECRET: process.env.JWT_SECRET || "missing",
       ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || "https://localhost:3000",
-      GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY || "missing",
+      MAPBOX_TOKEN: process.env.MAPBOX_TOKEN || "missing",
       BACKEND_GOOGLE_CALLBACK_URL: process.env.BACKEND_GOOGLE_CALLBACK_URL || "missing",
       FRONTEND_URL: process.env.FRONTEND_URL || "https://localhost:3000",
       LOGO_URL: process.env.LOGO_URL || "https://example.com/logo.png",
@@ -109,8 +109,8 @@ export const env = {
     frontendUrl: validatedEnv.FRONTEND_URL!,
     logoUrl: validatedEnv.LOGO_URL!,
   },
-  googlePlaces: {
-    apiKey: validatedEnv.GOOGLE_PLACES_API_KEY!,
+  mapbox: {
+    token: validatedEnv.MAPBOX_TOKEN!,
   },
 };
 
