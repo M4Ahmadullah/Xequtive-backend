@@ -120,3 +120,4 @@ docs/
 ## License
 
 This project is proprietary and confidential.
+# Build fix applied
