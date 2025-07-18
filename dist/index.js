@@ -127,7 +127,7 @@ app.use("/api", index_routes_1.default);
 // Error handling
 app.use(errorHandler_1.errorHandler);
 // Start server
-const PORT = parseInt(process.env.PORT || '8080', 10);
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 // Add startup error handling
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
@@ -139,6 +139,8 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'production'} mode`);
+    console.log(`🔍 Environment PORT: ${process.env.PORT}`);
+    console.log(`🔍 Parsed PORT: ${PORT}`);
     console.log(`📍 Health check available at http://0.0.0.0:${PORT}/`);
     console.log(`🏥 API health check at http://0.0.0.0:${PORT}/api/ping`);
 });

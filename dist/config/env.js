@@ -83,28 +83,28 @@ exports.env = {
         isDev: validatedEnv.NODE_ENV !== "production",
     },
     firebase: {
-        projectId: validatedEnv.FIREBASE_PROJECT_ID,
+        projectId: validatedEnv.FIREBASE_PROJECT_ID || "missing",
         privateKey: (validatedEnv.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
-        clientEmail: validatedEnv.FIREBASE_CLIENT_EMAIL,
-        apiKey: validatedEnv.FIREBASE_API_KEY,
+        clientEmail: validatedEnv.FIREBASE_CLIENT_EMAIL || "missing",
+        apiKey: validatedEnv.FIREBASE_API_KEY || "missing",
     },
     security: {
-        jwtSecret: validatedEnv.JWT_SECRET,
-        allowedOrigins: (validatedEnv.ALLOWED_ORIGINS || "").split(","),
+        jwtSecret: validatedEnv.JWT_SECRET || "missing",
+        allowedOrigins: validatedEnv.ALLOWED_ORIGINS ? validatedEnv.ALLOWED_ORIGINS.split(",") : ["https://localhost:3000"],
     },
     googleOAuth: {
         clientId: validatedEnv.GOOGLE_CLIENT_ID,
         clientSecret: validatedEnv.GOOGLE_CLIENT_SECRET,
-        callbackUrl: validatedEnv.BACKEND_GOOGLE_CALLBACK_URL,
+        callbackUrl: validatedEnv.BACKEND_GOOGLE_CALLBACK_URL || "missing",
     },
     email: {
         resendApiKey: validatedEnv.RESEND_API_KEY,
         senderAddress: validatedEnv.EMAIL_SENDER_ADDRESS,
-        frontendUrl: validatedEnv.FRONTEND_URL,
-        logoUrl: validatedEnv.LOGO_URL,
+        frontendUrl: validatedEnv.FRONTEND_URL || "https://localhost:3000",
+        logoUrl: validatedEnv.LOGO_URL || "https://example.com/logo.png",
     },
     mapbox: {
-        token: validatedEnv.MAPBOX_TOKEN,
+        token: validatedEnv.MAPBOX_TOKEN || "missing",
     },
 };
 // Print the loaded environment configuration except for sensitive data
