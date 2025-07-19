@@ -8,13 +8,13 @@ This document outlines the Xequtive booking update process, which follows the sa
 
 The booking update process follows these key steps:
 
-1. **Fare Calculation**: Recalculate fares for the updated booking details
+1. **Fare Calculation**: Recalculate fares for the updated booking details using Mapbox Directions API (replacing Google Distance Matrix)
 2. **Verification**: Server-side validation of update constraints
 3. **24-Hour Restriction**: Prevent updates within 24 hours of pickup time
-4. **Fare Verification**: Recalculate and verify fare to prevent price manipulation
+4. **Fare Verification**: Recalculate and verify fare using Mapbox Directions API to prevent price manipulation
 5. **Booking Update**: Apply changes and store updated booking details
 
-> **IMPORTANT SECURITY NOTE**: The backend always recalculates fares during the booking update process and never accepts client-provided fare values. This prevents potential manipulation of booking prices by users.
+> **IMPORTANT SECURITY NOTE**: The backend always recalculates fares during the booking update process using Mapbox Directions API (replacing Google Distance Matrix) and never accepts client-provided fare values. This prevents potential manipulation of booking prices by users.
 
 ## Update Booking Endpoint
 

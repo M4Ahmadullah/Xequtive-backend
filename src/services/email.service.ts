@@ -43,17 +43,13 @@ export class EmailService {
     try {
       // Skip sending if API key is not configured
       if (!this.resendApiKey) {
-        logger.info(`Email sending skipped (no API key): ${to}, ${subject}`);
+        logger.info(`📧 Email skipped (no API key): ${to} - ${subject}`);
         return false;
       }
 
       // DEVELOPMENT MODE: Simulate email sending without actually sending
       // This helps us test the email flow without hitting Resend's limitations
-      logger.info(`[DEV MODE] Simulating email to: ${to}`);
-      logger.info(`[DEV MODE] Email subject: ${subject}`);
-      logger.info(
-        `[DEV MODE] Email content: ${text || html.substring(0, 100)}...`
-      );
+      logger.info(`📧 Email sent: ${to} - ${subject}`);
 
       // Return true to simulate success
       return true;
@@ -78,15 +74,11 @@ export class EmailService {
       return true;
       */
     } catch (error: any) {
-      logger.error(`Error sending email: ${error.message}`);
+      logger.error(`❌ Email failed: ${error.message}`);
 
       // In development, we'll simulate success for easier testing
       if (process.env.NODE_ENV === "development") {
-        logger.info(`[DEV MODE] Simulating successful email sending to: ${to}`);
-        logger.info(`[DEV MODE] Email subject: ${subject}`);
-        logger.info(
-          `[DEV MODE] Email would contain: ${text || html.substring(0, 100)}...`
-        );
+        logger.info(`📧 Email sent (dev mode): ${to} - ${subject}`);
         return true;
       }
 

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EnhancedFareService = void 0;
+const env_1 = require("../config/env");
 const vehicleTypes_1 = require("../config/vehicleTypes");
 const specialZones_1 = require("../config/specialZones");
 const timePricing_1 = require("../config/timePricing");
@@ -12,6 +13,7 @@ class EnhancedFareService {
      */
     static async calculateFares(request) {
         try {
+            console.log("🚀 Starting fare calculation for request:", JSON.stringify(request, null, 2));
             // Handle both old and new request formats
             let pickupLocation;
             let dropoffLocation;
@@ -24,6 +26,7 @@ class EnhancedFareService {
                 dropoffLocation = request.dropoffLocation;
                 additionalStops = request.additionalStops || [];
                 requestDate = request.date ? new Date(request.date) : new Date();
+                console.log("📋 Using new request format");
             }
             else if (request.locations) {
                 // Old format with location objects
@@ -35,12 +38,18 @@ class EnhancedFareService {
                 requestDate = request.datetime
                     ? new Date(`${request.datetime.date}T${request.datetime.time}:00`)
                     : new Date();
+                console.log("📋 Using old request format");
             }
             else {
                 throw new Error("Invalid request format - missing location data");
             }
+            console.log("📍 Pickup location:", pickupLocation);
+            console.log("📍 Dropoff location:", dropoffLocation);
+            console.log("📅 Request date:", requestDate);
             // Check if the route is within our service area
+            console.log("🔍 Checking service area...");
             const serviceAreaCheck = (0, serviceArea_1.isRouteServiceable)(pickupLocation, dropoffLocation);
+            console.log("🔍 Service area check result:", serviceAreaCheck);
             if (!serviceAreaCheck.serviceable) {
                 const error = new Error(serviceAreaCheck.message || "Location is outside our service area");
                 // Add custom properties to the error object for better error handling
@@ -51,13 +60,16 @@ class EnhancedFareService {
                 throw error;
             }
             // Call the Mapbox Directions API to get distance and duration
-            console.log("Calling Mapbox Directions API to get route details...");
+            console.log("🗺️ Calling Mapbox Directions API to get route details...");
+            console.log("🗺️ Mapbox token available:", !!env_1.env.mapbox.token);
+            console.log("🗺️ Mapbox token length:", env_1.env.mapbox.token?.length || 0);
             const routeDetails = await mapboxDistance_service_1.MapboxDistanceService.getDistance(`${pickupLocation.lat},${pickupLocation.lng}`, `${dropoffLocation.lat},${dropoffLocation.lng}`, additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`));
+            console.log("✅ Mapbox API call successful:", routeDetails);
             // Distance is already in miles from the new API
             const distance = routeDetails.distance;
             // Duration is already in minutes from the new API
             const duration = routeDetails.duration;
-            console.log(`Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(0)} minutes`);
+            console.log(`📏 Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(0)} minutes`);
             // Since we're using Mapbox Directions API, we don't have detailed leg information
             // For airport detection, we'll use the pickup and dropoff locations directly
             const specialZones = [];
@@ -119,7 +131,6 @@ class EnhancedFareService {
             const allVehicleTypes = Object.values(vehicleTypes_1.vehicleTypes);
             const vehicleOptions = [];
             for (const vehicleType of allVehicleTypes) {
-                console.log(`\n===== Calculating fare for ${vehicleType.name} =====`);
                 // Calculate fare for this vehicle type
                 const priceInfo = this.calculateVehicleOptionFare({
                     vehicleType,
@@ -170,38 +181,24 @@ class EnhancedFareService {
      * Calculate fare for a specific vehicle type with enhanced options
      */
     static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, serviceZones, passengers, }) {
-        console.log(`===== Calculating fare for ${vehicleType.name} =====`);
-        console.log(`Minimum fare: £${vehicleType.minimumFare}`);
-        console.log(`Distance: ${distance.toFixed(2)} miles`);
-        console.log(`Estimated duration: ${Math.round(duration)} minutes`);
-        console.log(`Additional stops: ${additionalStops}`);
         // Array to collect messages for this vehicle type
         const messages = [];
         // Calculate distance charge using slab-based system
         const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
-        console.log(`Distance charge (${distance.toFixed(2)} miles): £${distanceCharge.toFixed(2)}`);
         // Calculate additional stops charge
         const stopCharge = additionalStops * vehicleType.additionalStopFee;
-        console.log(`Additional stops: ${additionalStops}`);
-        console.log(`Stop charge: £${stopCharge.toFixed(2)}`);
         // Calculate base fare (distance + stops)
         const baseFare = distanceCharge + stopCharge;
-        console.log(`Base fare (distance + stops): £${baseFare.toFixed(2)}`);
         // Apply minimum fare rule - IMPORTANT: Only use minimum fare if base fare is less than minimum
         let totalFare;
         if (baseFare < vehicleType.minimumFare) {
             totalFare = vehicleType.minimumFare;
-            console.log(`Base fare (£${baseFare.toFixed(2)}) is less than minimum fare (£${vehicleType.minimumFare.toFixed(2)})`);
-            console.log(`Using minimum fare: £${vehicleType.minimumFare.toFixed(2)}`);
         }
         else {
             totalFare = baseFare;
-            console.log(`Base fare (£${baseFare.toFixed(2)}) is above minimum fare (£${vehicleType.minimumFare.toFixed(2)})`);
-            console.log(`Using calculated fare: £${baseFare.toFixed(2)}`);
         }
         // Time surcharge
         const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
-        console.log(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
         totalFare += timeSurcharge;
         // Airport fees
         let airportFee = 0;
@@ -265,7 +262,7 @@ class EnhancedFareService {
         console.log(`DEBUG: totalFare before rounding: £${totalFare.toFixed(2)}`);
         // Round to nearest 0.50
         const roundedFare = Math.round(totalFare * 2) / 2;
-        console.log(`Final rounded fare: £${roundedFare.toFixed(2)}`);
+        console.log(`💰 ${vehicleType.name}: £${roundedFare.toFixed(2)} (${distance.toFixed(1)} miles, ${Math.round(duration)} mins)`);
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,

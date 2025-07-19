@@ -27,7 +27,7 @@ Our fare calculation system requires the following information from users to gen
 
 Once this information is provided, our system follows these steps to calculate the fare:
 
-1. **Route Calculation**: Using Google Distance Matrix API, we calculate the optimized route between all provided locations
+1. **Route Calculation**: Using Mapbox Directions API (replacing Google Distance Matrix API), we calculate the optimized route between all provided locations
 2. **Distance Determination**: Total journey distance in miles is measured along the calculated route
 3. **Time Estimation**: Travel duration is estimated based on the route and typical traffic conditions
 4. **Base Fare Application**: The appropriate base fare and per-mile rate is applied based on the selected vehicle

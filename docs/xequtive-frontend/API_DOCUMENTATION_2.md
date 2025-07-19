@@ -8,13 +8,13 @@ This document outlines the Xequtive booking process API, which follows the fare 
 
 The booking process follows these steps:
 
-1. **Fare Calculation**: User receives fare estimates for all vehicle types
+1. **Fare Calculation**: User receives fare estimates for all vehicle types using Mapbox Directions API (replacing Google Distance Matrix)
 2. **Vehicle Selection**: User selects a specific vehicle type
 3. **Details Entry**: User provides personal and booking details
-4. **Verification**: Backend verifies details and recalculates fare (never trusting client-provided fare values)
+4. **Verification**: Backend verifies details and recalculates fare using Mapbox Directions API (replacing Google Distance Matrix) (never trusting client-provided fare values)
 5. **Completion**: Booking is created and stored in the database
 
-> **IMPORTANT SECURITY NOTE**: The backend always recalculates fares during the booking process and never accepts client-provided fare values. This prevents potential manipulation of fare prices by users. All fare calculations happen on the server using the same algorithm as the fare estimation endpoint, ensuring consistent and secure pricing.
+> **IMPORTANT SECURITY NOTE**: The backend always recalculates fares during the booking process using Mapbox Directions API (replacing Google Distance Matrix) and never accepts client-provided fare values. This prevents potential manipulation of fare prices by users. All fare calculations happen on the server using the same algorithm as the fare estimation endpoint, ensuring consistent and secure pricing.
 
 ## Booking Creation Endpoint
 
@@ -261,7 +261,7 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 
 To ensure fare integrity and prevent manipulation, the booking endpoint implements these security measures:
 
-1. **Server-side Fare Calculation**: All fares are recalculated on the server using the same slab-based distance pricing algorithm as the fare estimation endpoint
+1. **Server-side Fare Calculation**: All fares are recalculated on the server using Mapbox Directions API (replacing Google Distance Matrix) and the same slab-based distance pricing algorithm as the fare estimation endpoint
 2. **No Client-Side Fare Input**: The API never accepts fare values from the client, preventing price manipulation
 3. **Minimum Fare Enforcement**: The system automatically applies minimum fare rules to ensure fair pricing
 4. **Client Data Validation**: All input data is validated against strict schemas
@@ -271,7 +271,7 @@ To ensure fare integrity and prevent manipulation, the booking endpoint implemen
 When the client submits a booking request, the server:
 
 1. Validates all journey details (locations, date/time, vehicle type, etc.)
-2. Recalculates the fare completely from scratch using the validated data and slab-based pricing
+2. Recalculates the fare completely from scratch using Mapbox Directions API (replacing Google Distance Matrix), validated data and slab-based pricing
 3. Applies minimum fare rules if the calculated fare is below the vehicle's minimum
 4. Applies any special charges automatically (based on locations, time, etc.)
 5. Creates the booking with the server-calculated fare

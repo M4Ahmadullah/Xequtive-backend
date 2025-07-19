@@ -15,8 +15,8 @@ The platform focuses on providing a seamless, high-end transportation experience
 - **Advanced Fare Calculation**: Real-time fare estimates considering distance, traffic conditions, time of day, and vehicle type
 - **Multiple Vehicle Classes**: Standard Saloon, Executive Saloon, Executive MPV, and Luxury Vehicle options
 - **Additional Stops**: Support for multi-stop journeys with accurate fare adjustments
-- **Firebase Authentication**: Secure user authentication
-- **Google Distance Matrix Integration**: Precise distance and traffic calculations
+- **Firebase Authentication**: Secure user authentication using Google Firebase
+- **Mapbox Directions Integration**: Precise distance and traffic calculations using Mapbox Directions API (replacing Google Distance Matrix)
 
 ## API Security
 
@@ -179,13 +179,14 @@ async function logout() {
 
 The enhanced fare estimation endpoint calculates fares for all available vehicle types, taking into account:
 
-- Distance and duration using slab-based pricing
+- Distance and duration using Mapbox Directions API for accurate routing (replacing Google Distance Matrix)
+- Slab-based pricing system for different distance ranges
 - Minimum fare requirements per vehicle type
 - Time-based pricing (peak hours, weekends)
 - Special zones (airports, congestion charge)
 - Additional services (child seats, luggage)
 
-**Important**: Our fare calculation system has been updated to remove base rates/reservation fees. Fares are now calculated using:
+**Important**: Our fare calculation system uses Mapbox Directions API for precise distance and duration calculations (replacing Google Distance Matrix). Fares are calculated using:
 1. **Distance-based charges** using a slab pricing system (different rates for different distance ranges)
 2. **Minimum fare enforcement** to ensure fair pricing for short journeys
 3. **Additional fees** for airports, special zones, and extra services
@@ -465,7 +466,7 @@ The API may return the following error codes related to service area restriction
 | Error Code                 | Description                                                       |
 | -------------------------- | ----------------------------------------------------------------- |
 | `LOCATION_NOT_SERVICEABLE` | Indicates that one or more locations are outside our service area |
-| `INVALID_LOCATION`         | Indicates that Google couldn't find a route between the locations |
+| `INVALID_LOCATION`         | Indicates that Mapbox couldn't find a route between the locations (replacing Google Directions) |
 
 #### Examples of Error Responses
 

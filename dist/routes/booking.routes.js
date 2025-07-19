@@ -20,7 +20,7 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 },
             });
         }
-        console.log("Creating booking with fare verification");
+        console.log(`📅 Creating booking for user: ${req.user.uid}`);
         // Get or use customer information
         let bookingData;
         try {
@@ -53,7 +53,6 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                     customer,
                     booking: req.body.booking,
                 };
-                console.log("Using user profile for customer information:", customer);
             }
             else {
                 bookingData = req.body;
@@ -137,6 +136,7 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
         const bookingDoc = await firebase_1.firestore
             .collection("bookings")
             .add(permanentBooking);
+        console.log(`📅 Booking created: ${bookingDoc.id} | User: ${req.user.uid} | From: ${permanentBooking.locations.pickup.address} | To: ${permanentBooking.locations.dropoff.address} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
         // Send booking confirmation email (non-blocking)
         email_service_1.EmailService.sendBookingConfirmationEmail(permanentBooking.customer.email, {
             id: bookingDoc.id,

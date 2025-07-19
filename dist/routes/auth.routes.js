@@ -219,18 +219,7 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
         res.cookie("token", tokenData.idToken, cookieOptions);
         // Add explicit Set-Cookie header logging
         const setCookieHeaders = res.getHeaders()['set-cookie'];
-        console.log('🍪 Sign-in successful - Cookie set', {
-            uid: authResult.uid,
-            email: authResult.email,
-            cookieSet: true,
-            environment: process.env.NODE_ENV,
-            cookieOptions,
-            requestOrigin: req.get('Origin'),
-            requestHost: req.get('Host'),
-            tokenLength: tokenData.idToken.length,
-            setCookieHeaders,
-            allResponseHeaders: res.getHeaders(),
-        });
+        console.log(`✅ User signed in: ${email} (${authResult.uid})`);
         // Return user data (cookies-only approach)
         return res.json({
             success: true,
@@ -245,7 +234,7 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
         });
     }
     catch (error) {
-        console.error("Login error:", error);
+        console.error("❌ Login failed:", error instanceof Error ? error.message : "Unknown error");
         // Provide appropriate error response
         return res.status(401).json({
             success: false,
@@ -312,18 +301,7 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
             res.cookie("token", tokenData.idToken, cookieOptions);
             // Add explicit Set-Cookie header logging
             const setCookieHeaders = res.getHeaders()['set-cookie'];
-            console.log('🍪 Sign-up successful - Cookie set', {
-                uid: userData.uid,
-                email: userData.email,
-                cookieSet: true,
-                environment: process.env.NODE_ENV,
-                cookieOptions,
-                requestOrigin: req.get('Origin'),
-                requestHost: req.get('Host'),
-                tokenLength: tokenData.idToken.length,
-                setCookieHeaders,
-                allResponseHeaders: res.getHeaders(),
-            });
+            console.log(`🆕 User signed up: ${email} (${userData.uid})`);
             // Return user data (cookies-only approach)
             return res.status(201).json({
                 success: true,
@@ -338,7 +316,7 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
             });
         }
         catch (registrationError) {
-            console.error("Registration error:", registrationError);
+            console.error("❌ Signup failed:", registrationError instanceof Error ? registrationError.message : "Unknown error");
             return res.status(500).json({
                 success: false,
                 error: {
@@ -352,7 +330,7 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
         }
     }
     catch (error) {
-        console.error("Unexpected signup error:", error);
+        console.error("❌ Signup failed:", error instanceof Error ? error.message : "Unknown error");
         return res.status(500).json({
             success: false,
             error: {
@@ -887,13 +865,12 @@ router.get("/google/callback", async (req, res) => {
         }
         catch (error) {
             // User doesn't exist, create a new one
-            console.log("➕ Creating new Firebase user");
             firebaseUser = await firebase_1.auth.createUser({
                 email: googleUser.email,
                 displayName: googleUser.name,
                 photoURL: googleUser.picture,
             });
-            console.log("👤 New Firebase user created:", firebaseUser.uid);
+            console.log(`🆕 OAuth user created: ${googleUser.email} (${firebaseUser.uid})`);
             // Set custom claims for regular user
             console.log("🏷️ Setting custom claims for new user");
             await firebase_1.auth.setCustomUserClaims(firebaseUser.uid, { role: "user" });
