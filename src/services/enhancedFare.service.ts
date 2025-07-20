@@ -26,6 +26,30 @@ import { MapboxDistanceService } from "./mapboxDistance.service";
 export class EnhancedFareService {
   // Default currency
   private static readonly DEFAULT_CURRENCY = "GBP";
+  
+  /**
+   * Geocode an address to get coordinates using Mapbox Geocoding API
+   */
+  private static async geocodeAddress(address: string): Promise<Coordinates> {
+    try {
+      const encodedAddress = encodeURIComponent(address);
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${env.mapbox.token}&country=GB&limit=1`;
+      
+      const response = await axios.get(url);
+      
+      if (response.data.features && response.data.features.length > 0) {
+        const feature = response.data.features[0];
+        const [lng, lat] = feature.center;
+        
+        return { lat, lng };
+      } else {
+        throw new Error(`No coordinates found for address: ${address}`);
+      }
+    } catch (error) {
+      console.error(`Geocoding failed for address: ${address}`, error);
+      throw new Error(`Failed to geocode address: ${address}`);
+    }
+  }
 
   /**
    * Calculate fare estimates for different vehicle types with enhanced features
@@ -34,12 +58,11 @@ export class EnhancedFareService {
     request: EnhancedFareEstimateRequest
   ): Promise<EnhancedFareEstimateResponse> {
     try {
-      // console.log("🚀 Starting fare calculation for request:", JSON.stringify(request, null, 2));
       
       // Handle both old and new request formats
       let pickupLocation: Coordinates;
       let dropoffLocation: Coordinates;
-      let additionalStops: { location: Coordinates }[] = [];
+      let additionalStops: { location: Coordinates; address?: string }[] = [];
       let requestDate: Date;
 
       // Parse request format
@@ -54,15 +77,41 @@ export class EnhancedFareService {
         // Old format with location objects
         pickupLocation = request.locations.pickup.coordinates;
         dropoffLocation = request.locations.dropoff.coordinates;
-        additionalStops = (request.locations.additionalStops || []).map(
-          (stop) => ({
-            location: stop.coordinates,
-          })
-        );
+        
+        // Handle stops professionally - geocode addresses and include in route
+        additionalStops = [];
+        
+        // Check for stops in the locations object (frontend sends 'stops' as string array)
+        const locationsWithStops = request.locations as any;
+        if (locationsWithStops.stops && locationsWithStops.stops.length > 0) {
+          // Geocode each stop address to get coordinates
+          for (const stopAddress of locationsWithStops.stops) {
+            try {
+              const stopCoordinates = await this.geocodeAddress(stopAddress);
+              additionalStops.push({
+                location: stopCoordinates,
+                address: stopAddress
+              });
+            } catch (error) {
+              console.error(`❌ Failed to geocode stop: ${stopAddress}`, error);
+              // Continue with other stops even if one fails
+            }
+          }
+        }
+        
+        if (request.locations.additionalStops && request.locations.additionalStops.length > 0) {
+          additionalStops = request.locations.additionalStops.map(
+            (stop) => ({
+              location: stop.coordinates,
+              address: stop.address
+            })
+          );
+        }
+        
         requestDate = request.datetime
           ? new Date(`${request.datetime.date}T${request.datetime.time}:00`)
           : new Date();
-        // console.log("📋 Using old request format");
+        console.log("📋 Using old request format with stops handling");
       } else {
         throw new Error("Invalid request format - missing location data");
       }
@@ -96,10 +145,13 @@ export class EnhancedFareService {
       // console.log("🗺️ Mapbox token available:", !!env.mapbox.token);
       // console.log("🗺️ Mapbox token length:", env.mapbox.token?.length || 0);
       
+      // Build waypoints for the route including all stops
+      const waypoints = additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`);
+      
       const routeDetails = await MapboxDistanceService.getDistance(
         `${pickupLocation.lat},${pickupLocation.lng}`,
         `${dropoffLocation.lat},${dropoffLocation.lng}`,
-        additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`)
+        waypoints
       );
 
       // console.log("✅ Mapbox API call successful:", routeDetails);
@@ -155,13 +207,13 @@ export class EnhancedFareService {
       // Compile special location notifications
       const notifications = [];
 
-      // Airport notifications
+      // Airport notifications with actual charges
       if (airports.pickupAirport) {
         const airport =
           AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
         if (airport) {
           notifications.push(
-            `Your journey includes airport pickup at ${airport.name}. Airport fees will be applied based on vehicle class.`
+            `Airport pickup at ${airport.name}: £${airport.fees.pickup.toFixed(2)} fee applied`
           );
         }
       }
@@ -171,7 +223,7 @@ export class EnhancedFareService {
           AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
         if (airport) {
           notifications.push(
-            `Your journey includes airport dropoff at ${airport.name}. A £${airport.fees.dropoff.toFixed(2)} fee has been added.`
+            `Airport dropoff at ${airport.name}: £${airport.fees.dropoff.toFixed(2)} fee applied`
           );
         }
       }
@@ -197,17 +249,11 @@ export class EnhancedFareService {
         );
       }
 
-      // Add notification for additional stops if any
-      if (additionalStops.length > 0) {
-        notifications.push(
-          `Your journey includes ${additionalStops.length} additional stop${
-            additionalStops.length > 1 ? "s" : ""
-          }`
-        );
-      }
+      // Additional stops are handled in the fare breakdown per vehicle type
+      // No generic notification needed as charges are shown in detailed breakdown
 
       // Remove all other special zones and time-based notifications
-      // We're only keeping airport, congestion charge, dartford crossing, and additional stops notifications
+      // We're only keeping airport, congestion charge, and dartford crossing notifications
 
       // Calculate fare for each vehicle type
       const allVehicleTypes = Object.values(vehicleTypes);
@@ -422,8 +468,18 @@ export class EnhancedFareService {
 
     // Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
     const roundedFare = Math.ceil(totalFare);
-    console.log(`💰 ${vehicleType.name}: £${roundedFare.toFixed(2)} (${distance.toFixed(1)} miles, ${Math.round(duration)} mins)`);
-    console.log('─'.repeat(60)); // Add separator line between vehicles
+          console.log(`💰 ${vehicleType.name}: £${roundedFare.toFixed(2)} (${distance.toFixed(1)} miles, ${Math.round(duration)} mins)`);
+      console.log('─'.repeat(60)); // Add separator line between vehicles
+      
+      // Log detailed breakdown for debugging
+      console.log(`🔍 ${vehicleType.name} BREAKDOWN:`);
+      console.log(`   Distance charge: £${distanceCharge.toFixed(2)}`);
+      console.log(`   Time surcharge: £${timeSurcharge.toFixed(2)}`);
+      console.log(`   Airport fees: £${airportFee.toFixed(2)}`);
+      console.log(`   Equipment fees: £${equipmentFees.toFixed(2)}`);
+      console.log(`   Total before rounding: £${totalFare.toFixed(2)}`);
+      console.log(`   Final rounded fare: £${roundedFare.toFixed(2)}`);
+      console.log('');
 
     return {
       amount: roundedFare,
