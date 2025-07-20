@@ -458,37 +458,37 @@ router.get("/me", rateLimiter_1.sessionCheckLimiter, async (req, res) => {
     const startTime = Date.now();
     const requestId = Math.random().toString(36).substring(7);
     try {
-        console.log(`🔍 [${requestId}] Auth/me request started`, {
-            timestamp: new Date().toISOString(),
-            userAgent: req.get('User-Agent'),
-            origin: req.get('Origin'),
-            referer: req.get('Referer'),
-            host: req.get('Host'),
-            hasCookies: !!req.cookies,
-            cookieNames: req.cookies ? Object.keys(req.cookies) : [],
-            hasToken: !!req.cookies?.token,
-            tokenLength: req.cookies?.token ? req.cookies.token.length : 0,
-            environment: process.env.NODE_ENV,
-            // Enhanced cookie debugging
-            rawCookieHeader: req.headers.cookie,
-            allHeaders: Object.keys(req.headers),
-            cookieParserResult: req.cookies,
-        });
+        // console.log(`🔍 [${requestId}] Auth/me request started`, {
+        //   timestamp: new Date().toISOString(),
+        //   userAgent: req.get('User-Agent'),
+        //   origin: req.get('Origin'),
+        //   referer: req.get('Referer'),
+        //   host: req.get('Host'),
+        //   hasCookies: !!req.cookies,
+        //   cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+        //   hasToken: !!req.cookies?.token,
+        //   tokenLength: req.cookies?.token ? req.cookies.token.length : 0,
+        //   environment: process.env.NODE_ENV,
+        //   // Enhanced cookie debugging
+        //   rawCookieHeader: req.headers.cookie,
+        //   allHeaders: Object.keys(req.headers),
+        //   cookieParserResult: req.cookies,
+        // });
         const token = req.cookies?.token;
         if (!token) {
-            console.log(`❌ [${requestId}] No token found in cookies`, {
-                cookies: req.cookies,
-                cookieHeaders: req.headers.cookie,
-                allCookieHeaders: req.headers,
-                // Check if cookie-parser is working
-                cookieParserWorking: typeof req.cookies === 'object',
-                // Enhanced cross-origin debugging
-                origin: req.get('Origin'),
-                referer: req.get('Referer'),
-                userAgent: req.get('User-Agent'),
-                secFetchSite: req.get('Sec-Fetch-Site'),
-                secFetchMode: req.get('Sec-Fetch-Mode'),
-            });
+            // console.log(`❌ [${requestId}] No token found in cookies`, {
+            //   cookies: req.cookies,
+            //   cookieHeaders: req.headers.cookie,
+            //   allCookieHeaders: req.headers,
+            //   // Check if cookie-parser is working
+            //   cookieParserWorking: typeof req.cookies === 'object',
+            //   // Enhanced cross-origin debugging
+            //   origin: req.get('Origin'),
+            //   referer: req.get('Referer'),
+            //   userAgent: req.get('User-Agent'),
+            //   secFetchSite: req.get('Sec-Fetch-Site'),
+            //   secFetchMode: req.get('Sec-Fetch-Mode'),
+            // });
             return res.status(401).json({
                 success: false,
                 error: {
@@ -497,38 +497,25 @@ router.get("/me", rateLimiter_1.sessionCheckLimiter, async (req, res) => {
                 },
             });
         }
-        console.log(`🔑 [${requestId}] Token found, verifying...`, {
-            tokenPreview: token.substring(0, 20) + '...',
-            tokenLength: token.length,
-        });
-        // Verify the Firebase ID token
+        // console.log(`🔑 [${requestId}] Token found, verifying...`, {
+        //   tokenPreview: token.substring(0, 20) + '...',
+        //   tokenLength: token.length,
+        // });
+        // Verify the Firebase ID token and get user data in parallel
         try {
             const decodedToken = await firebase_1.auth.verifyIdToken(token);
-            console.log(`✅ [${requestId}] Token verified successfully`, {
-                uid: decodedToken.uid,
-                email: decodedToken.email,
-                iss: decodedToken.iss,
-                exp: new Date(decodedToken.exp * 1000).toISOString(),
-            });
-            const userRecord = await firebase_1.auth.getUser(decodedToken.uid);
-            console.log(`👤 [${requestId}] User record retrieved`, {
-                uid: userRecord.uid,
-                email: userRecord.email,
-                emailVerified: userRecord.emailVerified,
-                disabled: userRecord.disabled,
-            });
-            // Get user profile from Firestore for additional data
-            const userDoc = await firebase_1.firestore
-                .collection("users")
-                .doc(userRecord.uid)
-                .get();
+            // Make Firebase calls in parallel for better performance
+            const [userRecord, userDoc] = await Promise.all([
+                firebase_1.auth.getUser(decodedToken.uid),
+                firebase_1.firestore.collection("users").doc(decodedToken.uid).get()
+            ]);
             const userData = userDoc.data();
-            console.log(`📄 [${requestId}] Firestore data retrieved`, {
-                exists: userDoc.exists,
-                hasFullName: !!userData?.fullName,
-                hasPhone: !!userData?.phone,
-                profileComplete: userData?.profileComplete,
-            });
+            // console.log(`📄 [${requestId}] Firestore data retrieved`, {
+            //   exists: userDoc.exists,
+            //   hasFullName: !!userData?.fullName,
+            //   hasPhone: !!userData?.phone,
+            //   profileComplete: userData?.profileComplete,
+            // });
             const responseData = {
                 uid: userRecord.uid,
                 email: userRecord.email,
@@ -539,17 +526,18 @@ router.get("/me", rateLimiter_1.sessionCheckLimiter, async (req, res) => {
                 createdAt: userData?.createdAt || null,
                 updatedAt: userData?.updatedAt || null,
             };
-            console.log(`✅ [${requestId}] Success response prepared`, {
-                responseData: {
-                    uid: !!responseData.uid,
-                    email: !!responseData.email,
-                    displayName: !!responseData.displayName,
-                    phoneNumber: !!responseData.phoneNumber,
-                    role: responseData.role,
-                    profileComplete: responseData.profileComplete,
-                },
-                processingTime: Date.now() - startTime,
-            });
+            // console.log(`✅ [${requestId}] Success response prepared`, {
+            //   responseData: {
+            //     uid: !!responseData.uid,
+            //     email: !!responseData.email,
+            //     displayName: !!responseData.displayName,
+            //     phoneNumber: !!responseData.phoneNumber,
+            //     role: responseData.role,
+            //     profileComplete: responseData.profileComplete,
+            //   },
+            //   processingTime: Date.now() - startTime,
+            // });
+            console.log(`👤 Auth/me: ${responseData.displayName || 'Unknown'} (${responseData.email})`);
             return res.json({
                 success: true,
                 data: responseData,
@@ -805,7 +793,7 @@ router.get("/google/callback", async (req, res) => {
         console.log("🎲 State token:", stateToken);
         // In a production app, validate the state token against stored value
         // Exchange the code for tokens
-        console.log("✅ Step 1: Exchanging authorization code for access token");
+        // console.log("✅ Step 1: Exchanging authorization code for access token");
         console.log("🔗 Google OAuth client ID:", env_1.env.googleOAuth.clientId ? "Present" : "Missing");
         console.log("🔗 Google OAuth client secret:", env_1.env.googleOAuth.clientSecret ? "Present" : "Missing");
         console.log("🔗 Callback URL:", env_1.env.googleOAuth.callbackUrl);
@@ -836,7 +824,7 @@ router.get("/google/callback", async (req, res) => {
             return res.redirect(`${redirectUrl}?error=token_exchange_failed`);
         }
         // Get user info using the access token
-        console.log("✅ Step 2: Getting user info from Google");
+        // console.log("✅ Step 2: Getting user info from Google");
         const userInfoResponse = await (0, node_fetch_1.default)("https://www.googleapis.com/oauth2/v3/userinfo", {
             headers: {
                 Authorization: `Bearer ${tokenData.access_token}`,
@@ -855,7 +843,7 @@ router.get("/google/callback", async (req, res) => {
             return res.redirect(`${redirectUrl}?error=invalid_user_data`);
         }
         // Create or get the user in Firebase
-        console.log("✅ Step 3: Creating or getting Firebase user");
+        // console.log("✅ Step 3: Creating or getting Firebase user");
         let firebaseUser;
         try {
             // Check if user exists by email
@@ -876,7 +864,7 @@ router.get("/google/callback", async (req, res) => {
             await firebase_1.auth.setCustomUserClaims(firebaseUser.uid, { role: "user" });
         }
         // Create or update user document in Firestore
-        console.log("✅ Step 4: Managing Firestore user document");
+        // console.log("✅ Step 4: Managing Firestore user document");
         const userDoc = firebase_1.firestore.collection("users").doc(firebaseUser.uid);
         const userSnapshot = await userDoc.get();
         console.log("📄 User document exists:", userSnapshot.exists);
@@ -898,7 +886,7 @@ router.get("/google/callback", async (req, res) => {
             console.log("📄 User document created successfully");
         }
         // Generate a temporary code for the frontend
-        console.log("✅ Step 5: Generating temporary code for frontend");
+        // console.log("✅ Step 5: Generating temporary code for frontend");
         const tempCode = await auth_service_1.AuthService.storeTemporaryCode(firebaseUser.uid, firebaseUser.email || "");
         console.log("🎫 Temporary code generated:", tempCode);
         // Redirect to frontend with temp code
@@ -928,7 +916,7 @@ router.post("/google/callback", async (req, res) => {
     console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
     try {
         // Validate request
-        console.log("✅ Step 1: Validating request schema");
+        // console.log("✅ Step 1: Validating request schema");
         try {
             auth_schema_1.googleCallbackSchema.parse(req.body);
             console.log("✅ Schema validation passed");
@@ -950,7 +938,7 @@ router.post("/google/callback", async (req, res) => {
         const { code } = req.body;
         console.log("🔑 Temporary code received:", code);
         // Validate the temporary code
-        console.log("✅ Step 2: Validating temporary code");
+        // console.log("✅ Step 2: Validating temporary code");
         const userData = await auth_service_1.AuthService.validateTemporaryCode(code);
         console.log("👤 User data from temp code:", userData);
         if (!userData) {
@@ -963,26 +951,26 @@ router.post("/google/callback", async (req, res) => {
             });
         }
         // Get user data
-        console.log("✅ Step 3: Getting user record from Firebase");
+        // console.log("✅ Step 3: Getting user record from Firebase");
         const userRecord = await firebase_1.auth.getUser(userData.uid);
         console.log("👤 Firebase user record:", {
             uid: userRecord.uid,
             email: userRecord.email,
             displayName: userRecord.displayName
         });
-        console.log("✅ Step 4: Getting user profile from Firestore");
+        // console.log("✅ Step 4: Getting user profile from Firestore");
         const userDoc = await firebase_1.firestore.collection("users").doc(userData.uid).get();
         const userProfile = userDoc.data();
         console.log("📄 User profile data:", userProfile);
         // Create a custom token with extended expiration
-        console.log("✅ Step 5: Creating custom token");
+        // console.log("✅ Step 5: Creating custom token");
         const customToken = await firebase_1.auth.createCustomToken(userRecord.uid, {
             role: userProfile?.role || "user",
             expiresIn: 432000, // 5 days in seconds
         });
         console.log("🎫 Custom token created successfully (length:", customToken.length, ")");
         // Exchange custom token for ID token
-        console.log("✅ Step 6: Exchanging custom token for ID token");
+        // console.log("✅ Step 6: Exchanging custom token for ID token");
         console.log("🔗 Firebase API Key available:", !!env_1.env.firebase.apiKey);
         console.log("🔗 API URL:", `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env_1.env.firebase.apiKey?.substring(0, 10)}...`);
         const idTokenResponse = await (0, node_fetch_1.default)(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env_1.env.firebase.apiKey}`, {
@@ -1012,7 +1000,7 @@ router.post("/google/callback", async (req, res) => {
             });
         }
         // Set cookie with the ID token
-        console.log("✅ Step 7: Setting authentication cookie");
+        // console.log("✅ Step 7: Setting authentication cookie");
         const isProduction = process.env.NODE_ENV === "production";
         const requestOrigin = req.get('Origin');
         const isCrossOrigin = requestOrigin && !requestOrigin.includes('localhost:5555');
@@ -1030,7 +1018,7 @@ router.post("/google/callback", async (req, res) => {
         console.log("🔗 Request referer:", req.get('referer'));
         console.log("🔗 Is cross-origin:", isCrossOrigin);
         res.cookie("token", tokenData.idToken, cookieOptions);
-        console.log("✅ Step 8: Preparing response data");
+        // console.log("✅ Step 8: Preparing response data");
         const responseData = {
             uid: userRecord.uid,
             email: userRecord.email,
@@ -1042,7 +1030,7 @@ router.post("/google/callback", async (req, res) => {
         };
         console.log("📤 Response data:", responseData);
         // Return user data
-        console.log("🎉 Authentication successful!");
+        console.log(`🎉 Auth: ${userProfile?.fullName || userRecord.displayName || 'Unknown'} (${userRecord.email})`);
         return res.json({
             success: true,
             data: responseData,

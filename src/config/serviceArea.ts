@@ -104,10 +104,10 @@ export const MAX_SERVICE_DISTANCE = 300; // miles
  * Equipment fees for additional passenger requirements
  */
 export const EQUIPMENT_FEES = {
-  BABY_SEAT: 5.00,     // Fee for baby seat
-  CHILD_SEAT: 7.50,    // Fee for child seat
-  BOOSTER_SEAT: 5.50,  // Fee for booster seat
-  WHEELCHAIR: 10.00,   // Fee for wheelchair accommodation
+  BABY_SEAT: 10.00,    // Fee for baby seat (0-18 Months)
+  CHILD_SEAT: 10.00,   // Fee for child seat (18 Months - 4 Years)
+  BOOSTER_SEAT: 10.00, // Fee for booster seat (4-6 Years)
+  WHEELCHAIR: 25.00,   // Fee for foldable wheelchair
 };
 
 /**

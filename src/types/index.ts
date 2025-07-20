@@ -129,6 +129,7 @@ export interface VehiclePriceInfo {
     timeSurcharge: number;
     airportFee: number;
     specialZoneFees: number;
+    equipmentFees: number;
   };
 }
 

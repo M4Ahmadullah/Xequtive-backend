@@ -40,7 +40,7 @@ app.use((0, cors_1.default)({
         // Normalize the request origin by removing trailing slash if present
         const normalizedOrigin = origin.replace(/\/$/, "");
         if (allowedOrigins.includes(normalizedOrigin)) {
-            console.log(`✅ CORS allowed for origin: ${origin}`);
+            // console.log(`✅ CORS allowed for origin: ${origin}`);
             callback(null, true);
         }
         else {
@@ -65,9 +65,9 @@ app.use((0, cors_1.default)({
 }));
 // Handle preflight requests explicitly with enhanced logging
 app.options("*", (req, res) => {
-    console.log(`🔄 Preflight request from: ${req.get('Origin')}`);
-    console.log(`🔄 Requested method: ${req.get('Access-Control-Request-Method')}`);
-    console.log(`🔄 Requested headers: ${req.get('Access-Control-Request-Headers')}`);
+    // console.log(`🔄 Preflight request from: ${req.get('Origin')}`);
+    // console.log(`🔄 Requested method: ${req.get('Access-Control-Request-Method')}`);
+    // console.log(`🔄 Requested headers: ${req.get('Access-Control-Request-Headers')}`);
     (0, cors_1.default)({
         origin: true,
         credentials: true,
@@ -104,7 +104,7 @@ app.use((req, res, next) => {
         res.header('Vary', 'Origin, Access-Control-Request-Headers, Access-Control-Request-Method');
         res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.header('Pragma', 'no-cache');
-        console.log(`🔧 Enhanced CORS headers set for origin: ${origin}`);
+        // console.log(`🔧 Enhanced CORS headers set for origin: ${origin}`);
     }
     next();
 });

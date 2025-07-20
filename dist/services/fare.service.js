@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fareCalculationService = exports.FareCalculationService = void 0;
 const timePricing_1 = require("../config/timePricing");
+const serviceArea_1 = require("../config/serviceArea");
 class FareCalculationService {
     /**
      * Calculate fare based on comprehensive pricing rules
@@ -32,10 +33,26 @@ class FareCalculationService {
         const airportFee = this.calculateAirportFee(vehicleType, airport, isAirportPickup);
         // Step 6: Calculate time-based surcharge
         const timeSurcharge = this.calculateTimeSurcharge(vehicleType, isWeekend, timeOfDay);
-        // Step 7: Combine all components
-        const totalFare = fareAfterMinimum + airportFee + timeSurcharge;
-        // Step 8: Round to nearest 0.50 (not aggressively)
-        const roundedFare = Math.round(totalFare * 2) / 2;
+        // Step 7: Calculate equipment charges
+        let equipmentFees = 0;
+        if (params.passengers) {
+            if (params.passengers.babySeat > 0) {
+                equipmentFees += params.passengers.babySeat * serviceArea_1.EQUIPMENT_FEES.BABY_SEAT;
+            }
+            if (params.passengers.childSeat > 0) {
+                equipmentFees += params.passengers.childSeat * serviceArea_1.EQUIPMENT_FEES.CHILD_SEAT;
+            }
+            if (params.passengers.boosterSeat > 0) {
+                equipmentFees += params.passengers.boosterSeat * serviceArea_1.EQUIPMENT_FEES.BOOSTER_SEAT;
+            }
+            if (params.passengers.wheelchair > 0) {
+                equipmentFees += params.passengers.wheelchair * serviceArea_1.EQUIPMENT_FEES.WHEELCHAIR;
+            }
+        }
+        // Step 8: Combine all components
+        const totalFare = fareAfterMinimum + airportFee + timeSurcharge + equipmentFees;
+        // Step 9: Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
+        const roundedFare = Math.ceil(totalFare);
         return roundedFare;
     }
     /**
@@ -68,10 +85,26 @@ class FareCalculationService {
         const airportFee = this.calculateAirportFee(vehicleType, airport, isAirportPickup);
         // Step 6: Calculate time-based surcharge
         const timeSurcharge = this.calculateTimeSurcharge(vehicleType, isWeekend, timeOfDay);
-        // Step 7: Combine all components
-        const totalFare = fareAfterMinimum + airportFee + timeSurcharge;
-        // Step 8: Round to nearest 0.50 (not aggressively)
-        const finalFare = Math.round(totalFare * 2) / 2;
+        // Step 7: Calculate equipment charges
+        let equipmentFees = 0;
+        if (params.passengers) {
+            if (params.passengers.babySeat > 0) {
+                equipmentFees += params.passengers.babySeat * serviceArea_1.EQUIPMENT_FEES.BABY_SEAT;
+            }
+            if (params.passengers.childSeat > 0) {
+                equipmentFees += params.passengers.childSeat * serviceArea_1.EQUIPMENT_FEES.CHILD_SEAT;
+            }
+            if (params.passengers.boosterSeat > 0) {
+                equipmentFees += params.passengers.boosterSeat * serviceArea_1.EQUIPMENT_FEES.BOOSTER_SEAT;
+            }
+            if (params.passengers.wheelchair > 0) {
+                equipmentFees += params.passengers.wheelchair * serviceArea_1.EQUIPMENT_FEES.WHEELCHAIR;
+            }
+        }
+        // Step 8: Combine all components
+        const totalFare = fareAfterMinimum + airportFee + timeSurcharge + equipmentFees;
+        // Step 9: Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
+        const finalFare = Math.ceil(totalFare);
         return {
             totalFare: finalFare,
             breakdown: {
@@ -82,6 +115,7 @@ class FareCalculationService {
                 fareAfterMinimum,
                 airportFee,
                 timeSurcharge,
+                equipmentFees,
                 finalFare
             }
         };
