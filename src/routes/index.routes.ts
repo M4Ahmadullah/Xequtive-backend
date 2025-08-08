@@ -3,6 +3,7 @@ import authRoutes from "./auth.routes";
 import bookingRoutes from "./booking.routes";
 import fareRoutes from "./fare.routes";
 import dashboardRoutes from "./dashboard.routes";
+import hourlyBookingRoutes from "./hourlyBooking.routes";
 import { verifyToken } from "../middleware/authMiddleware";
 import { AuthenticatedRequest, ApiResponse } from "../types";
 import { EmailService } from "../services/email.service";
@@ -54,6 +55,31 @@ router.get("/email-config", (_req: Request, res: Response) => {
       configuredSender: EmailService.getSenderAddress(),
       frontendUrl: env.email.frontendUrl,
       logoUrl: env.email.logoUrl,
+    },
+  });
+});
+
+// Hourly booking system health check
+router.get("/hourly-booking-health", (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      message: "Hourly booking system is operational",
+      endpoints: {
+        fareEstimate: "/api/hourly-bookings/fare-estimate",
+        createBooking: "/api/hourly-bookings/create",
+        getUserBookings: "/api/hourly-bookings/user",
+        cancelBooking: "/api/hourly-bookings/:id/cancel",
+      },
+      features: [
+        "Hourly fare calculation (4-24 hours)",
+        "Multiple vehicle types support",
+        "Time-based surcharges",
+        "Equipment fees for extra passengers/luggage",
+        "Group/Organisation booking support",
+        "Multiple vehicles booking",
+      ],
+      timestamp: new Date().toISOString(),
     },
   });
 });
@@ -177,6 +203,9 @@ router.use("/auth", authRoutes);
 // Booking and fare routes
 router.use("/bookings", bookingRoutes);
 router.use("/fare-estimate", fareRoutes);
+
+// Hourly booking routes
+router.use("/hourly-bookings", hourlyBookingRoutes);
 
 // Dashboard routes (admin only)
 router.use("/dashboard", dashboardRoutes);

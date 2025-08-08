@@ -8,6 +8,7 @@ const auth_routes_1 = __importDefault(require("./auth.routes"));
 const booking_routes_1 = __importDefault(require("./booking.routes"));
 const fare_routes_1 = __importDefault(require("./fare.routes"));
 const dashboard_routes_1 = __importDefault(require("./dashboard.routes"));
+const hourlyBooking_routes_1 = __importDefault(require("./hourlyBooking.routes"));
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const email_service_1 = require("../services/email.service");
 const env_1 = require("../config/env");
@@ -44,6 +45,30 @@ router.get("/email-config", (_req, res) => {
             configuredSender: email_service_1.EmailService.getSenderAddress(),
             frontendUrl: env_1.env.email.frontendUrl,
             logoUrl: env_1.env.email.logoUrl,
+        },
+    });
+});
+// Hourly booking system health check
+router.get("/hourly-booking-health", (_req, res) => {
+    res.status(200).json({
+        success: true,
+        data: {
+            message: "Hourly booking system is operational",
+            endpoints: {
+                fareEstimate: "/api/hourly-bookings/fare-estimate",
+                createBooking: "/api/hourly-bookings/create",
+                getUserBookings: "/api/hourly-bookings/user",
+                cancelBooking: "/api/hourly-bookings/:id/cancel",
+            },
+            features: [
+                "Hourly fare calculation (4-24 hours)",
+                "Multiple vehicle types support",
+                "Time-based surcharges",
+                "Equipment fees for extra passengers/luggage",
+                "Group/Organisation booking support",
+                "Multiple vehicles booking",
+            ],
+            timestamp: new Date().toISOString(),
         },
     });
 });
@@ -149,6 +174,8 @@ router.use("/auth", auth_routes_1.default);
 // Booking and fare routes
 router.use("/bookings", booking_routes_1.default);
 router.use("/fare-estimate", fare_routes_1.default);
+// Hourly booking routes
+router.use("/hourly-bookings", hourlyBooking_routes_1.default);
 // Dashboard routes (admin only)
 router.use("/dashboard", dashboard_routes_1.default);
 exports.default = router;

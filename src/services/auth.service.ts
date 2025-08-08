@@ -218,6 +218,7 @@ export class AuthService {
       console.error("Registration error details:", error);
       throw error;
     }
+
   }
 
   /**
@@ -541,3 +542,4 @@ export class AuthService {
     };
   }
 }
+

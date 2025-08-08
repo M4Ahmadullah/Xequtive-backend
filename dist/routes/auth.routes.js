@@ -195,6 +195,7 @@ router.post("/signin", rateLimiter_1.authLimiter, async (req, res) => {
             body: JSON.stringify({
                 token: authResult.token,
                 returnSecureToken: true,
+                expiresIn: 432000, // 5 days in seconds
             }),
         });
         const tokenData = await idTokenResponse.json();
@@ -277,6 +278,7 @@ router.post("/signup", rateLimiter_1.authLimiter, async (req, res) => {
                 body: JSON.stringify({
                     token: userData.token,
                     returnSecureToken: true,
+                    expiresIn: 432000, // 5 days in seconds
                 }),
             });
             const tokenData = await idTokenResponse.json();
@@ -979,6 +981,7 @@ router.post("/google/callback", async (req, res) => {
             body: JSON.stringify({
                 token: customToken,
                 returnSecureToken: true,
+                expiresIn: 432000, // 5 days in seconds
             }),
         });
         console.log("📡 ID token response status:", idTokenResponse.status);

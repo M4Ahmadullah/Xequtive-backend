@@ -102,6 +102,7 @@ router.post("/auth/signup", async (req, res) => {
             body: JSON.stringify({
                 token: customToken,
                 returnSecureToken: true,
+                expiresIn: 432000, // 5 days in seconds
             }),
         });
         const tokenData = await tokenResponse.json();

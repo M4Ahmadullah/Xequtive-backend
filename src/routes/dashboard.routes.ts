@@ -83,10 +83,11 @@ router.post(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: customToken,
-            returnSecureToken: true,
-          }),
+                  body: JSON.stringify({
+          token: customToken,
+          returnSecureToken: true,
+          expiresIn: 432000, // 5 days in seconds
+        }),
         }
       );
 

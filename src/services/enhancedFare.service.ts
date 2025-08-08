@@ -72,7 +72,7 @@ export class EnhancedFareService {
         dropoffLocation = request.dropoffLocation;
         additionalStops = request.additionalStops || [];
         requestDate = request.date ? new Date(request.date) : new Date();
-        // console.log("📋 Using new request format");
+
       } else if (request.locations) {
         // Old format with location objects
         pickupLocation = request.locations.pickup.coordinates;
@@ -111,22 +111,16 @@ export class EnhancedFareService {
         requestDate = request.datetime
           ? new Date(`${request.datetime.date}T${request.datetime.time}:00`)
           : new Date();
-        console.log("📋 Using old request format with stops handling");
+
       } else {
         throw new Error("Invalid request format - missing location data");
       }
 
-      // console.log("📍 Pickup location:", pickupLocation);
-      // console.log("📍 Dropoff location:", dropoffLocation);
-      // console.log("📅 Request date:", requestDate);
-
       // Check if the route is within our service area
-      // console.log("🔍 Checking service area...");
       const serviceAreaCheck = isRouteServiceable(
         pickupLocation,
         dropoffLocation
       );
-      // console.log("🔍 Service area check result:", serviceAreaCheck);
       
       if (!serviceAreaCheck.serviceable) {
         const error = new Error(
@@ -141,10 +135,6 @@ export class EnhancedFareService {
       }
 
       // Call the Mapbox Directions API to get distance and duration
-      // console.log("🗺️ Calling Mapbox Directions API to get route details...");
-      // console.log("🗺️ Mapbox token available:", !!env.mapbox.token);
-      // console.log("🗺️ Mapbox token length:", env.mapbox.token?.length || 0);
-      
       // Build waypoints for the route including all stops
       const waypoints = additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`);
       
@@ -154,18 +144,12 @@ export class EnhancedFareService {
         waypoints
       );
 
-      // console.log("✅ Mapbox API call successful:", routeDetails);
-
       // Distance is already in miles from the new API
       const distance = routeDetails.distance;
       // Duration is already in minutes from the new API
       const duration = routeDetails.duration;
 
-      // console.log(
-      //   `📏 Distance: ${distance.toFixed(2)} miles, Duration: ${duration.toFixed(
-      //     0
-      //   )} minutes`
-      // );
+
 
       // Since we're using Mapbox Directions API, we don't have detailed leg information
       // For airport detection, we'll use the pickup and dropoff locations directly
@@ -184,25 +168,7 @@ export class EnhancedFareService {
         dropoffAirport: airportsDropoff.length > 0 ? airportsDropoff[0] : null,
       };
 
-      // Log special conditions
-      if (airports.pickupAirport) {
-        const airport =
-          AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
-        console.log(
-          `Detected airport pickup at ${
-            airport?.name || airports.pickupAirport
-          }`
-        );
-      }
-      if (airports.dropoffAirport) {
-        const airport =
-          AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
-        console.log(
-          `Detected airport dropoff at ${
-            airport?.name || airports.dropoffAirport
-          }`
-        );
-      }
+
 
       // Compile special location notifications
       const notifications = [];
@@ -360,9 +326,6 @@ export class EnhancedFareService {
 
     // Time surcharge
     const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
-    if (timeSurcharge > 0) {
-      console.log(`⏰ Time surcharge: £${timeSurcharge.toFixed(2)}`);
-    }
     totalFare += timeSurcharge;
 
     // Airport fees
@@ -371,7 +334,6 @@ export class EnhancedFareService {
       const airport = AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
       if (airport) {
         airportFee += airport.fees.pickup;
-        console.log(`✈️ Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
         messages.push(`Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
       }
     }
@@ -379,12 +341,8 @@ export class EnhancedFareService {
       const airport = AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
       if (airport) {
         airportFee += airport.fees.dropoff;
-        console.log(`✈️ Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
         messages.push(`Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
       }
-    }
-    if (airportFee > 0) {
-      console.log(`Total airport fees: £${airportFee.toFixed(2)}`);
     }
     totalFare += airportFee;
 
@@ -393,17 +351,12 @@ export class EnhancedFareService {
     if (passesThroughCCZ && isZoneActive("CONGESTION_CHARGE", requestDate)) {
       const congestionCharge = SPECIAL_ZONES.CONGESTION_CHARGE.fee;
       specialZoneFees += congestionCharge;
-      console.log(`🏙️ Congestion charge: £${congestionCharge.toFixed(2)}`);
       messages.push(`Congestion charge: £${congestionCharge.toFixed(2)}`);
     }
     if (hasDartfordCrossing) {
       const dartfordCharge = SPECIAL_ZONES.DARTFORD_CROSSING.fee;
       specialZoneFees += dartfordCharge;
-      console.log(`🌉 Dartford crossing charge: £${dartfordCharge.toFixed(2)}`);
       messages.push(`Dartford crossing: £${dartfordCharge.toFixed(2)}`);
-    }
-    if (specialZoneFees > 0) {
-      console.log(`Total special zone fees: £${specialZoneFees.toFixed(2)}`);
     }
     totalFare += specialZoneFees;
 
@@ -434,52 +387,33 @@ export class EnhancedFareService {
         const babySeatFee = passengers.babySeat * EQUIPMENT_FEES.BABY_SEAT;
         equipmentFees += babySeatFee;
         messages.push(`Baby seat (${passengers.babySeat}): £${babySeatFee.toFixed(2)}`);
-        console.log(`👶 Baby seat fee: £${babySeatFee.toFixed(2)}`);
       }
       
       if (passengers.childSeat > 0) {
         const childSeatFee = passengers.childSeat * EQUIPMENT_FEES.CHILD_SEAT;
         equipmentFees += childSeatFee;
         messages.push(`Child seat (${passengers.childSeat}): £${childSeatFee.toFixed(2)}`);
-        console.log(`🧒 Child seat fee: £${childSeatFee.toFixed(2)}`);
       }
       
       if (passengers.boosterSeat > 0) {
         const boosterSeatFee = passengers.boosterSeat * EQUIPMENT_FEES.BOOSTER_SEAT;
         equipmentFees += boosterSeatFee;
         messages.push(`Booster seat (${passengers.boosterSeat}): £${boosterSeatFee.toFixed(2)}`);
-        console.log(`🪑 Booster seat fee: £${boosterSeatFee.toFixed(2)}`);
       }
       
       if (passengers.wheelchair > 0) {
         const wheelchairFee = passengers.wheelchair * EQUIPMENT_FEES.WHEELCHAIR;
         equipmentFees += wheelchairFee;
         messages.push(`Wheelchair (${passengers.wheelchair}): £${wheelchairFee.toFixed(2)}`);
-        console.log(`♿ Wheelchair fee: £${wheelchairFee.toFixed(2)}`);
       }
     }
     
     if (equipmentFees > 0) {
-      console.log(`Total equipment fees: £${equipmentFees.toFixed(2)}`);
       totalFare += equipmentFees;
     }
 
-    console.log(`DEBUG: totalFare before rounding: £${totalFare.toFixed(2)}`);
-
     // Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
     const roundedFare = Math.ceil(totalFare);
-          console.log(`💰 ${vehicleType.name}: £${roundedFare.toFixed(2)} (${distance.toFixed(1)} miles, ${Math.round(duration)} mins)`);
-      console.log('─'.repeat(60)); // Add separator line between vehicles
-      
-      // Log detailed breakdown for debugging
-      console.log(`🔍 ${vehicleType.name} BREAKDOWN:`);
-      console.log(`   Distance charge: £${distanceCharge.toFixed(2)}`);
-      console.log(`   Time surcharge: £${timeSurcharge.toFixed(2)}`);
-      console.log(`   Airport fees: £${airportFee.toFixed(2)}`);
-      console.log(`   Equipment fees: £${equipmentFees.toFixed(2)}`);
-      console.log(`   Total before rounding: £${totalFare.toFixed(2)}`);
-      console.log(`   Final rounded fare: £${roundedFare.toFixed(2)}`);
-      console.log('');
 
     return {
       amount: roundedFare,
@@ -506,8 +440,6 @@ export class EnhancedFareService {
     const rates = vehicleType.perMileRates;
     let ratePerMile = 0;
     let rangeDescription = '';
-
-    console.log(`Calculating slab-based fare for ${distance.toFixed(2)} miles:`);
 
     // Determine which rate applies based on total distance
     if (distance <= 4) {
@@ -543,10 +475,6 @@ export class EnhancedFareService {
     }
 
     const totalCharge = distance * ratePerMile;
-    
-    console.log(`  Distance: ${distance.toFixed(2)} miles falls in ${rangeDescription} range`);
-    console.log(`  Rate: £${ratePerMile.toFixed(2)} per mile`);
-    console.log(`  Total distance charge: ${distance.toFixed(2)} × £${ratePerMile.toFixed(2)} = £${totalCharge.toFixed(2)}`);
 
     return totalCharge;
   }

@@ -188,6 +188,7 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
         body: JSON.stringify({
           token: authResult.token,
           returnSecureToken: true,
+          expiresIn: 432000, // 5 days in seconds
         }),
       }
     );
@@ -289,6 +290,7 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
         body: JSON.stringify({
           token: userData.token,
           returnSecureToken: true,
+          expiresIn: 432000, // 5 days in seconds
         }),
       }
     );
@@ -1094,6 +1096,7 @@ router.post("/google/callback", async (req: Request, res: Response) => {
         body: JSON.stringify({
           token: customToken,
           returnSecureToken: true,
+          expiresIn: 432000, // 5 days in seconds
         }),
       }
     );
