@@ -1,3 +1,26 @@
+/**
+ * XEQUTIVE CARS - Executive Cars Booking Validation Schemas
+ * 
+ * This file contains Zod validation schemas for the Executive Cars booking system,
+ * which is separate from the standard Executive Taxi system.
+ * 
+ * Executive Cars supports three booking types:
+ * 1. One-Way: Point-to-point journeys with Executive Cars pricing
+ * 2. Hourly: 3-12 hours of continuous service with tiered pricing
+ * 3. Return: Round-trip journeys with 10% discount
+ * 
+ * Key Features:
+ * - Tiered hourly pricing (3-6 hours vs 6-12 hours)
+ * - Return booking discount (10%)
+ * - Time-based surcharges (weekday/weekend)
+ * - Multiple vehicle support
+ * - Group/Organisation booking support
+ * 
+ * @author Xequtive Development Team
+ * @version 2.0.0
+ * @since 2024-01-15
+ */
+
 import { z } from "zod";
 
 // Coordinates validation
@@ -52,14 +75,16 @@ const oneWayDetailsSchema = z.object({
 });
 
 // Hourly booking details validation
+// Supports tiered pricing: 3-6 hours (higher rates) vs 6-12 hours (lower rates)
 const hourlyDetailsSchema = z.object({
-  hours: z.number().min(4, "Minimum 4 hours required").max(24, "Maximum 24 hours allowed"),
+  hours: z.number().min(3, "Minimum 3 hours required").max(12, "Maximum 12 hours allowed"),
   pickupLocation: locationSchema,
   dropoffLocation: locationSchema.optional(),
   additionalStops: z.array(locationSchema).optional(),
 });
 
 // Return booking details validation
+// All return bookings receive a 10% discount on the total fare
 const returnDetailsSchema = z.object({
   // Outbound journey
   outboundPickup: locationSchema,
@@ -92,7 +117,7 @@ export const fareEstimateSchema = z.object({
   
   // Hourly specific
   hourlyDetails: z.object({
-    hours: z.number().min(4).max(24),
+    hours: z.number().min(3).max(12),
     pickupLocation: coordinatesSchema,
     dropoffLocation: coordinatesSchema.optional(),
     additionalStops: z.array(coordinatesSchema).optional(),

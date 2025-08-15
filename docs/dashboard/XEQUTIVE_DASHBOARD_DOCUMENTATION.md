@@ -2,9 +2,24 @@
 
 This document provides a comprehensive guide to the Xequtive Dashboard, including API endpoints, authentication methods, and implementation guidelines.
 
+## Overview
+
+The Xequtive Dashboard is a comprehensive admin-only platform that provides complete control over the Xequtive transportation service. Administrators can manage all aspects of the business including bookings, users, analytics, system settings, and more.
+
+**Key Capabilities:**
+- **Complete Booking Management**: View, update, delete, and manage all bookings
+- **User Administration**: Manage customer accounts and user data
+- **Real-time Analytics**: Comprehensive business insights and reporting
+- **System Configuration**: Pricing, service areas, and business settings
+- **Fleet Management**: Vehicle information and pricing structures
+- **Audit & Monitoring**: System logs and performance tracking
+
+**Important Note**: The dashboard is **admin-only** and cannot create new bookings. All bookings are created through the customer-facing API endpoints. The dashboard is designed for monitoring, managing, and analyzing existing bookings and system performance.
+
 ## Table of Contents
 
-1. [Authentication](#authentication)
+1. [Overview](#overview)
+2. [Authentication](#authentication)
    - [Admin Login](#admin-login)
    - [Admin Logout](#admin-logout)
    - [Check Admin Status](#check-admin-status)
@@ -12,18 +27,24 @@ This document provides a comprehensive guide to the Xequtive Dashboard, includin
    - [Authentication Methods](#authentication-methods)
      - [Firebase SDK Method](#firebase-sdk-method)
      - [Fetch API Method](#fetch-api-method)
-2. [API Endpoints](#api-endpoints)
+3. [API Endpoints](#api-endpoints)
    - [Analytics](#analytics-endpoints)
    - [Bookings Management](#bookings-management)
    - [User Management](#user-management)
    - [Vehicle Information](#vehicle-information)
    - [System Settings](#system-settings)
    - [System Logs](#system-logs)
-3. [Implementation Guide](#implementation-guide)
+4. [Implementation Guide](#implementation-guide)
    - [Authentication Implementation](#authentication-implementation)
    - [Making API Calls](#making-api-calls)
    - [Error Handling](#error-handling)
-4. [Security Considerations](#security-considerations)
+5. [Security Considerations](#security-considerations)
+6. [Dashboard Features & Capabilities](#dashboard-features--capabilities)
+   - [Complete Admin Control](#complete-admin-control)
+   - [Booking Lifecycle Management](#booking-lifecycle-management)
+   - [Customer Service Tools](#customer-service-tools)
+   - [Business Intelligence](#business-intelligence)
+   - [Operational Control](#operational-control)
 
 ## Authentication
 
@@ -1191,139 +1212,198 @@ Disables a user account.
 
 The system supports the following vehicle types with detailed specifications:
 
-| Vehicle Type | ID | Capacity | Class | Minimum Fare | Additional Stop Fee |
-|--------------|----|---------:|-------|-------------:|-------------------:|
-| Standard Saloon | `saloon` | 4 passengers | Standard Comfort | £16.40 | £2.50 |
-| Estate | `estate` | 4 passengers | Standard Comfort | £18.40 | £2.50 |
-| MPV-6 Seater | `mpv-6` | 6 passengers | Standard Comfort | £26.40 | £4.50 |
-| MPV-8 Seater | `mpv-8` | 8 passengers | Standard Comfort | £50.30 | £4.50 |
-| Executive Saloon | `executive` | 3 passengers | Business | £34.40 | £5.50 |
-| Executive MPV-8 | `executive-mpv` | 6 passengers | Business | £50.30 | £5.50 |
-| VIP-Saloon | `vip-saloon` | 3 passengers | Business | £66.80 | £5.50 |
-| VIP-SUV/MPV | `vip-suv` | 6 passengers | Business | £70.80 | £5.50 |
+| Vehicle Type | ID | Capacity | Class | Minimum Fare | Additional Stop Fee | Waiting Time (per min) | Additional Waiting (per hour) |
+|--------------|----|---------:|-------|-------------:|-------------------:|------------------------:|------------------------------:|
+| Standard Saloon | `saloon` | 4 passengers | Standard Comfort | £15.00 | £2.50 | £0.42 | £25.00 |
+| Estate | `estate` | 4 passengers | Standard Comfort | £18.00 | £2.50 | £0.50 | £30.00 |
+| MPV-6 Seater | `mpv-6` | 6 passengers | Standard Comfort | £35.00 | £4.50 | £0.58 | £35.00 |
+| MPV-8 Seater | `mpv-8` | 8 passengers | Standard Comfort | £45.00 | £4.50 | £0.67 | £40.00 |
+| Executive Saloon | `executive` | 3 passengers | Business | £45.00 | £5.50 | £0.75 | £45.00 |
+| Executive MPV-8 | `executive-mpv` | 6 passengers | Business | £65.00 | £5.50 | £0.75 | £55.00 |
+| VIP-Saloon | `vip-saloon` | 3 passengers | Business | £85.00 | £6.50 | £1.08 | £65.00 |
+| VIP-SUV/MPV | `vip-suv` | 6 passengers | Business | £95.00 | £6.50 | £0.75 | £55.00 |
 
 #### Per-Mile Pricing Structure
 
-Each vehicle type has a slab-based pricing structure:
+Each vehicle type has a slab-based pricing structure with updated rates:
 
 **Standard Saloon:**
-- 0-4 miles: £3.95/mile
-- 4.1-10.9 miles: £2.95/mile
-- 11-20 miles: £2.80/mile
-- 20.1-40 miles: £2.66/mile
-- 41-60 miles: £2.36/mile
-- 60.1-80 miles: £2.21/mile
-- 81-99 miles: £1.92/mile
-- 100-149 miles: £1.77/mile
-- 150-299 miles: £1.62/mile
-- 300+ miles: £1.48/mile
+- 0-4 miles: £5.00/mile
+- 4.1-10 miles: £4.50/mile
+- 10.1-15 miles: £4.00/mile
+- 15.1-20 miles: £3.20/mile
+- 20.1-30 miles: £2.60/mile
+- 30.1-40 miles: £2.20/mile
+- 41.1-50 miles: £2.10/mile
+- 51.1-60 miles: £1.85/mile
+- 61.1-80 miles: £1.80/mile
+- 80.1-150 miles: £1.75/mile
+- 150.1-300 miles: £1.70/mile
+- 300+ miles: £1.60/mile
 
 **Estate:**
-- 0-4 miles: £4.95/mile
-- 4.1-10.9 miles: £3.45/mile
-- 11-20 miles: £3.28/mile
-- 20.1-40 miles: £3.11/mile
-- 41-60 miles: £2.76/mile
-- 60.1-80 miles: £2.59/mile
-- 81-99 miles: £2.24/mile
-- 100-149 miles: £2.07/mile
-- 150-299 miles: £1.90/mile
-- 300+ miles: £1.73/mile
+- 0-4 miles: £5.50/mile
+- 4.1-10 miles: £5.40/mile
+- 10.1-15 miles: £4.90/mile
+- 15.1-20 miles: £3.80/mile
+- 20.1-30 miles: £3.00/mile
+- 30.1-40 miles: £2.70/mile
+- 41.1-50 miles: £2.60/mile
+- 51.1-60 miles: £2.35/mile
+- 61.1-80 miles: £2.30/mile
+- 80.1-150 miles: £2.25/mile
+- 150.1-300 miles: £2.10/mile
+- 300+ miles: £1.80/mile
 
 **MPV-6 Seater:**
-- 0-4 miles: £6.95/mile
-- 4.1-10.9 miles: £6.45/mile
-- 11-20 miles: £5.97/mile
-- 20.1-40 miles: £4.35/mile
-- 41-60 miles: £3.39/mile
-- 60.1-80 miles: £3.55/mile
-- 81-99 miles: £3.23/mile
-- 100-149 miles: £3.06/mile
-- 150-299 miles: £2.90/mile
-- 300+ miles: £2.74/mile
+- 0-4 miles: £7.00/mile
+- 4.1-10 miles: £6.80/mile
+- 10.1-15 miles: £5.40/mile
+- 15.1-20 miles: £4.50/mile
+- 20.1-30 miles: £3.40/mile
+- 30.1-40 miles: £3.00/mile
+- 41.1-50 miles: £2.90/mile
+- 51.1-60 miles: £2.85/mile
+- 61.1-80 miles: £2.80/mile
+- 80.1-150 miles: £2.75/mile
+- 150.1-300 miles: £2.60/mile
+- 300+ miles: £2.40/mile
 
 **MPV-8 Seater:**
-- 0-4 miles: £7.95/mile
-- 4.1-10.9 miles: £6.95/mile
-- 11-20 miles: £6.43/mile
-- 20.1-40 miles: £4.69/mile
-- 41-60 miles: £4.00/mile
-- 60.1-80 miles: £3.82/mile
-- 81-99 miles: £3.48/mile
-- 100-149 miles: £3.30/mile
-- 150-299 miles: £3.13/mile
-- 300+ miles: £2.95/mile
+- 0-4 miles: £8.00/mile
+- 4.1-10 miles: £7.80/mile
+- 10.1-15 miles: £7.20/mile
+- 15.1-20 miles: £4.80/mile
+- 20.1-30 miles: £4.20/mile
+- 30.1-40 miles: £3.80/mile
+- 41.1-50 miles: £3.40/mile
+- 51.1-60 miles: £3.20/mile
+- 61.1-80 miles: £3.00/mile
+- 80.1-150 miles: £2.80/mile
+- 150.1-300 miles: £2.75/mile
+- 300+ miles: £2.60/mile
 
 **Executive Saloon:**
-- 0-4 miles: £7.95/mile
-- 4.1-10.9 miles: £5.95/mile
-- 11-20 miles: £5.50/mile
-- 20.1-40 miles: £4.02/mile
-- 41-60 miles: £3.42/mile
-- 60.1-80 miles: £3.27/mile
-- 81-99 miles: £2.98/mile
-- 100-149 miles: £2.83/mile
-- 150-299 miles: £2.68/mile
-- 300+ miles: £2.53/mile
+- 0-4 miles: £8.00/mile
+- 4.1-10 miles: £7.80/mile
+- 10.1-15 miles: £7.20/mile
+- 15.1-20 miles: £4.80/mile
+- 20.1-30 miles: £4.20/mile
+- 30.1-40 miles: £3.80/mile
+- 41.1-50 miles: £3.40/mile
+- 51.1-60 miles: £3.20/mile
+- 61.1-80 miles: £3.00/mile
+- 80.1-150 miles: £2.80/mile
+- 150.1-300 miles: £2.75/mile
+- 300+ miles: £2.60/mile
 
 **Executive MPV-8:**
-- 0-4 miles: £7.95/mile
-- 4.1-10.9 miles: £7.95/mile
-- 11-20 miles: £6.56/mile
-- 20.1-40 miles: £6.16/mile
-- 41-60 miles: £5.96/mile
-- 60.1-80 miles: £5.76/mile
-- 81-99 miles: £4.77/mile
-- 100-149 miles: £4.57/mile
-- 150-299 miles: £3.78/mile
-- 300+ miles: £3.58/mile
+- 0-4 miles: £9.00/mile
+- 4.1-10 miles: £9.60/mile
+- 10.1-15 miles: £9.20/mile
+- 15.1-20 miles: £6.20/mile
+- 20.1-30 miles: £5.00/mile
+- 30.1-40 miles: £4.60/mile
+- 41.1-50 miles: £4.20/mile
+- 51.1-60 miles: £3.80/mile
+- 61.1-80 miles: £3.70/mile
+- 80.1-150 miles: £3.60/mile
+- 150.1-300 miles: £3.40/mile
+- 300+ miles: £3.05/mile
 
 **VIP-Saloon:**
-- 0-4 miles: £7.95/mile
-- 4.1-10.9 miles: £7.45/mile
-- 11-20 miles: £7.26/mile
-- 20.1-40 miles: £5.03/mile
-- 41-60 miles: £4.28/mile
-- 60.1-80 miles: £4.10/mile
-- 81-99 miles: £3.73/mile
-- 100-149 miles: £3.54/mile
-- 150-299 miles: £3.35/mile
-- 300+ miles: £3.17/mile
+- 0-4 miles: £11.00/mile
+- 4.1-10 miles: £13.80/mile
+- 10.1-15 miles: £11.20/mile
+- 15.1-20 miles: £7.80/mile
+- 20.1-30 miles: £6.40/mile
+- 30.1-40 miles: £6.20/mile
+- 41.1-50 miles: £5.60/mile
+- 51.1-60 miles: £4.90/mile
+- 61.1-80 miles: £4.60/mile
+- 80.1-150 miles: £4.50/mile
+- 150.1-300 miles: £4.40/mile
+- 300+ miles: £4.20/mile
 
 **VIP-SUV/MPV:**
-- 0-4 miles: £8.95/mile
-- 4.1-10.9 miles: £7.95/mile
-- 11-20 miles: £7.55/mile
-- 20.1-40 miles: £7.16/mile
-- 41-60 miles: £6.76/mile
-- 60.1-80 miles: £6.36/mile
-- 81-99 miles: £6.16/mile
-- 100-149 miles: £5.96/mile
-- 150-299 miles: £5.37/mile
-- 300+ miles: £4.97/mile
+- 0-4 miles: £12.00/mile
+- 4.1-10 miles: £13.90/mile
+- 10.1-15 miles: £12.40/mile
+- 15.1-20 miles: £8.00/mile
+- 20.1-30 miles: £7.20/mile
+- 30.1-40 miles: £6.80/mile
+- 41.1-50 miles: £5.70/mile
+- 51.1-60 miles: £4.95/mile
+- 61.1-80 miles: £4.75/mile
+- 80.1-150 miles: £4.60/mile
+- 150.1-300 miles: £4.50/mile
+- 300+ miles: £4.30/mile
 
 #### Airport Fees
 
-The system applies airport fees for pickups and drop-offs at major UK airports:
+The system applies comprehensive airport fees for pickups and drop-offs at major UK airports with different rates for standard and executive/VIP vehicles:
 
-| Airport | Fee |
-|---------|----:|
-| London Heathrow | £10.00 |
-| London Gatwick | £8.00 |
-| London Stansted | £8.00 |
-| London Luton | £8.00 |
-| London City | £8.00 |
-| Manchester | £8.00 |
-| Birmingham | £7.00 |
-| Edinburgh | £7.00 |
-| Glasgow | £7.00 |
-| Liverpool | £6.00 |
-| Bristol | £6.00 |
-| Cardiff | £6.00 |
-| Belfast International | £6.00 |
-| Belfast City | £6.00 |
-| East Midlands | £6.00 |
-| Newcastle | £6.00 |
+| Airport | Drop-Off Fee | Standard Pickup (30-Min) | Executive/VIP Pickup (60-Min) |
+|---------|-------------:|------------------------:|------------------------------:|
+| London Heathrow | £6.00 | £7.50 | £18.50 |
+| London Gatwick | £7.00 | £10.00 | £15.50 |
+| London Stansted | £7.00 | £10.00 | £18.00 |
+| London Luton | £6.00 | £11.00 | £17.50 |
+| London City | FREE | £6.90 | £19.90 |
+| Birmingham | £6.00 | £9.50 | £9.50 |
+
+**Note**: Standard pickup fees apply to all vehicle types with a 30-minute wait time. Executive/VIP pickup fees apply to Executive Saloon, Executive MPV, VIP-Saloon, and VIP-SUV/MPV with a 60-minute wait time.
+
+#### Time-Based Surcharges
+
+The system applies dynamic surcharges based on time of day and day of week:
+
+**Weekday Surcharges:**
+- **Non-Peak (12:00 AM - 5:59 AM)**: No surcharge
+- **Peak Medium (6:00 AM - 2:59 PM)**: £3.00 for standard vehicles, £5.00 for MPV, £7.00 for VIP
+- **Peak High (3:00 PM - 11:59 PM)**: £3.00 for standard vehicles, £5.00 for MPV, £7.00 for executive, £9.00 for VIP
+
+**Weekend Surcharges:**
+- **Non-Peak (12:00 AM - 5:59 AM)**: No surcharge
+- **Peak Medium (6:00 AM - 2:59 PM)**: No surcharge for most vehicles, £7.00 for Executive Saloon, £5.00 for Executive MPV
+- **Peak High (3:00 PM - 11:59 PM)**: £3.00 for standard vehicles, £5.00 for Executive MPV, £7.00 for VIP vehicles
+
+#### Additional Charges
+
+**Toll Charges:**
+- **Congestion Charge Zone**: £7.50 (7AM-6PM Mon-Fri, 12PM-6PM Sat-Sun)
+- **Dartford Crossing**: £2.50 per crossing
+- **Blackwell & Silverstone Tunnel**: £4.00 (peak times: Mon-Fri 6-10AM & 4-7PM), £1.50 (all other times)
+
+**Return Booking Discount:**
+- **10% discount** applied to all return bookings (wait-and-return or later-date scenarios)
+
+**Multiple Vehicle Discounts:**
+- **2 vehicles**: 10% discount on total fare
+- **3+ vehicles**: 15% discount on total fare
+
+#### Executive Cars System (Hourly/Event Bookings)
+
+The system supports a separate booking type for Executive Cars with different pricing structures:
+
+**Hourly Booking Rates (3-12 hours):**
+- **3-6 Hours**: Premium rates for shorter durations
+- **6-12 Hours**: Standard rates for longer durations
+
+**Vehicle Hourly Rates:**
+- **Saloon**: £30.00 (3-6h), £25.00 (6-12h)
+- **Estate**: £35.00 (3-6h), £30.00 (6-12h)
+- **MPV-6 Seater**: £35.00 (3-6h), £35.00 (6-12h)
+- **MPV-8 Seater**: £40.00 (3-6h), £35.00 (6-12h)
+- **Executive Saloon**: £45.00 (3-6h), £40.00 (6-12h)
+- **Executive MPV-8**: £55.00 (3-6h), £50.00 (6-12h)
+- **VIP-Saloon**: £75.00 (3-6h), £70.00 (6-12h)
+- **VIP-SUV/MPV**: £85.00 (3-6h), £80.00 (6-12h)
+
+**Booking Types:**
+- **One-Way**: Point-to-point transportation
+- **Hourly**: Event-based hourly bookings (3-12 hours)
+- **Return**: Wait-and-return or later-date return journeys with 10% discount
 
 ### System Settings
 
@@ -1681,6 +1761,49 @@ async function fetchWithErrorHandling(endpoint) {
 
 The Xequtive Dashboard provides comprehensive admin functionality including:
 
+#### Complete Booking Management Capabilities
+
+**🔍 Full Booking Visibility**
+- **All Bookings Access**: View every booking in the system regardless of status
+- **Real-time Updates**: Live booking status and information updates
+- **Complete History**: Full audit trail of all booking changes and modifications
+- **Customer Details**: Access to all customer information and preferences
+
+**✏️ Complete Booking Modification**
+- **Customer Information**: Update names, contact details, and special requirements
+- **Journey Details**: Modify pickup/dropoff locations, times, and additional stops
+- **Vehicle Changes**: Switch vehicle types, adjust passenger counts, and modify luggage
+- **Pricing Adjustments**: Modify fares, apply discounts, or add additional charges
+- **Special Requests**: Add, modify, or remove special requirements and notes
+- **Status Management**: Change booking status (pending → confirmed → completed → cancelled)
+
+**📋 Administrative Functions**
+- **Internal Notes**: Add operational notes for drivers and customer service
+- **Service Coordination**: Manage driver assignments and service instructions
+- **Quality Assurance**: Track service quality and customer satisfaction
+- **Issue Resolution**: Handle customer complaints and special requests
+- **Refund Management**: Process cancellations and refund requests
+
+**📊 Business Intelligence**
+- **Revenue Tracking**: Monitor all financial transactions and revenue streams
+- **Performance Analytics**: Track service quality and operational efficiency
+- **Customer Insights**: Analyze customer behavior and preferences
+- **Route Optimization**: Identify popular routes and demand patterns
+- **Vehicle Utilization**: Monitor fleet efficiency and utilization rates
+
+**⚙️ System Control**
+- **Pricing Management**: Modify all pricing structures and surcharges
+- **Service Configuration**: Set business rules and operational parameters
+- **User Management**: Control customer accounts and access permissions
+- **System Monitoring**: Track system performance and security events
+- **Audit Logging**: Complete audit trail of all administrative actions
+
+**🚫 Important Limitations**
+- **No New Bookings**: The dashboard cannot create new bookings
+- **Customer-Facing Only**: New bookings must be created through customer API endpoints
+- **Read-Write Access**: Full access to view, modify, and manage existing bookings
+- **Admin-Only Access**: Exclusive to users with admin role permissions
+
 #### Analytics & Reporting
 - **Overview Dashboard**: Key metrics with period comparison
 - **Revenue Analytics**: Detailed revenue breakdowns by vehicle type, status, and timeline
@@ -1717,6 +1840,96 @@ The Xequtive Dashboard provides comprehensive admin functionality including:
 - **Detailed Pricing**: Slab-based per-mile pricing for each vehicle type
 - **Capacity Information**: Passenger and luggage capacity for each vehicle
 - **Airport Fee Structure**: Comprehensive airport fees for 16 UK airports
+
+## Dashboard Features & Capabilities
+
+The Xequtive Dashboard provides **complete administrative control** over the transportation service. Administrators have full authority to manage every aspect of the business operations.
+
+### Complete Admin Control
+
+**🔐 Full System Access**
+- **Complete Booking Oversight**: View, modify, and manage ALL bookings in the system
+- **User Account Control**: Access, modify, and manage all customer accounts
+- **System Configuration**: Modify pricing, service areas, and business rules
+- **Real-time Monitoring**: Live system status and performance tracking
+- **Audit Trail**: Complete history of all administrative actions
+
+**📊 Comprehensive Data Access**
+- **All Customer Data**: Complete access to customer information and booking history
+- **Financial Data**: Full revenue analytics, pricing structures, and financial reports
+- **Operational Data**: Service performance, vehicle utilization, and efficiency metrics
+- **System Data**: Logs, errors, and system performance information
+
+### Booking Lifecycle Management
+
+**📋 Complete Booking Control**
+- **View All Bookings**: Access to every booking regardless of status or customer
+- **Modify Any Booking**: Update pickup/dropoff times, locations, vehicle types, and customer details
+- **Status Management**: Change booking status (pending → confirmed → completed → cancelled)
+- **Add Notes & Comments**: Internal notes for customer service and operational purposes
+- **Booking History**: Complete timeline of all booking changes and updates
+
+**🔄 Status Workflow Management**
+- **Pending Bookings**: Review and approve new booking requests
+- **Confirmed Bookings**: Manage confirmed bookings and make adjustments
+- **Active Bookings**: Monitor ongoing journeys and make real-time changes
+- **Completed Bookings**: Review completed journeys and add final notes
+- **Cancelled Bookings**: Manage cancellations and refund processes
+
+**✏️ Content Modification**
+- **Customer Information**: Update names, contact details, and special requirements
+- **Journey Details**: Modify pickup/dropoff locations, times, and additional stops
+- **Vehicle Changes**: Switch vehicle types, adjust passenger counts, and modify luggage
+- **Pricing Adjustments**: Modify fares, apply discounts, or add additional charges
+- **Special Requests**: Add, modify, or remove special requirements and notes
+
+### Customer Service Tools
+
+**👥 Customer Management**
+- **Customer Profiles**: Complete customer information and booking history
+- **Communication Tools**: Internal notes for customer service representatives
+- **Issue Resolution**: Track and resolve customer complaints and special requests
+- **Customer Support**: Access to all customer interactions and preferences
+
+**📞 Service Coordination**
+- **Driver Communication**: Internal notes for driver instructions and updates
+- **Customer Updates**: Track customer communication and service notes
+- **Special Handling**: Manage VIP customers, special requirements, and accessibility needs
+- **Quality Assurance**: Monitor service quality and customer satisfaction
+
+### Business Intelligence
+
+**📈 Advanced Analytics**
+- **Revenue Intelligence**: Detailed financial analysis and trend identification
+- **Customer Insights**: Customer behavior, preferences, and loyalty patterns
+- **Operational Efficiency**: Service performance, vehicle utilization, and cost analysis
+- **Market Analysis**: Route popularity, demand patterns, and growth opportunities
+
+**📊 Performance Metrics**
+- **Service Quality**: On-time performance, customer satisfaction, and service ratings
+- **Financial Performance**: Revenue per booking, profit margins, and cost analysis
+- **Operational Metrics**: Vehicle efficiency, driver performance, and route optimization
+- **Customer Metrics**: Customer acquisition, retention, and lifetime value
+
+### Operational Control
+
+**⚙️ System Configuration**
+- **Pricing Management**: Modify all pricing structures, surcharges, and fees
+- **Service Areas**: Define coverage zones, excluded areas, and service boundaries
+- **Business Rules**: Set operating hours, booking policies, and service limitations
+- **Notification Settings**: Configure email, SMS, and system notifications
+
+**🚗 Fleet Management**
+- **Vehicle Configuration**: Update vehicle types, capacities, and specifications
+- **Pricing Structures**: Modify per-mile rates, minimum fares, and additional charges
+- **Service Rules**: Set vehicle-specific policies and restrictions
+- **Availability Management**: Control vehicle availability and booking rules
+
+**🔍 System Monitoring**
+- **Performance Tracking**: Monitor system performance and identify bottlenecks
+- **Error Management**: Track and resolve system errors and issues
+- **Security Monitoring**: Monitor access patterns and security events
+- **Audit Logging**: Complete audit trail of all system changes and actions
 
 ## Security Considerations
 

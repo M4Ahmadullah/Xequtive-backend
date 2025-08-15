@@ -175,7 +175,27 @@ async function logout() {
 
 ## Fare Estimation Endpoints
 
-### Enhanced Fare Estimation
+### Executive Cars System (Hourly/Event Bookings)
+
+Xequtive offers a separate "Executive Cars" system for event and group transportation services, distinct from the standard "Executive Taxi" point-to-point service.
+
+**Key Features:**
+- **Hourly Bookings**: 3-12 hours of service with tiered pricing
+- **One-Way Bookings**: Point-to-point journeys with Executive Cars pricing
+- **Return Bookings**: Round-trip journeys with 10% discount
+- **Event & Group Transportation**: Specialized for corporate events, weddings, tours
+- **Multiple Vehicle Support**: Book multiple vehicles for large groups
+
+**Booking Types:**
+1. **One-Way**: Standard point-to-point journey
+2. **Hourly**: 3-12 hours of continuous service (driver stays with you)
+3. **Return**: Round-trip with wait-and-return or later-date options
+
+**Tiered Hourly Pricing:**
+- **3-6 Hours**: Higher hourly rates for shorter durations
+- **6-12 Hours**: Lower hourly rates for longer durations
+
+### Enhanced Fare Estimation (Executive Taxi)
 
 The enhanced fare estimation endpoint calculates fares for all available vehicle types, taking into account:
 
@@ -401,15 +421,52 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
    - Dartford Crossing: £2.50
 
 5. **Time-Based Charges**:
-   The system automatically applies time-based pricing adjustments based on:
+   The system automatically applies time-based surcharges based on the time of day and whether it's a weekday or weekend:
 
-   - Weekday Peak Hours (7am-10am & 4pm-7pm): 1.5x multiplier + £3.54 surcharge
-   - Weekday Off-Peak Hours: Standard rate (1.0x multiplier)
-   - Weekend Peak Hours (10am-2pm & 5pm-10pm): 1.3x multiplier + £5.00 surcharge
-   - Weekend Standard Hours: 1.2x multiplier + £3.00 surcharge
-   - Holidays: 1.5x multiplier + £5.00 surcharge
+#### **Weekday Surcharges (Monday-Thursday)**
 
-   Note: Time-based charges are automatically calculated and included in the final fare without explicit breakdown messages.
+**NON-PEAK (12:00 AM - 5:59 AM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-MEDIUM (6:00 AM - 2:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £3.00
+- **MPV-8**: £3.00
+- **Executive Saloon**: £5.00
+- **Executive MPV**: £5.00
+- **VIP-Saloon**: £7.00
+- **VIP-SUV**: £7.00
+
+**PEAK-HIGH (3:00 PM - 11:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £5.00
+- **MPV-8**: £5.00
+- **Executive Saloon**: £7.00
+- **Executive MPV**: £7.00
+- **VIP-Saloon**: £9.00
+- **VIP-SUV**: £9.00
+
+#### **Weekend Surcharges (Friday-Sunday)**
+
+**NON-PEAK (12:00 AM - 5:59 AM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-MEDIUM (6:00 AM - 2:59 PM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-HIGH (3:00 PM - 11:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £3.00
+- **MPV-8**: £3.00
+- **Executive Saloon**: £7.00
+- **Executive MPV**: £5.00
+- **VIP-Saloon**: £5.00
+- **VIP-SUV**: £7.00
+
+Note: Time-based surcharges are automatically calculated and included in the final fare with clear breakdown messages.
 
 ## Service Area Restrictions
 

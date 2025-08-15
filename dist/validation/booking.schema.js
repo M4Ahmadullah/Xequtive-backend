@@ -81,6 +81,7 @@ exports.bookingSchema = zod_1.z.object({
 });
 // Flight information validation
 const flightInformationSchema = zod_1.z.object({
+    type: zod_1.z.literal("flight"),
     airline: zod_1.z.string().min(1, "Airline name is required"),
     flightNumber: zod_1.z.string().min(1, "Flight number is required"),
     departureAirport: zod_1.z.string().optional(),
@@ -91,6 +92,7 @@ const flightInformationSchema = zod_1.z.object({
 });
 // Train information validation
 const trainInformationSchema = zod_1.z.object({
+    type: zod_1.z.literal("train"),
     trainOperator: zod_1.z.string().min(1, "Train operator is required"),
     trainNumber: zod_1.z.string().min(1, "Train number is required"),
     departureStation: zod_1.z.string().optional(),
@@ -152,8 +154,8 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
             .object({
             type: zod_1.z.enum(["flight", "train"]),
             details: zod_1.z.discriminatedUnion("type", [
-                flightInformationSchema.extend({ type: zod_1.z.literal("flight") }),
-                trainInformationSchema.extend({ type: zod_1.z.literal("train") }),
+                flightInformationSchema,
+                trainInformationSchema,
             ]),
         })
             .optional(),

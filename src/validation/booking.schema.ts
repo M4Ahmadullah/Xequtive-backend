@@ -85,6 +85,7 @@ export const bookingSchema = z.object({
 
 // Flight information validation
 const flightInformationSchema = z.object({
+  type: z.literal("flight"),
   airline: z.string().min(1, "Airline name is required"),
   flightNumber: z.string().min(1, "Flight number is required"),
   departureAirport: z.string().optional(),
@@ -96,6 +97,7 @@ const flightInformationSchema = z.object({
 
 // Train information validation
 const trainInformationSchema = z.object({
+  type: z.literal("train"),
   trainOperator: z.string().min(1, "Train operator is required"),
   trainNumber: z.string().min(1, "Train number is required"),
   departureStation: z.string().optional(),
@@ -160,8 +162,8 @@ export const enhancedBookingCreateSchema = z.object({
       .object({
         type: z.enum(["flight", "train"]),
         details: z.discriminatedUnion("type", [
-          flightInformationSchema.extend({ type: z.literal("flight") }),
-          trainInformationSchema.extend({ type: z.literal("train") }),
+          flightInformationSchema,
+          trainInformationSchema,
         ]),
       })
       .optional(),

@@ -72,7 +72,7 @@ router.get("/hourly-booking-health", (_req: Request, res: Response) => {
         cancelBooking: "/api/hourly-bookings/:id/cancel",
       },
       features: [
-        "Hourly fare calculation (4-24 hours)",
+        "Hourly fare calculation (3-12 hours)",
         "Multiple vehicle types support",
         "Time-based surcharges",
         "Equipment fees for extra passengers/luggage",

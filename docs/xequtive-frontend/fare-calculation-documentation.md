@@ -4,6 +4,22 @@
 
 This document details the fare calculation methodology used by Xequtive for all vehicle types. Our system ensures transparent, consistent pricing while accounting for factors such as distance, time of day, vehicle class, and additional services.
 
+## Executive Cars vs Executive Taxi
+
+Xequtive operates two distinct booking systems:
+
+### **Executive Taxi (Point-to-Point)**
+- Standard taxi service for direct journeys
+- Uses the fare calculation system documented here
+- Available through `/api/fare-estimate/enhanced` endpoint
+
+### **Executive Cars (Event & Group Transportation)**
+- Specialized service for events, hourly bookings, and group travel
+- Separate pricing structure with dedicated rates
+- Available through `/api/hourly-bookings/fare-estimate` endpoint
+- Includes hourly bookings (3-12 hours), one-way, and return journeys
+- **Return Bookings**: 10% discount applied to all fares
+
 ## User Input and Fare Calculation Flow
 
 Our fare calculation system requires the following information from users to generate accurate fare estimates:
@@ -159,16 +175,48 @@ Our fare calculation uses a granular, multi-tiered distance-based pricing model.
 
 ### Time-Based Surcharges
 
-#### Weekdays (Monday-Thursday)
-- **Peak Time** (3 AM - 9 AM / 3 PM - 9 PM): Additional £3.54
-- **Off-Peak** (9:01 AM - 2:59 PM / 9 PM - 4 AM): No additional charge
+#### **Weekday Surcharges (Monday-Thursday)**
 
-#### Weekend (Friday)
-- **Peak Time** (3 AM - 9 AM / 3 PM - 11:59 PM): Special rates apply
-- **Off-Peak** (9:01 AM - 2:59 PM): Standard weekend rates
+**NON-PEAK (12:00 AM - 5:59 AM):**
+- **All Vehicle Types**: No surcharge
 
-#### Weekend (Saturday-Sunday)
-- **All Day**: Special weekend rates apply
+**PEAK-MEDIUM (6:00 AM - 2:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £3.00
+- **MPV-8**: £3.00
+- **Executive Saloon**: £5.00
+- **Executive MPV**: £5.00
+- **VIP-Saloon**: £7.00
+- **VIP-SUV**: £7.00
+
+**PEAK-HIGH (3:00 PM - 11:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £5.00
+- **MPV-8**: £5.00
+- **Executive Saloon**: £7.00
+- **Executive MPV**: £7.00
+- **VIP-Saloon**: £9.00
+- **VIP-SUV**: £9.00
+
+#### **Weekend Surcharges (Friday-Sunday)**
+
+**NON-PEAK (12:00 AM - 5:59 AM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-MEDIUM (6:00 AM - 2:59 PM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-HIGH (3:00 PM - 11:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £3.00
+- **MPV-8**: £3.00
+- **Executive Saloon**: £7.00
+- **Executive MPV**: £5.00
+- **VIP-Saloon**: £5.00
+- **VIP-SUV**: £7.00
 
 ### Minimum Fares
 
@@ -242,22 +290,40 @@ Total Fare = Base Fare + (Distance in miles × Per Mile Rate) + Additional Charg
 | Airport | Fee (£) |
 |---------|---------|
 | Heathrow | £6.00 |
-| Gatwick | £6.00 |
+| Gatwick | £7.00 |
 | Luton | £6.00 |
 | Stansted | £7.00 |
-| City Airport | £6.50 |
+| City Airport | FREE |
+| Birmingham | £6.00 |
 
 #### Airport Pickup Fees
+
+**Standard Vehicles (30-Min Wait):**
 | Airport | Fee (£) |
 |---------|---------|
 | Heathrow | £7.50 |
-| Gatwick | £8.00 |
-| Luton | £6.00 |
+| Gatwick | £10.00 |
+| Luton | £11.00 |
 | Stansted | £10.00 |
-| City Airport | £6.50 |
+| City Airport | £6.90 |
+| Birmingham | £9.50 |
+
+**Executive/VIP Vehicles (60-Min Wait):**
+| Airport | Fee (£) |
+|---------|---------|
+| Heathrow | £18.50 |
+| Gatwick | £15.50 |
+| Luton | £17.50 |
+| Stansted | £18.00 |
+| City Airport | £19.90 |
+| Birmingham | £9.50 |
 
 ### Dartford Crossing
-- £4.00 per crossing
+- £2.50 per crossing (reduced from £4.00)
+
+### Blackwell & Silverstone Tunnel
+- **Peak Times**: £4.00 (Monday-Friday, 6-10AM & 4-7PM)
+- **Off-Peak Times**: £1.50 (All other times)
 
 ## Additional Services
 

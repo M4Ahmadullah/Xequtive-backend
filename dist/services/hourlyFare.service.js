@@ -2,9 +2,212 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HourlyFareService = void 0;
 const vehicleTypes_1 = require("../config/vehicleTypes");
+const mapboxDistance_service_1 = require("./mapboxDistance.service");
 const timePricing_1 = require("../config/timePricing");
 const hourlyBooking_1 = require("../types/hourlyBooking");
-const mapboxDistance_service_1 = require("./mapboxDistance.service");
+// Executive Cars specific pricing for one-way and return bookings
+const EXECUTIVE_CARS_PRICING = {
+    'saloon': {
+        minimumFare: 15.00,
+        perAdditionalMile: 1.60,
+        additionalStopFee: 2.50,
+        waitingTimePerMinute: 0.42,
+        waitingTimePerHour: 25.00,
+        hourlyRates: {
+            '3-6': 30.00,
+            '6-12': 25.00
+        },
+        perMileRates: {
+            '0-4': 5.00,
+            '4.1-10': 4.50,
+            '10.1-15': 4.00,
+            '15.1-20': 3.20,
+            '20.1-30': 2.60,
+            '30.1-40': 2.20,
+            '41.1-50': 2.10,
+            '51.1-60': 1.85,
+            '61.1-80': 1.80,
+            '80.1-150': 1.75,
+            '150.1-300': 1.70,
+            '300+': 1.60
+        }
+    },
+    'estate': {
+        minimumFare: 18.00,
+        perAdditionalMile: 1.80,
+        additionalStopFee: 2.50,
+        waitingTimePerMinute: 0.50,
+        waitingTimePerHour: 30.00,
+        hourlyRates: {
+            '3-6': 35.00,
+            '6-12': 30.00
+        },
+        perMileRates: {
+            '0-4': 5.50,
+            '4.1-10': 5.40,
+            '10.1-15': 4.90,
+            '15.1-20': 3.80,
+            '20.1-30': 3.00,
+            '30.1-40': 2.70,
+            '41.1-50': 2.60,
+            '51.1-60': 2.35,
+            '61.1-80': 2.30,
+            '80.1-150': 2.25,
+            '150.1-300': 2.10,
+            '300+': 1.80
+        }
+    },
+    'mpv-6': {
+        minimumFare: 35.00,
+        perAdditionalMile: 2.40,
+        additionalStopFee: 4.50,
+        waitingTimePerMinute: 0.58,
+        waitingTimePerHour: 35.00,
+        hourlyRates: {
+            '3-6': 35.00,
+            '6-12': 35.00
+        },
+        perMileRates: {
+            '0-4': 7.00,
+            '4.1-10': 6.80,
+            '10.1-15': 5.40,
+            '15.1-20': 4.50,
+            '20.1-30': 3.40,
+            '30.1-40': 3.00,
+            '41.1-50': 2.90,
+            '51.1-60': 2.85,
+            '61.1-80': 2.80,
+            '80.1-150': 2.75,
+            '150.1-300': 2.60,
+            '300+': 2.40
+        }
+    },
+    'mpv-8': {
+        minimumFare: 45.00,
+        perAdditionalMile: 2.60,
+        additionalStopFee: 4.50,
+        waitingTimePerMinute: 0.67,
+        waitingTimePerHour: 40.00,
+        hourlyRates: {
+            '3-6': 40.00,
+            '6-12': 35.00
+        },
+        perMileRates: {
+            '0-4': 8.00,
+            '4.1-10': 7.80,
+            '10.1-15': 7.20,
+            '15.1-20': 4.80,
+            '20.1-30': 4.20,
+            '30.1-40': 3.80,
+            '41.1-50': 3.40,
+            '51.1-60': 3.20,
+            '61.1-80': 3.00,
+            '80.1-150': 2.80,
+            '150.1-300': 2.75,
+            '300+': 2.60
+        }
+    },
+    'executive': {
+        minimumFare: 45.00,
+        perAdditionalMile: 2.60,
+        additionalStopFee: 5.50,
+        waitingTimePerMinute: 0.75,
+        waitingTimePerHour: 45.00,
+        hourlyRates: {
+            '3-6': 45.00,
+            '6-12': 40.00
+        },
+        perMileRates: {
+            '0-4': 8.00,
+            '4.1-10': 7.80,
+            '10.1-15': 7.20,
+            '15.1-20': 4.80,
+            '20.1-30': 4.20,
+            '30.1-40': 3.80,
+            '41.1-50': 3.40,
+            '51.1-60': 3.20,
+            '61.1-80': 3.00,
+            '80.1-150': 2.80,
+            '150.1-300': 2.75,
+            '300+': 2.60
+        }
+    },
+    'executive-mpv': {
+        minimumFare: 65.00,
+        perAdditionalMile: 3.05,
+        additionalStopFee: 5.50,
+        waitingTimePerMinute: 0.75,
+        waitingTimePerHour: 55.00,
+        hourlyRates: {
+            '3-6': 55.00,
+            '6-12': 50.00
+        },
+        perMileRates: {
+            '0-4': 9.00,
+            '4.1-10': 9.60,
+            '10.1-15': 9.20,
+            '15.1-20': 6.20,
+            '20.1-30': 5.00,
+            '30.1-40': 4.60,
+            '41.1-50': 4.20,
+            '51.1-60': 3.80,
+            '61.1-80': 3.70,
+            '80.1-150': 3.60,
+            '150.1-300': 3.40,
+            '300+': 3.05
+        }
+    },
+    'vip-saloon': {
+        minimumFare: 85.00,
+        perAdditionalMile: 4.20,
+        additionalStopFee: 6.50,
+        waitingTimePerMinute: 1.08,
+        waitingTimePerHour: 65.00,
+        hourlyRates: {
+            '3-6': 75.00,
+            '6-12': 70.00
+        },
+        perMileRates: {
+            '0-4': 11.00,
+            '4.1-10': 13.80,
+            '10.1-15': 11.20,
+            '15.1-20': 7.80,
+            '20.1-30': 6.40,
+            '30.1-40': 6.20,
+            '41.1-50': 5.60,
+            '51.1-60': 4.90,
+            '61.1-80': 4.60,
+            '80.1-150': 4.50,
+            '150.1-300': 4.40,
+            '300+': 4.20
+        }
+    },
+    'vip-suv': {
+        minimumFare: 95.00,
+        perAdditionalMile: 4.30,
+        additionalStopFee: 6.50,
+        waitingTimePerMinute: 0.75,
+        waitingTimePerHour: 55.00,
+        hourlyRates: {
+            '3-6': 85.00,
+            '6-12': 80.00
+        },
+        perMileRates: {
+            '0-4': 12.00,
+            '4.1-10': 13.90,
+            '10.1-15': 12.40,
+            '15.1-20': 8.00,
+            '20.1-30': 7.20,
+            '30.1-40': 6.80,
+            '41.1-50': 5.70,
+            '51.1-60': 4.95,
+            '61.1-80': 4.75,
+            '80.1-150': 4.60,
+            '150.1-300': 4.50,
+            '300+': 4.30
+        }
+    }
+};
 class HourlyFareService {
     /**
      * Calculate fare estimates for different vehicle types based on booking type
@@ -77,14 +280,18 @@ class HourlyFareService {
         const routeDetails = await mapboxDistance_service_1.MapboxDistanceService.getDistance(`${pickupLocation.lat},${pickupLocation.lng}`, `${dropoffLocation.lat},${dropoffLocation.lng}`, waypoints);
         const distance = routeDetails.distance; // Already in miles
         const duration = routeDetails.duration; // Already in minutes
+        // Get Executive Cars pricing for this vehicle type
+        const executivePricing = EXECUTIVE_CARS_PRICING[vehicleType.id];
         // Calculate distance-based fare using slab system
         const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
-        // Calculate additional stops charge
-        const stopCharge = (additionalStops?.length || 0) * vehicleType.additionalStopFee;
+        // Calculate additional stops charge using Executive Cars pricing
+        const additionalStopFee = executivePricing ? executivePricing.additionalStopFee : vehicleType.additionalStopFee;
+        const stopCharge = (additionalStops?.length || 0) * additionalStopFee;
         // Calculate base fare
         const baseFare = distanceCharge + stopCharge;
-        // Apply minimum fare rule
-        let totalFare = Math.max(baseFare, vehicleType.minimumFare);
+        // Apply minimum fare rule using Executive Cars pricing
+        const minimumFare = executivePricing ? executivePricing.minimumFare : vehicleType.minimumFare;
+        let totalFare = Math.max(baseFare, minimumFare);
         // Time surcharge
         const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
         totalFare += timeSurcharge;
@@ -95,8 +302,8 @@ class HourlyFareService {
         if (numVehicles > 1) {
             totalFare = totalFare * numVehicles;
         }
-        // Round up to nearest whole number
-        const roundedFare = Math.ceil(totalFare);
+        // Round down to nearest whole number
+        const roundedFare = Math.floor(totalFare);
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,
@@ -122,12 +329,39 @@ class HourlyFareService {
         if (hours < 4 || hours > 24) {
             throw new Error("Hours must be between 4 and 24");
         }
-        // Calculate hourly rate
-        const hourlyRate = this.getHourlyRate(vehicleType);
+        // Calculate hourly rate using Executive Cars tiered pricing
+        const executivePricing = EXECUTIVE_CARS_PRICING[vehicleType.id];
+        let hourlyRate;
+        if (executivePricing && executivePricing.hourlyRates) {
+            // Use tiered pricing: 3-6 hours vs 6-12 hours
+            if (hours >= 3 && hours <= 6) {
+                hourlyRate = executivePricing.hourlyRates['3-6'];
+            }
+            else if (hours > 6 && hours <= 12) {
+                hourlyRate = executivePricing.hourlyRates['6-12'];
+            }
+            else {
+                // Fallback for hours outside the 3-12 range
+                hourlyRate = executivePricing.hourlyRates['6-12'];
+            }
+        }
+        else {
+            // Fallback to original method
+            hourlyRate = this.getHourlyRate(vehicleType);
+        }
         // Calculate base fare (hours × hourly rate)
         const baseFare = hours * hourlyRate;
-        // Apply minimum fare rule for hourly bookings
-        let totalFare = Math.max(baseFare, vehicleType.minimumFare * 2);
+        // Apply minimum fare rule for hourly bookings using Executive Cars pricing
+        let minimumFare;
+        if (executivePricing && executivePricing.hourlyRates) {
+            // For tiered pricing, use the higher rate (3-6 hours) for minimum fare calculation
+            const higherRate = executivePricing.hourlyRates['3-6'];
+            minimumFare = Math.max(executivePricing.minimumFare * 2, higherRate * 3); // At least 3 hours at higher rate
+        }
+        else {
+            minimumFare = executivePricing ? executivePricing.minimumFare * 2 : vehicleType.minimumFare * 2;
+        }
+        let totalFare = Math.max(baseFare, minimumFare);
         // Time surcharge
         const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
         totalFare += timeSurcharge;
@@ -138,8 +372,8 @@ class HourlyFareService {
         if (numVehicles > 1) {
             totalFare = totalFare * numVehicles;
         }
-        // Round up to nearest whole number
-        const roundedFare = Math.ceil(totalFare);
+        // Round down to nearest whole number
+        const roundedFare = Math.floor(totalFare);
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,
@@ -167,9 +401,14 @@ class HourlyFareService {
         const outboundRoute = await mapboxDistance_service_1.MapboxDistanceService.getDistance(`${outboundPickup.lat},${outboundPickup.lng}`, `${outboundDropoff.lat},${outboundDropoff.lng}`, outboundWaypoints);
         const outboundDistance = outboundRoute.distance;
         const outboundDistanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, outboundDistance);
-        const outboundStopCharge = (outboundStops?.length || 0) * vehicleType.additionalStopFee;
+        // Get Executive Cars pricing for additional stop fees
+        const executivePricing = EXECUTIVE_CARS_PRICING[vehicleType.id];
+        const additionalStopFee = executivePricing ? executivePricing.additionalStopFee : vehicleType.additionalStopFee;
+        const outboundStopCharge = (outboundStops?.length || 0) * additionalStopFee;
         const outboundBaseFare = outboundDistanceCharge + outboundStopCharge;
-        const outboundFare = Math.max(outboundBaseFare, vehicleType.minimumFare);
+        // Apply minimum fare rule using Executive Cars pricing
+        const minimumFare = executivePricing ? executivePricing.minimumFare : vehicleType.minimumFare;
+        const outboundFare = Math.max(outboundBaseFare, minimumFare);
         let totalFare = outboundFare;
         if (returnType === "wait-and-return") {
             // Wait-and-return: driver waits and returns
@@ -179,8 +418,20 @@ class HourlyFareService {
             // Calculate return journey (same route back)
             const returnFare = outboundFare; // Same fare for return journey
             totalFare += returnFare;
-            // Add wait charge (driver waiting time)
-            const waitCharge = waitDuration * this.getHourlyRate(vehicleType) * 0.5; // 50% of hourly rate for waiting
+            // Add wait charge (driver waiting time) using Executive Cars pricing
+            let waitCharge;
+            if (executivePricing) {
+                // Use per minute rate if available, otherwise fall back to per hour rate
+                if (executivePricing.waitingTimePerMinute) {
+                    waitCharge = waitDuration * 60 * executivePricing.waitingTimePerMinute; // Convert hours to minutes
+                }
+                else {
+                    waitCharge = waitDuration * executivePricing.waitingTimePerHour;
+                }
+            }
+            else {
+                waitCharge = waitDuration * this.getHourlyRate(vehicleType) * 0.5; // Fallback to original calculation
+            }
             totalFare += waitCharge;
             // Time surcharge for outbound
             const outboundTimeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
@@ -188,11 +439,13 @@ class HourlyFareService {
             // Equipment charges
             const equipmentFees = this.calculateEquipmentFees(passengers, vehicleType);
             totalFare += equipmentFees;
+            // Apply 10% return booking discount
+            totalFare = totalFare * 0.90;
             // Multiply by number of vehicles
             if (numVehicles > 1) {
                 totalFare = totalFare * numVehicles;
             }
-            const roundedFare = Math.ceil(totalFare);
+            const roundedFare = Math.floor(totalFare);
             return {
                 amount: roundedFare,
                 currency: this.DEFAULT_CURRENCY,
@@ -216,9 +469,9 @@ class HourlyFareService {
             const returnRoute = await mapboxDistance_service_1.MapboxDistanceService.getDistance(`${returnPickup.lat},${returnPickup.lng}`, `${returnDropoff.lat},${returnDropoff.lng}`, returnWaypoints);
             const returnDistance = returnRoute.distance;
             const returnDistanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, returnDistance);
-            const returnStopCharge = (returnStops?.length || 0) * vehicleType.additionalStopFee;
+            const returnStopCharge = (returnStops?.length || 0) * additionalStopFee;
             const returnBaseFare = returnDistanceCharge + returnStopCharge;
-            const returnFare = Math.max(returnBaseFare, vehicleType.minimumFare);
+            const returnFare = Math.max(returnBaseFare, minimumFare);
             totalFare += returnFare;
             // Time surcharges for both journeys
             const outboundTimeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
@@ -228,11 +481,13 @@ class HourlyFareService {
             // Equipment charges
             const equipmentFees = this.calculateEquipmentFees(passengers, vehicleType);
             totalFare += equipmentFees;
+            // Apply 10% return booking discount
+            totalFare = totalFare * 0.90;
             // Multiply by number of vehicles
             if (numVehicles > 1) {
                 totalFare = totalFare * numVehicles;
             }
-            const roundedFare = Math.ceil(totalFare);
+            const roundedFare = Math.floor(totalFare);
             return {
                 amount: roundedFare,
                 currency: this.DEFAULT_CURRENCY,
@@ -342,6 +597,13 @@ class HourlyFareService {
     static generateHourlyMessages(hours, hourlyRate, timeSurcharge, equipmentFees, numVehicles) {
         const messages = [];
         messages.push(`Hours: ${hours} × £${hourlyRate.toFixed(2)}/hour`);
+        // Add tiered pricing information
+        if (hours >= 3 && hours <= 6) {
+            messages.push('3-6 hour rate applied');
+        }
+        else if (hours > 6 && hours <= 12) {
+            messages.push('6-12 hour rate applied');
+        }
         if (timeSurcharge > 0) {
             messages.push(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
         }
@@ -361,6 +623,7 @@ class HourlyFareService {
         messages.push(`Outbound: ${distance.toFixed(1)} miles`);
         messages.push(`Return: ${distance.toFixed(1)} miles (same route)`);
         messages.push(`Driver wait time: ${waitDuration} hours`);
+        messages.push(`Return booking: 10% discount applied`);
         if (timeSurcharge > 0) {
             messages.push(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
         }
@@ -379,6 +642,7 @@ class HourlyFareService {
         const messages = [];
         messages.push(`Outbound: ${outboundDistance.toFixed(1)} miles`);
         messages.push(`Return: ${returnDistance.toFixed(1)} miles`);
+        messages.push(`Return booking: 10% discount applied`);
         if (outboundTimeSurcharge > 0 || returnTimeSurcharge > 0) {
             messages.push(`Time surcharges: £${(outboundTimeSurcharge + returnTimeSurcharge).toFixed(2)}`);
         }
@@ -423,38 +687,48 @@ class HourlyFareService {
         return hourlyRates[vehicleType.id] || 25.00; // Default to £25/hour
     }
     /**
-     * Calculate distance fare using proper slab system
+     * Calculate distance fare using Executive Cars slab system
      */
     static calculateSlabBasedDistanceFare(vehicleType, distance) {
-        const rates = vehicleType.perMileRates;
+        const pricing = EXECUTIVE_CARS_PRICING[vehicleType.id];
+        if (!pricing) {
+            throw new Error(`No pricing found for vehicle type: ${vehicleType.id}`);
+        }
+        const rates = pricing.perMileRates;
         let ratePerMile = 0;
         // Determine which rate applies based on total distance
         if (distance <= 4) {
             ratePerMile = rates['0-4'];
         }
-        else if (distance <= 10.9) {
-            ratePerMile = rates['4.1-10.9'];
+        else if (distance <= 10) {
+            ratePerMile = rates['4.1-10'];
+        }
+        else if (distance <= 15) {
+            ratePerMile = rates['10.1-15'];
         }
         else if (distance <= 20) {
-            ratePerMile = rates['11-20'];
+            ratePerMile = rates['15.1-20'];
+        }
+        else if (distance <= 30) {
+            ratePerMile = rates['20.1-30'];
         }
         else if (distance <= 40) {
-            ratePerMile = rates['20.1-40'];
+            ratePerMile = rates['30.1-40'];
+        }
+        else if (distance <= 50) {
+            ratePerMile = rates['41.1-50'];
         }
         else if (distance <= 60) {
-            ratePerMile = rates['60.1-80'];
+            ratePerMile = rates['51.1-60'];
         }
         else if (distance <= 80) {
-            ratePerMile = rates['81-99'];
+            ratePerMile = rates['61.1-80'];
         }
-        else if (distance <= 99) {
-            ratePerMile = rates['100-149'];
+        else if (distance <= 150) {
+            ratePerMile = rates['80.1-150'];
         }
-        else if (distance <= 149) {
-            ratePerMile = rates['150-299'];
-        }
-        else if (distance <= 299) {
-            ratePerMile = rates['300+'];
+        else if (distance <= 300) {
+            ratePerMile = rates['150.1-300'];
         }
         else {
             ratePerMile = rates['300+'];

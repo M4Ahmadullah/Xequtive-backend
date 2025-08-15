@@ -185,33 +185,37 @@ exports.airportFees = {
     dropoffFees: {
         standard: {
             'heathrow': 6.00,
-            'gatwick': 6.00,
+            'gatwick': 7.00,
             'luton': 6.00,
             'stansted': 7.00,
-            'city': 0.00
+            'city': 0.00,
+            'birmingham': 6.00
         },
         executive: {
             'heathrow': 6.00,
-            'gatwick': 6.00,
+            'gatwick': 7.00,
             'luton': 6.00,
             'stansted': 7.00,
-            'city': 0.00
+            'city': 0.00,
+            'birmingham': 6.00
         }
     },
     pickupFees: {
         standard: {
             'heathrow': 7.50,
-            'gatwick': 8.00,
-            'luton': 6.00,
+            'gatwick': 10.00,
+            'luton': 11.00,
             'stansted': 10.00,
-            'city': 6.50
+            'city': 6.90,
+            'birmingham': 9.50
         },
         executive: {
-            'heathrow': 16.00,
-            'gatwick': 10.00,
-            'luton': 10.00,
-            'stansted': 10.00,
-            'city': 10.00
+            'heathrow': 18.50,
+            'gatwick': 15.50,
+            'luton': 17.50,
+            'stansted': 18.00,
+            'city': 19.90,
+            'birmingham': 9.50
         }
     }
 };
@@ -238,10 +242,10 @@ exports.timeSurcharges = {
             surcharges: {
                 'saloon': 3.00,
                 'estate': 3.00,
-                'mpv-6': 5.00,
-                'mpv-8': 5.00,
-                'executive': 7.00,
-                'executive-mpv': 7.00,
+                'mpv-6': 3.00,
+                'mpv-8': 3.00,
+                'executive': 5.00,
+                'executive-mpv': 5.00,
                 'vip-saloon': 7.00,
                 'vip-suv': 7.00
             }
@@ -250,12 +254,12 @@ exports.timeSurcharges = {
             startTime: '15:00',
             endTime: '23:59',
             surcharges: {
-                'saloon': 5.00,
-                'estate': 5.00,
-                'mpv-6': 7.00,
-                'mpv-8': 7.00,
-                'executive': 9.00,
-                'executive-mpv': 9.00,
+                'saloon': 3.00,
+                'estate': 3.00,
+                'mpv-6': 5.00,
+                'mpv-8': 5.00,
+                'executive': 7.00,
+                'executive-mpv': 7.00,
                 'vip-saloon': 9.00,
                 'vip-suv': 9.00
             }
@@ -294,14 +298,14 @@ exports.timeSurcharges = {
             startTime: '15:00',
             endTime: '23:59',
             surcharges: {
-                'saloon': 5.00,
-                'estate': 5.00,
-                'mpv-6': 7.00,
-                'mpv-8': 7.00,
-                'executive': 9.00,
-                'executive-mpv': 9.00,
-                'vip-saloon': 9.00,
-                'vip-suv': 9.00
+                'saloon': 3.00,
+                'estate': 3.00,
+                'mpv-6': 3.00,
+                'mpv-8': 3.00,
+                'executive': 7.00,
+                'executive-mpv': 5.00,
+                'vip-saloon': 5.00,
+                'vip-suv': 7.00
             }
         }
     }

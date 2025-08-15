@@ -51,7 +51,7 @@ export interface OneWayBookingDetails {
 
 // Hourly booking details
 export interface HourlyBookingDetails {
-  hours: number; // 4-24 hours
+  hours: number; // 3-12 hours
   pickupLocation: HourlyBookingLocation;
   dropoffLocation?: HourlyBookingLocation; // Optional for hourly bookings
   additionalStops?: HourlyBookingLocation[];

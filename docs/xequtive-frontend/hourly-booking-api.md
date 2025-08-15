@@ -11,13 +11,16 @@ The Executive Cars Booking API provides endpoints for creating and managing prem
 - **Optional**: Additional stops
 - **Map**: Shows calculated route from A to B including stops
 
-### **2. Hourly (4-24h)**
+### **2. Hourly (3-12h)**
 - You hire a car + driver for a fixed number of hours
 - Driver stays with you and follows your itinerary
 - **Pricing**: Hours × hourly rate × number of vehicles, plus surcharges
-- **Required**: Pickup location, date, time, hours (4-24), passengers, luggage, number of vehicles
+- **Required**: Pickup location, date, time, hours (3-12), passengers, luggage, number of vehicles
 - **Optional**: Dropoff location, additional stops
 - **Map**: Shows pickup and optional stops (no strict route required)
+- **Tiered Pricing**: 
+  - 3-6 hours: Higher hourly rates
+  - 6-12 hours: Lower hourly rates
 
 ### **3. Return**
 Two modes available:
@@ -37,6 +40,104 @@ All endpoints require authentication via Firebase ID token in the Authorization 
 ```
 Authorization: Bearer <firebase-id-token>
 ```
+
+## Time-Based Surcharges
+
+Executive Cars applies time-based surcharges based on the time of day and whether it's a weekday or weekend:
+
+### **Weekday Surcharges (Monday-Thursday)**
+
+**NON-PEAK (12:00 AM - 5:59 AM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-MEDIUM (6:00 AM - 2:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £3.00
+- **MPV-8**: £3.00
+- **Executive Saloon**: £5.00
+- **Executive MPV**: £5.00
+- **VIP-Saloon**: £7.00
+- **VIP-SUV**: £7.00
+
+**PEAK-HIGH (3:00 PM - 11:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £5.00
+- **MPV-8**: £5.00
+- **Executive Saloon**: £7.00
+- **Executive MPV**: £7.00
+- **VIP-Saloon**: £9.00
+- **VIP-SUV**: £9.00
+
+### **Weekend Surcharges (Friday-Sunday)**
+
+**NON-PEAK (12:00 AM - 5:59 AM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-MEDIUM (6:00 AM - 2:59 PM):**
+- **All Vehicle Types**: No surcharge
+
+**PEAK-HIGH (3:00 PM - 11:59 PM):**
+- **Saloon**: £3.00
+- **Estate**: £3.00
+- **MPV-6**: £3.00
+- **MPV-8**: £3.00
+- **Executive Saloon**: £7.00
+- **Executive MPV**: £5.00
+- **VIP-Saloon**: £5.00
+- **VIP-SUV**: £7.00
+
+## Return Booking Discount
+
+All return bookings receive a **10% discount** on the total fare to encourage round-trip bookings.
+
+## Toll Charges
+
+### Congestion Charge Zone
+- **Fee**: £7.50
+- **Times Applicable**: 7AM-6PM (MON-FRI) / SAT & SUN (12PM-6PM)
+
+### Dartford Crossing
+- **Fee**: £2.50 per crossing
+
+### Blackwell & Silverstone Tunnel
+- **Peak Times**: £4.00 (Monday-Friday, 6-10AM & 4-7PM)
+- **Off-Peak Times**: £1.50 (All other times)
+
+## Airport Fees
+
+### Airport Dropoff Fees
+| Airport | Fee (£) |
+|---------|---------|
+| Heathrow | £6.00 |
+| Gatwick | £7.00 |
+| Luton | £6.00 |
+| Stansted | £7.00 |
+| City Airport | FREE |
+| Birmingham | £6.00 |
+
+### Airport Pickup Fees
+
+**Standard Vehicles (30-Min Wait):**
+| Airport | Fee (£) |
+|---------|---------|
+| Heathrow | £7.50 |
+| Gatwick | £10.00 |
+| Luton | £11.00 |
+| Stansted | £10.00 |
+| City Airport | £6.90 |
+| Birmingham | £9.50 |
+
+**Executive/VIP Vehicles (60-Min Wait):**
+| Airport | Fee (£) |
+|---------|---------|
+| Heathrow | £18.50 |
+| Gatwick | £15.50 |
+| Luton | £17.50 |
+| Stansted | £18.00 |
+| City Airport | £19.90 |
+| Birmingham | £9.50 |
 
 ## Branding Information
 All Executive Cars bookings include branding information:
@@ -72,14 +173,15 @@ Check if the Executive Cars booking system is operational.
     },
     "features": [
       "One-Way fare calculation (distance-based)",
-      "Hourly fare calculation (4-24 hours)",
-      "Return booking with wait charges",
+      "Hourly fare calculation (3-12 hours with tiered pricing)",
+      "Return booking with 10% discount",
       "Multiple vehicle types support",
-      "Time-based surcharges",
+      "Time-based surcharges (weekday/weekend)",
       "Equipment fees for extra passengers/luggage",
       "Group/Organisation booking support",
       "Multiple vehicles booking",
-      "Executive Cars branding"
+      "Executive Cars branding",
+      "Tiered hourly pricing (3-6h vs 6-12h)"
     ],
     "timestamp": "2024-01-15T10:30:00.000Z"
   }

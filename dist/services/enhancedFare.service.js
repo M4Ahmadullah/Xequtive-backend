@@ -114,6 +114,7 @@ class EnhancedFareService {
             // Check if specific zones are present
             const passesThroughCCZ = specialZones.includes("CONGESTION_CHARGE");
             const hasDartfordCrossing = specialZones.includes("DARTFORD_CROSSING");
+            const hasBlackwellSilverstoneTunnel = specialZones.includes("BLACKWELL_SILVERSTONE_TUNNEL");
             // Check for airports
             const airportsPickup = (0, specialZones_1.getAirportsNearLocation)(pickupLocation);
             const airportsDropoff = (0, specialZones_1.getAirportsNearLocation)(dropoffLocation);
@@ -168,6 +169,7 @@ class EnhancedFareService {
                     airports,
                     passesThroughCCZ,
                     hasDartfordCrossing,
+                    hasBlackwellSilverstoneTunnel,
                     serviceZones: specialZones,
                     passengers: request.passengers,
                 });
@@ -207,7 +209,7 @@ class EnhancedFareService {
     /**
      * Calculate fare for a specific vehicle type with enhanced options
      */
-    static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, serviceZones, passengers, }) {
+    static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, hasBlackwellSilverstoneTunnel, serviceZones, passengers, }) {
         // Array to collect messages for this vehicle type
         const messages = [];
         // Calculate distance charge using slab-based system
@@ -256,6 +258,23 @@ class EnhancedFareService {
             specialZoneFees += dartfordCharge;
             messages.push(`Dartford crossing: £${dartfordCharge.toFixed(2)}`);
         }
+        // Check for Blackwell & Silverstone Tunnel
+        if (hasBlackwellSilverstoneTunnel) {
+            let tunnelFee = 1.5; // Default off-peak rate
+            let feeDescription = "Blackwell & Silverstone Tunnel (off-peak)";
+            // Check if it's peak time (6-10AM or 4-7PM on weekdays)
+            const day = requestDate.getDay();
+            const hour = requestDate.getHours();
+            const isWeekday = day >= 1 && day <= 5; // Monday to Friday
+            const isMorningPeak = hour >= 6 && hour < 10;
+            const isAfternoonPeak = hour >= 16 && hour < 19;
+            if (isWeekday && (isMorningPeak || isAfternoonPeak)) {
+                tunnelFee = 4.0; // Peak rate
+                feeDescription = "Blackwell & Silverstone Tunnel (peak)";
+            }
+            specialZoneFees += tunnelFee;
+            messages.push(`${feeDescription}: £${tunnelFee.toFixed(2)}`);
+        }
         totalFare += specialZoneFees;
         // Add time surcharge message if applicable
         if (timeSurcharge > 0) {
@@ -303,8 +322,8 @@ class EnhancedFareService {
         if (equipmentFees > 0) {
             totalFare += equipmentFees;
         }
-        // Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
-        const roundedFare = Math.ceil(totalFare);
+        // Round down to nearest whole number (e.g., 14.1 becomes 14, 14.9 becomes 14)
+        const roundedFare = Math.floor(totalFare);
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,
@@ -334,37 +353,45 @@ class EnhancedFareService {
             ratePerMile = rates['0-4'];
             rangeDescription = '0-4 miles';
         }
-        else if (distance <= 10.9) {
-            ratePerMile = rates['4.1-10.9'];
-            rangeDescription = '4.1-10.9 miles';
+        else if (distance <= 10) {
+            ratePerMile = rates['4.1-10'];
+            rangeDescription = '4.1-10 miles';
+        }
+        else if (distance <= 15) {
+            ratePerMile = rates['10.1-15'];
+            rangeDescription = '10.1-15 miles';
         }
         else if (distance <= 20) {
-            ratePerMile = rates['11-20'];
-            rangeDescription = '11-20 miles';
+            ratePerMile = rates['15.1-20'];
+            rangeDescription = '15.1-20 miles';
+        }
+        else if (distance <= 30) {
+            ratePerMile = rates['20.1-30'];
+            rangeDescription = '20.1-30 miles';
         }
         else if (distance <= 40) {
-            ratePerMile = rates['20.1-40'];
-            rangeDescription = '20.1-40 miles';
+            ratePerMile = rates['30.1-40'];
+            rangeDescription = '30.1-40 miles';
+        }
+        else if (distance <= 50) {
+            ratePerMile = rates['41.1-50'];
+            rangeDescription = '41.1-50 miles';
         }
         else if (distance <= 60) {
-            ratePerMile = rates['41-60'];
-            rangeDescription = '41-60 miles';
+            ratePerMile = rates['51.1-60'];
+            rangeDescription = '51.1-60 miles';
         }
         else if (distance <= 80) {
-            ratePerMile = rates['60.1-80'];
-            rangeDescription = '60.1-80 miles';
+            ratePerMile = rates['61.1-80'];
+            rangeDescription = '61.1-80 miles';
         }
-        else if (distance <= 99) {
-            ratePerMile = rates['81-99'];
-            rangeDescription = '81-99 miles';
+        else if (distance <= 150) {
+            ratePerMile = rates['80.1-150'];
+            rangeDescription = '80.1-150 miles';
         }
-        else if (distance <= 149) {
-            ratePerMile = rates['100-149'];
-            rangeDescription = '100-149 miles';
-        }
-        else if (distance <= 299) {
-            ratePerMile = rates['150-299'];
-            rangeDescription = '150-299 miles';
+        else if (distance <= 300) {
+            ratePerMile = rates['150.1-300'];
+            rangeDescription = '150.1-300 miles';
         }
         else {
             ratePerMile = rates['300+'];

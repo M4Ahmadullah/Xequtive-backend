@@ -52,7 +52,7 @@ class FareCalculationService {
         // Step 8: Combine all components
         const totalFare = fareAfterMinimum + airportFee + timeSurcharge + equipmentFees;
         // Step 9: Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
-        const roundedFare = Math.ceil(totalFare);
+        const roundedFare = Math.floor(totalFare);
         return roundedFare;
     }
     /**
@@ -104,7 +104,7 @@ class FareCalculationService {
         // Step 8: Combine all components
         const totalFare = fareAfterMinimum + airportFee + timeSurcharge + equipmentFees;
         // Step 9: Round up to nearest whole number (e.g., 14.1 becomes 15, 14.9 becomes 15)
-        const finalFare = Math.ceil(totalFare);
+        const finalFare = Math.floor(totalFare);
         return {
             totalFare: finalFare,
             breakdown: {

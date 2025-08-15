@@ -4,6 +4,22 @@
 
 This document outlines the Xequtive booking process API, which follows the fare calculation process (described in the main API documentation). The booking system is designed with security in mind, implementing server-side fare verification to ensure data integrity.
 
+## Executive Cars vs Executive Taxi
+
+Xequtive operates two distinct booking systems:
+
+### **Executive Taxi (Point-to-Point)**
+- Standard taxi service for direct journeys
+- Available through `/api/bookings/create-enhanced` endpoint
+- Uses standard fare calculation with time-based surcharges
+
+### **Executive Cars (Event & Group Transportation)**
+- Specialized service for events, hourly bookings, and group travel
+- Available through `/api/hourly-bookings/create` endpoint
+- Includes hourly bookings (3-12 hours), one-way, and return journeys
+- **Return Bookings**: 10% discount applied to all fares
+- **Tiered Hourly Pricing**: Different rates for 3-6 hours vs 6-12 hours
+
 ## Booking Process Overview
 
 The booking process follows these steps:

@@ -2,6 +2,22 @@
 
 This document outlines the Xequtive API endpoints for managing user bookings, including retrieval, filtering, cancellation, and understanding the booking status flow.
 
+## Executive Cars vs Executive Taxi
+
+Xequtive operates two distinct booking systems:
+
+### **Executive Taxi (Point-to-Point)**
+- Standard taxi service for direct journeys
+- Bookings managed through `/api/bookings/user` endpoint
+- Standard fare calculation with time-based surcharges
+
+### **Executive Cars (Event & Group Transportation)**
+- Specialized service for events, hourly bookings, and group travel
+- Bookings managed through `/api/hourly-bookings/user` endpoint
+- Includes hourly bookings (3-12 hours), one-way, and return journeys
+- **Return Bookings**: 10% discount applied to all fares
+- **Tiered Hourly Pricing**: Different rates for 3-6 hours vs 6-12 hours
+
 ## API Security Requirements
 
 All endpoints in this document are protected and require authentication. The API uses Firebase Authentication and secure cookies to ensure that:

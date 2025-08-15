@@ -4,6 +4,22 @@
 
 This document outlines the Xequtive booking update process, which follows the same secure and comprehensive approach as the booking creation process. The update booking system ensures data integrity, fare recalculation, and maintains the platform's high security standards.
 
+## Executive Cars vs Executive Taxi
+
+Xequtive operates two distinct booking systems:
+
+### **Executive Taxi (Point-to-Point)**
+- Standard taxi service for direct journeys
+- Bookings updated through `/api/bookings/update-booking/:id` endpoint
+- Standard fare calculation with time-based surcharges
+
+### **Executive Cars (Event & Group Transportation)**
+- Specialized service for events, hourly bookings, and group travel
+- Bookings updated through `/api/hourly-bookings/update/:id` endpoint
+- Includes hourly bookings (3-12 hours), one-way, and return journeys
+- **Return Bookings**: 10% discount applied to all fares
+- **Tiered Hourly Pricing**: Different rates for 3-6 hours vs 6-12 hours
+
 ## Update Booking Process Overview
 
 The booking update process follows these key steps:

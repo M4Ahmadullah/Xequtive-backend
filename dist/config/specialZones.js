@@ -21,8 +21,8 @@ exports.AIRPORTS = {
             west: -0.500, // Extended to include all terminals
         },
         fees: {
-            pickup: 7.5,
-            dropoff: 7.5,
+            pickup: 7.5, // Standard vehicles (30-min wait)
+            dropoff: 6.0,
         },
         region: "London",
     },
@@ -36,8 +36,8 @@ exports.AIRPORTS = {
             west: -0.205, // Extended boundaries
         },
         fees: {
-            pickup: 8.0,
-            dropoff: 8.0,
+            pickup: 10.0, // Standard vehicles (30-min wait)
+            dropoff: 7.0,
         },
         region: "London",
     },
@@ -51,7 +51,7 @@ exports.AIRPORTS = {
             west: -0.400, // Extended boundaries
         },
         fees: {
-            pickup: 6.0,
+            pickup: 11.0, // Standard vehicles (30-min wait)
             dropoff: 6.0,
         },
         region: "London",
@@ -66,7 +66,7 @@ exports.AIRPORTS = {
             west: 0.215, // Extended boundaries
         },
         fees: {
-            pickup: 10.0,
+            pickup: 10.0, // Standard vehicles (30-min wait)
             dropoff: 7.0,
         },
         region: "London",
@@ -81,8 +81,8 @@ exports.AIRPORTS = {
             west: 0.035, // Extended boundaries
         },
         fees: {
-            pickup: 6.5,
-            dropoff: 0.0,
+            pickup: 6.90, // Standard vehicles (30-min wait)
+            dropoff: 0.0, // FREE
         },
         region: "London",
     },
@@ -126,8 +126,8 @@ exports.AIRPORTS = {
             west: -1.760, // Extended boundaries
         },
         fees: {
-            pickup: 7.5,
-            dropoff: 7.5,
+            pickup: 9.50, // Standard vehicles (30-min wait)
+            dropoff: 6.0,
         },
         region: "Birmingham",
     },
@@ -308,7 +308,23 @@ exports.SPECIAL_ZONES = {
             east: 0.27271,
             west: 0.247647,
         },
-        fee: 4.0,
+        fee: 2.5, // Updated from £4.00 to £2.50
+        region: "London",
+    },
+    BLACKWELL_SILVERSTONE_TUNNEL: {
+        name: "Blackwell & Silverstone Tunnel",
+        boundaries: {
+            north: 52.089,
+            south: 52.089,
+            east: -1.150,
+            west: -1.150,
+        },
+        fee: 4.0, // Peak time fee (6-10AM & 4-7PM)
+        operatingHours: {
+            days: [1, 2, 3, 4, 5], // Monday to Friday
+            startHour: 6, // 6am
+            endHour: 10, // 10am
+        },
         region: "London",
     },
     // Manchester zones
