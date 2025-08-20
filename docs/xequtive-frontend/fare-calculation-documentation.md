@@ -10,8 +10,11 @@ Xequtive operates two distinct booking systems:
 
 ### **Executive Taxi (Point-to-Point)**
 - Standard taxi service for direct journeys
+- **NEW**: Now supports one-way, hourly (3-12 hours), and return bookings
 - Uses the fare calculation system documented here
 - Available through `/api/fare-estimate/enhanced` endpoint
+- **NEW**: Hourly bookings use tiered pricing (3-6h vs 6-12h)
+- **NEW**: Return bookings receive 10% discount
 
 ### **Executive Cars (Event & Group Transportation)**
 - Specialized service for events, hourly bookings, and group travel
@@ -143,6 +146,67 @@ For journeys crossing the River Thames via the Dartford Crossing:
   - Wheelchair ramp and secure wheelchair fastening
   - Trained drivers for wheelchair assistance
   - Ideal for accessible transportation needs
+
+## Enhanced Taxi Booking Types
+
+**NEW**: The Enhanced Taxi system now supports three distinct booking types, providing flexibility for different travel needs:
+
+### **1. One-Way Bookings (Default)**
+- **Description**: Standard point-to-point journey
+- **Pricing**: Distance-based fare calculation using slab pricing
+- **Use Case**: Airport transfers, business meetings, shopping trips
+- **Additional Features**: All standard features (time surcharges, airport fees, special zones)
+
+### **2. Hourly Bookings (3-12 Hours)**
+- **Description**: Continuous service where the driver stays with you
+- **Pricing**: Tiered hourly rates × number of hours
+  - **3-6 Hours**: Higher hourly rates for shorter durations
+  - **6-12 Hours**: Lower hourly rates for longer durations
+- **Use Case**: Business meetings, shopping trips, city tours, event transportation
+- **Additional Features**: 
+  - Waiting time included in hourly rate
+  - Same tiered pricing as Executive Cars system
+  - Distance-based pricing replaced with hourly pricing
+
+### **3. Return Bookings**
+- **Description**: Round-trip journeys with two options
+- **Pricing**: Distance doubled + 10% discount applied
+- **Options**:
+  - **Wait-and-Return**: Driver waits at destination and returns you later
+  - **Later-Date**: Two separate scheduled one-way journeys
+- **Use Case**: Business meetings, airport pickups with return, day trips
+- **Additional Features**: 
+  - 10% discount on total fare
+  - Flexible return timing
+  - Same pricing structure as Executive Cars return bookings
+
+### **Enhanced Taxi vs Executive Cars Pricing**
+- **One-Way**: Uses standard Enhanced Taxi pricing (slab-based distance rates)
+- **Hourly**: Uses Executive Cars hourly rates (tiered 3-6h vs 6-12h)
+- **Return**: Uses Executive Cars return logic (distance doubled + 10% discount)
+- **All Other Features**: Time surcharges, airport fees, special zones remain the same
+
+### **Enhanced Taxi Hourly Rates (3-12 Hours)**
+
+**NEW**: Enhanced Taxi now uses the same tiered hourly pricing as Executive Cars:
+
+| Vehicle Type | 3-6 Hours | 6-12 Hours |
+|-------------|-----------|-------------|
+| Saloon | £30.00 | £25.00 |
+| Estate | £35.00 | £30.00 |
+| MPV-6 Seater | £35.00 | £35.00 |
+| MPV-8 Seater | £40.00 | £35.00 |
+| Executive Saloon | £45.00 | £40.00 |
+| Executive MPV-8 | £55.00 | £50.00 |
+| VIP-Saloon | £75.00 | £70.00 |
+| VIP-SUV/MPV | £85.00 | £80.00 |
+
+**Hourly Pricing Notes**:
+- **3-6 Hours**: Higher hourly rates for shorter durations
+- **6-12 Hours**: Lower hourly rates for longer durations
+- **Total Fare**: Hours × hourly rate + additional fees (airport fees, time surcharges, special zones)
+- **Waiting Time**: Included in hourly rate, no additional charges
+- **Distance**: Not used for hourly bookings (replaced by hourly pricing)
 
 ## Pricing Structure Overview
 

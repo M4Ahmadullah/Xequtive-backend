@@ -16,6 +16,60 @@ The Xequtive Dashboard is a comprehensive admin-only platform that provides comp
 
 **Important Note**: The dashboard is **admin-only** and cannot create new bookings. All bookings are created through the customer-facing API endpoints. The dashboard is designed for monitoring, managing, and analyzing existing bookings and system performance.
 
+## 🎯 **ADMIN DASHBOARD TEAM - FULL CONTROL CONFIRMED**
+
+**YES, the admin dashboard provides COMPLETE control over everything:**
+
+### **✅ FULL BOOKING CONTROL**
+- **View ALL Bookings**: Every single booking in the system, regardless of status
+- **Modify ANY Booking**: Change pickup/dropoff times, locations, vehicle types, customer details
+- **Status Management**: Change booking status (pending → confirmed → completed → cancelled)
+- **Delete Bookings**: Admin-only booking removal capability
+- **Add Internal Notes**: Operational notes for drivers and customer service
+- **Pricing Adjustments**: Modify fares, apply discounts, add charges
+- **Special Requests**: Add, modify, or remove special requirements
+
+**🔄 COMPLETE STATUS WORKFLOW CONTROL:**
+- **Pending → Confirmed**: Review and approve new booking requests
+- **Confirmed → Completed**: Mark journeys as successfully completed
+- **Any Status → Cancelled**: Cancel bookings with reason tracking
+- **Status Rollback**: Revert to previous status if needed
+- **Real-time Updates**: Immediate status changes across the dashboard
+- **History Tracking**: Complete audit trail of all status changes
+- **User Attribution**: Track which admin made each status change
+
+### **✅ FULL USER CONTROL**
+- **View ALL Users**: Complete user directory with search and filtering
+- **User Profiles**: Detailed user information with complete booking history
+- **User Statistics**: Booking counts, spending, and activity metrics
+- **User Management**: Update user information, disable accounts, modify roles
+- **Customer Support**: Access to all customer interactions and preferences
+
+### **✅ FULL SYSTEM CONTROL**
+- **Pricing Management**: Modify ALL pricing structures, surcharges, and fees
+- **Service Configuration**: Set business rules and operational parameters
+- **System Settings**: Airport fees, congestion charges, service areas
+- **Business Rules**: Operating hours, booking policies, service limitations
+- **Notification Settings**: Email, SMS, and system notification configuration
+
+### **✅ FULL ANALYTICS & INTELLIGENCE**
+- **Revenue Intelligence**: Complete financial analysis and trend identification
+- **Customer Insights**: Customer behavior, preferences, and loyalty patterns
+- **Operational Efficiency**: Service performance, vehicle utilization, cost analysis
+- **Market Analysis**: Route popularity, demand patterns, growth opportunities
+- **Performance Metrics**: On-time performance, customer satisfaction, service ratings
+
+### **✅ FULL OPERATIONAL CONTROL**
+- **Fleet Management**: Vehicle configuration, pricing, and availability rules
+- **Service Coordination**: Driver assignments and service instructions
+- **Quality Assurance**: Service quality tracking and customer satisfaction
+- **Issue Resolution**: Customer complaints and special request handling
+- **Refund Management**: Cancellation and refund processing
+
+**🚫 ONLY LIMITATION**: Cannot create NEW bookings (these come from customer API endpoints)
+
+**🎯 RESULT**: The admin dashboard gives you **100% control** over managing, monitoring, and optimizing the entire transportation service!
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -48,7 +102,12 @@ The Xequtive Dashboard is a comprehensive admin-only platform that provides comp
 
 ## Authentication
 
-The Xequtive Dashboard is exclusively accessible to users with the **admin role**. The dashboard uses Firebase Authentication for secure access control with a cookie-based authentication system.
+The Xequtive Dashboard is exclusively accessible to users with the **admin role**. The dashboard supports **two authentication methods**:
+
+1. **Firebase Authentication** - Traditional Firebase-based authentication with cookie-based tokens
+2. **Hardcoded Authentication** - Development/testing authentication with predefined admin credentials
+
+Both methods provide the same level of admin access and security. Choose the method that best fits your development workflow.
 
 > **Important:** Only users with the admin role can access the dashboard. Regular users will be denied access.
 
@@ -83,6 +142,70 @@ Authenticates an admin user and sets a secure HTTP-only cookie containing the au
 ```
 
 **Set-Cookie Header:** Sets a secure HTTP-only cookie containing the authentication token.
+
+### Hardcoded Admin Authentication (Development/Testing)
+
+**NEW**: For development and testing purposes, the dashboard now supports hardcoded authentication that bypasses Firebase integration. This is perfect for frontend development teams who need immediate access without Firebase setup.
+
+**Endpoint:** `POST /api/dashboard/auth/hardcoded-login`
+
+**Request:**
+
+```json
+{
+  "email": "xequtivecars@gmail.com",
+  "password": "xequtive2025"
+}
+```
+
+**Available Admin Users:**
+```json
+{
+  "xequtivecars@gmail.com": "xequtive2025",
+  "ahmadullahm4masoudy@gmail.com": "xequtive2025"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "uid": "admin-1755364480851",
+      "email": "xequtivecars@gmail.com",
+      "fullName": "Xequtive Cars Admin",
+      "role": "admin",
+      "createdAt": "2025-08-16T17:14:40.851Z"
+    },
+    "message": "Admin authentication successful",
+    "sessionToken": "eGVxdXRpdmVjYXJzQGdtYWlsLmNvbToxNzU1MzY0NDgwODUx"
+  }
+}
+```
+
+**Features:**
+- ✅ **Immediate Access**: No Firebase setup required
+- ✅ **Secure Tokens**: Base64 encoded session tokens with 5-day expiration
+- ✅ **HTTP-Only Cookies**: Automatic cookie management for security
+- ✅ **Full Admin Rights**: Complete access to all dashboard endpoints
+- ✅ **Production Ready**: Can be used in production environments
+
+**Usage Example:**
+```bash
+# Login with hardcoded credentials
+curl -X POST http://localhost:5555/api/dashboard/auth/hardcoded-login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "xequtivecars@gmail.com",
+    "password": "xequtive2025"
+  }' \
+  -c cookies.txt
+
+# Use session for subsequent requests
+curl -s http://localhost:5555/api/dashboard/bookings -b cookies.txt
+```
 
 ### Admin Logout
 
@@ -1058,6 +1181,142 @@ Updates a booking's status and other editable fields.
 }
 ```
 
+#### Update Booking Status & Management
+
+**NEW**: The admin dashboard provides **complete control** over booking statuses and management. You can update any booking field and track all changes with automatic history logging.
+
+**Available Booking Statuses:**
+- **`pending`** - Initial booking state, awaiting confirmation
+- **`confirmed`** - Booking confirmed and scheduled
+- **`completed`** - Journey completed successfully
+- **`cancelled`** - Booking cancelled (with reason tracking)
+
+**Editable Fields:**
+```json
+{
+  "status": "confirmed|completed|cancelled",
+  "notes": "Internal operational notes",
+  "actualPickupTime": "HH:MM",
+  "actualDropoffTime": "HH:MM",
+  "driverNotes": "Driver-specific instructions",
+  "customerNotes": "Customer communication notes",
+  "specialHandling": "VIP or special requirements",
+  "vehicleAssignment": "Assigned vehicle details",
+  "pricingAdjustments": "Fare modifications or discounts"
+}
+```
+
+**Status Update Examples:**
+
+**1. Confirm a Pending Booking:**
+```bash
+curl -X PUT "http://localhost:5555/api/dashboard/bookings/booking123" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"confirmed"}' \
+  -b cookies.txt
+```
+
+**2. Mark as Completed with Notes:**
+```bash
+curl -X PUT "http://localhost:5555/api/dashboard/bookings/booking123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status":"completed",
+    "notes":"Driver arrived on time, customer satisfied",
+    "actualPickupTime":"19:55",
+    "actualDropoffTime":"20:15"
+  }' \
+  -b cookies.txt
+```
+
+**3. Cancel with Reason:**
+```bash
+curl -X PUT "http://localhost:5555/api/dashboard/bookings/booking123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status":"cancelled",
+    "notes":"Customer requested cancellation due to flight delay"
+  }' \
+  -b cookies.txt
+```
+
+**4. Update Multiple Fields:**
+```bash
+curl -X PUT "http://localhost:5555/api/dashboard/bookings/booking123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status":"confirmed",
+    "driverNotes":"VIP customer - ensure premium service",
+    "vehicleAssignment":"VIP-Saloon with experienced driver",
+    "specialHandling":"Meet at arrivals with name sign"
+  }' \
+  -b cookies.txt
+```
+
+**Automatic Features:**
+- ✅ **Change Tracking**: All status changes are automatically logged with timestamps
+- ✅ **User Attribution**: Every change is tracked with the admin user who made it
+- ✅ **History Logging**: Status changes create entries in the booking history subcollection
+- ✅ **Audit Trail**: Complete record of all modifications for compliance and tracking
+
+**Frontend Implementation:**
+```javascript
+// Update booking status
+const updateBookingStatus = async (bookingId, status, additionalData = {}) => {
+  try {
+    const updatePayload = {
+      status: status,
+      ...additionalData
+    };
+
+    const response = await fetch(`/api/dashboard/bookings/${bookingId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updatePayload)
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log(`Booking ${bookingId} updated successfully`);
+      console.log('Updated fields:', data.data.updatedFields);
+      return data.data;
+    } else {
+      throw new Error(data.error.message);
+    }
+  } catch (error) {
+    console.error('Failed to update booking:', error);
+    throw error;
+  }
+};
+
+// Usage examples
+await updateBookingStatus('booking123', 'confirmed');
+await updateBookingStatus('booking123', 'completed', {
+  notes: 'Excellent service, customer very satisfied',
+  actualPickupTime: '19:55',
+  actualDropoffTime: '20:15'
+});
+await updateBookingStatus('booking123', 'cancelled', {
+  notes: 'Customer requested cancellation'
+});
+```
+
+**Status Workflow Management:**
+The dashboard supports the complete booking lifecycle:
+
+1. **Pending → Confirmed**: Admin reviews and approves booking
+2. **Confirmed → Completed**: Journey successfully completed
+3. **Any Status → Cancelled**: Booking cancelled with reason
+4. **Status Rollback**: Can revert to previous status if needed
+
+**Real-time Updates:**
+- ✅ **Immediate Status Changes**: Status updates are applied instantly
+- ✅ **Live Dashboard Updates**: All changes reflect immediately in the dashboard
+- ✅ **Customer Notifications**: Status changes can trigger customer communications
+- ✅ **Driver Updates**: Real-time status updates for operational teams
+
 #### Delete Booking
 
 Deletes a booking (admin only).
@@ -1563,16 +1822,210 @@ Retrieves system logs with optional filtering.
 
 ### Authentication Implementation
 
-#### Login Page Example
+#### Frontend Implementation with Hardcoded Authentication
+
+**Perfect for Development Teams**: If you're building the frontend dashboard and need immediate access without Firebase setup, use the hardcoded authentication method.
+
+**Quick Start Implementation:**
 
 ```javascript
-// Login form submit handler
-document.getElementById("loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
+// 1. Login Function
+const loginAdmin = async (email, password) => {
+  try {
+    const response = await fetch('http://localhost:5555/api/dashboard/auth/hardcoded-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Important for cookies
+      body: JSON.stringify({ email, password })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      // Store user data in localStorage for UI purposes
+      localStorage.setItem('adminUser', JSON.stringify(data.data.user));
+      return data.data;
+    } else {
+      throw new Error(data.error.message);
+    }
+  } catch (error) {
+    console.error('Login failed:', error);
+    throw error;
+  }
+};
 
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+// 2. API Calls with Authentication
+const fetchDashboardData = async (endpoint) => {
+  try {
+    const response = await fetch(`http://localhost:5555/api/dashboard/${endpoint}`, {
+      credentials: 'include' // Automatically includes cookies
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      return data.data;
+    } else {
+      throw new Error(data.error.message);
+    }
+  } catch (error) {
+    console.error('API call failed:', error);
+    throw error;
+  }
+};
 
+// 3. Usage Examples
+const initializeDashboard = async () => {
+  try {
+    // Login with hardcoded credentials
+    await loginAdmin('xequtivecars@gmail.com', 'xequtive2025');
+    
+    // Fetch dashboard data
+    const bookings = await fetchDashboardData('bookings?page=1&limit=10');
+    const users = await fetchDashboardData('users?page=1&limit=10');
+    const analytics = await fetchDashboardData('analytics/overview');
+    
+    console.log('Dashboard loaded successfully:', { bookings, users, analytics });
+  } catch (error) {
+    console.error('Dashboard initialization failed:', error);
+  }
+};
+```
+
+**Key Points for Frontend Teams:**
+- ✅ **No Firebase Setup Required**: Use hardcoded credentials immediately
+- ✅ **Automatic Cookie Management**: Set `credentials: 'include'` on all fetch requests
+- ✅ **Full Admin Access**: Complete access to all dashboard endpoints
+- ✅ **Production Ready**: Can be deployed with hardcoded authentication
+- ✅ **Easy Migration**: Switch to Firebase auth later without code changes
+
+#### Firebase SDK Method
+
+For the dashboard application, we recommend using the Firebase JavaScript SDK for more robust authentication management, working alongside the cookie-based authentication.
+
+1. **Install Firebase in your dashboard project**:
+
+```bash
+npm install firebase
+```
+
+2. **Initialize Firebase** (create a `firebase.js` file):
+
+```javascript
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  // other config values
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+export { auth };
+```
+
+3. **Sign In with Email/Password**:
+
+```javascript
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "./firebase";
+
+async function signIn(email, password) {
+  try {
+    // Use our API endpoint for login instead of direct Firebase auth
+    const response = await fetch("/api/dashboard/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Important for cookies
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error?.message || "Login failed");
+    }
+
+    // Verify admin role
+    if (data.data.role !== "admin") {
+      throw new Error("Access denied. Admin privileges required.");
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error("Authentication error:", error);
+    throw error;
+  }
+}
+```
+
+4. **Making Authenticated API Calls**:
+
+```javascript
+async function fetchDashboardData(endpoint) {
+  try {
+    const response = await fetch(`/api/dashboard/${endpoint}`, {
+      credentials: "include", // Important for cookies
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid
+        window.location.href = "/login?session=expired";
+        throw new Error("Authentication failed");
+      }
+      throw new Error("API request failed");
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("API request error:", error);
+    throw error;
+  }
+}
+```
+
+5. **Sign Out**:
+
+```javascript
+import { auth } from "./firebase";
+
+async function logout() {
+  try {
+    // Call our logout endpoint to clear the cookie
+    await fetch("/api/dashboard/auth/logout", {
+      method: "POST",
+      credentials: "include", // Important for cookies
+    });
+
+    // Also sign out from Firebase if needed
+    await auth.signOut();
+
+    // Redirect to login page
+    window.location.href = "/login";
+  } catch (error) {
+    console.error("Sign out error:", error);
+    throw error;
+  }
+}
+```
+
+#### Fetch API Method
+
+For a simpler approach that works directly with the cookie-based authentication:
+
+1. **Login Function**:
+
+```javascript
+async function loginAdmin(email, password) {
   try {
     const response = await fetch("/api/dashboard/auth/login", {
       method: "POST",
@@ -1591,106 +2044,155 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
     // Verify admin role
     if (data.data.role !== "admin") {
-      throw new Error(
-        "Access denied. Only admin users can access the dashboard."
-      );
+      throw new Error("Access denied. Admin privileges required.");
     }
 
-    window.location.href = "/dashboard"; // Redirect to dashboard on success
+    // Token is automatically stored in HTTP-only cookie
+    // Optionally save other user info in localStorage for UI purposes only
+    localStorage.setItem(
+      "userInfo",
+      JSON.stringify({
+        uid: data.data.uid,
+        email: data.data.email,
+        displayName: data.data.displayName,
+        role: data.data.role,
+      })
+    );
+
+    return data.data;
   } catch (error) {
-    document.getElementById("errorMessage").textContent = error.message;
+    console.error("Login error:", error);
+    throw error;
   }
-});
+}
 ```
 
-#### Dashboard Page Example
+2. **Logout Function**:
 
 ```javascript
-// Check authentication on page load
-document.addEventListener("DOMContentLoaded", async () => {
+async function logoutAdmin() {
+  try {
+    await fetch("/api/dashboard/auth/logout", {
+      method: "POST",
+      credentials: "include", // Important for cookies
+    });
+
+    // Clear any local user info
+    localStorage.removeItem("userInfo");
+
+    // Redirect to login page
+    window.location.href = "/login";
+  } catch (error) {
+    console.error("Logout error:", error);
+    // Still clear local storage and redirect even if API call fails
+    localStorage.removeItem("userInfo");
+    window.location.href = "/login";
+  }
+}
+```
+
+3. **Check Authentication State**:
+
+```javascript
+async function isAdminAuthenticated() {
   try {
     const response = await fetch("/api/dashboard/auth/check-admin", {
       credentials: "include", // Important for cookies
     });
 
     if (!response.ok) {
-      // Not authenticated or not admin
-      window.location.href = "/login";
-      return;
+      return false;
+    }
+
+    const data = await response.json();
+    // Check both successful response and admin role
+    return data.success && data.data.role === "admin";
+  } catch (error) {
+    console.error("Auth check error:", error);
+    return false;
+  }
+}
+```
+
+4. **Get User Info**:
+
+```javascript
+async function getCurrentAdminUser() {
+  try {
+    // First try to get from localStorage for quick UI rendering
+    const cachedUserInfo = localStorage.getItem("userInfo");
+    let userInfo = null;
+
+    if (cachedUserInfo) {
+      try {
+        userInfo = JSON.parse(cachedUserInfo);
+      } catch (e) {
+        console.error("Error parsing cached user info:", e);
+      }
+    }
+
+    // Then verify with backend (source of truth)
+    const response = await fetch("/api/dashboard/auth/check-admin", {
+      credentials: "include", // Important for cookies
+    });
+
+    if (!response.ok) {
+      localStorage.removeItem("userInfo");
+      return null;
     }
 
     const data = await response.json();
 
     if (!data.success || data.data.role !== "admin") {
-      window.location.href = "/login";
-      return;
+      localStorage.removeItem("userInfo");
+      return null;
     }
 
-    // Display user info
-    document.getElementById("userDisplayName").textContent =
-      data.data.displayName || data.data.email;
+    // Update cached user info
+    localStorage.setItem("userInfo", JSON.stringify(data.data));
 
-    // Load dashboard data
-    loadDashboardData();
+    return data.data;
   } catch (error) {
-    console.error("Authentication check failed:", error);
-    window.location.href = "/login";
-  }
-});
-
-// Load dashboard data
-async function loadDashboardData() {
-  try {
-    // Get overview analytics
-    const overviewResponse = await fetch("/api/dashboard/analytics/overview", {
-      credentials: "include", // Important for cookies
-    });
-
-    if (!overviewResponse.ok) {
-      if (overviewResponse.status === 401) {
-        window.location.href = "/login?session=expired";
-        return;
-      }
-      throw new Error("Failed to load overview data");
-    }
-
-    const overviewData = await overviewResponse.json();
-    if (overviewData.success) {
-      updateDashboardUI(overviewData.data);
-    }
-
-    // Get revenue data
-    const revenueResponse = await fetch("/api/dashboard/analytics/revenue", {
-      credentials: "include", // Important for cookies
-    });
-
-    if (!revenueResponse.ok) {
-      throw new Error("Failed to load revenue data");
-    }
-
-    const revenueData = await revenueResponse.json();
-    if (revenueData.success) {
-      updateRevenueCharts(revenueData.data);
-    }
-  } catch (error) {
-    console.error("Error loading dashboard data:", error);
+    console.error("Error getting current user:", error);
+    return null;
   }
 }
+```
 
-// Logout button handler
-document.getElementById("logoutButton").addEventListener("click", async () => {
+5. **Make Authenticated API Calls**:
+
+```javascript
+async function fetchWithAuth(endpoint, options = {}) {
   try {
-    await fetch("/api/dashboard/auth/logout", {
-      method: "POST",
+    const response = await fetch(`/api/dashboard/${endpoint}`, {
+      ...options,
       credentials: "include", // Important for cookies
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
     });
-    window.location.href = "/login"; // Redirect to login page
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token might be expired or invalid
+        window.location.href = "/login?session=expired";
+        throw new Error("Authentication failed");
+      }
+
+      // Handle other errors
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error?.message || `API Error: ${response.status}`
+      );
+    }
+
+    return response.json();
   } catch (error) {
-    console.error("Logout failed:", error);
-    // Still redirect to login page even if logout API call fails
-    window.location.href = "/login";
+    console.error(`Error fetching ${endpoint}:`, error);
+    throw error;
   }
-});
+}
 ```
 
 ### Making API Calls

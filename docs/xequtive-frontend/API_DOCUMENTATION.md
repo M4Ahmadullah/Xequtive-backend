@@ -17,6 +17,34 @@ The platform focuses on providing a seamless, high-end transportation experience
 - **Additional Stops**: Support for multi-stop journeys with accurate fare adjustments
 - **Firebase Authentication**: Secure user authentication using Google Firebase
 - **Mapbox Directions Integration**: Precise distance and traffic calculations using Mapbox Directions API (replacing Google Distance Matrix)
+- **🆕 Wait & Return Feature**: Choose between "wait-and-return" (no return date needed) or "later-date" return bookings
+
+## 🆕 New Return Booking Types
+
+We've introduced a new **Wait & Return** feature for both Enhanced and Hourly booking systems:
+
+### Return Type Options:
+1. **Wait & Return** (`returnType: "wait-and-return"`)
+   - Driver waits at destination and returns
+   - **No return date required**
+   - Same pricing as regular return bookings
+
+2. **Later Date** (`returnType: "later-date"`)
+   - Scheduled return on different date/time
+   - **Return date and time required**
+   - Two separate journeys calculated
+
+### Usage:
+```json
+{
+  "bookingType": "return",
+  "returnType": "wait-and-return",  // NEW FIELD
+  "returnDate": "2025-01-20",       // Optional for wait-and-return
+  "returnTime": "18:00"             // Optional for wait-and-return
+}
+```
+
+📖 **See full documentation**: [Wait & Return Feature Guide](./WAIT_AND_RETURN_FEATURE.md)
 
 ## API Security
 
@@ -205,14 +233,22 @@ The enhanced fare estimation endpoint calculates fares for all available vehicle
 - Time-based pricing (peak hours, weekends)
 - Special zones (airports, congestion charge)
 - Additional services (child seats, luggage)
+- **NEW**: Support for one-way, hourly (3-12 hours), and return bookings
 
 **Important**: Our fare calculation system uses Mapbox Directions API for precise distance and duration calculations (replacing Google Distance Matrix). Fares are calculated using:
 1. **Distance-based charges** using a slab pricing system (different rates for different distance ranges)
 2. **Minimum fare enforcement** to ensure fair pricing for short journeys
 3. **Additional fees** for airports, special zones, and extra services
 4. **Time-based surcharges** for peak hours and weekends
+5. **NEW**: Hourly rates for hourly bookings and return discounts for return journeys
 
 The minimum fare acts as a floor price - if the distance-based calculation plus additional fees is less than the minimum fare, the minimum fare is applied instead.
+
+**NEW: Enhanced Taxi now supports three booking types:**
+
+1. **One-Way** (default): Standard point-to-point journey with distance-based pricing
+2. **Hourly**: 3-12 hours of continuous service with tiered hourly rates
+3. **Return**: Round-trip journeys with 10% discount applied
 
 **Endpoint**: `POST /api/fare-estimate/enhanced`
 
@@ -252,9 +288,36 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
     "boosterSeat": 1, // Required: Min: 0, Max: 5
     "childSeat": 0, // Required: Min: 0, Max: 5
     "wheelchair": 0 // Required: Min: 0, Max: 2
-  }
+  },
+  "bookingType": "one-way", // NEW: "one-way" | "hourly" | "return" (default: "one-way")
+  "hours": 6, // NEW: Required for hourly bookings, Min: 3, Max: 12
+  "returnType": "wait-and-return", // NEW: Required for return bookings, "wait-and-return" | "later-date"
+  "returnDate": "2024-04-20", // NEW: Required for later-date returns, Format: YYYY-MM-DD
+  "returnTime": "18:00" // NEW: Required for later-date returns, Format: HH:mm
 }
 ```
+
+**NEW: Booking Type Details**
+
+1. **One-Way Bookings** (`bookingType: "one-way"`):
+   - Standard distance-based pricing
+   - No additional fields required
+   - Default behavior if no bookingType specified
+
+2. **Hourly Bookings** (`bookingType: "hourly"`):
+   - Requires `hours` field (3-12 hours)
+   - Uses tiered hourly rates:
+     - **3-6 hours**: Higher hourly rates
+     - **6-12 hours**: Lower hourly rates
+   - Distance-based pricing is replaced with hourly pricing
+   - Same hourly rates as Executive Cars system
+
+3. **Return Bookings** (`bookingType: "return"`):
+   - Requires `returnType` field
+   - **Wait-and-Return**: Driver waits at destination and returns you later
+   - **Later-Date**: Two separate scheduled one-way journeys
+   - **10% discount** applied to total fare
+   - For later-date returns, requires `returnDate` and `returnTime`
 
 **Validation Rules**:
 
@@ -278,6 +341,12 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
    - `checkedLuggage`, `handLuggage`, `mediumLuggage`: Integer between 0 and 8
    - `babySeat`, `boosterSeat`, `childSeat`: Integer between 0 and 5
    - `wheelchair`: Integer between 0 and 2
+
+4. **NEW: Booking Type Validation**:
+   - `bookingType`: Must be "one-way", "hourly", or "return"
+   - `hours`: Required for hourly bookings, integer between 3 and 12
+   - `returnType`: Required for return bookings, must be "wait-and-return" or "later-date"
+   - `returnDate` and `returnTime`: Required for later-date returns, must be valid date/time formats
 
 **Error Response Format**:
 

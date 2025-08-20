@@ -8,8 +8,11 @@ Xequtive operates two distinct booking systems:
 
 ### **Executive Taxi (Point-to-Point)**
 - Standard taxi service for direct journeys
+- **NEW**: Now supports one-way, hourly (3-12 hours), and return bookings
 - Bookings managed through `/api/bookings/user` endpoint
 - Standard fare calculation with time-based surcharges
+- **NEW**: Hourly bookings use tiered pricing (3-6h vs 6-12h)
+- **NEW**: Return bookings receive 10% discount
 
 ### **Executive Cars (Event & Group Transportation)**
 - Specialized service for events, hourly bookings, and group travel

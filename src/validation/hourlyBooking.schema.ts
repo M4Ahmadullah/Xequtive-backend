@@ -94,10 +94,10 @@ const returnDetailsSchema = z.object({
   
   // Return journey
   returnType: z.enum(["wait-and-return", "later-date"]),
-  returnPickup: locationSchema.optional(),
-  returnDropoff: locationSchema.optional(),
-  returnDateTime: dateTimeSchema.optional(),
-  waitDuration: z.number().min(0).optional(),
+  returnPickup: locationSchema.optional(), // For later-date returns
+  returnDropoff: locationSchema.optional(), // For later-date returns
+  returnDateTime: dateTimeSchema.optional(), // For later-date returns
+  waitDuration: z.number().min(0).optional(), // Hours for wait-and-return
   returnStops: z.array(locationSchema).optional(),
 });
 

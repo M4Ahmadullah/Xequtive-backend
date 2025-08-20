@@ -76,7 +76,18 @@ export class EnhancedFareService {
       } else if (request.locations) {
         // Old format with location objects
         pickupLocation = request.locations.pickup.coordinates;
-        dropoffLocation = request.locations.dropoff.coordinates;
+        
+        // For hourly bookings, dropoff location is optional
+        if (request.bookingType === "hourly") {
+          // Use pickup location as dropoff for hourly bookings (no actual travel needed)
+          dropoffLocation = request.locations.dropoff?.coordinates || pickupLocation;
+        } else {
+          // For one-way and return bookings, dropoff is required
+          if (!request.locations.dropoff) {
+            throw new Error("Dropoff location is required for one-way and return bookings");
+          }
+          dropoffLocation = request.locations.dropoff.coordinates;
+        }
         
         // Handle stops professionally - geocode addresses and include in route
         additionalStops = [];
@@ -222,6 +233,25 @@ export class EnhancedFareService {
       // Remove all other special zones and time-based notifications
       // We're only keeping airport, congestion charge, and dartford crossing notifications
 
+      // Handle different booking types
+      const bookingType = request.bookingType || "one-way";
+      let baseMultiplier = 1.0;
+      let returnDiscount = 0.0;
+      let hourlyRate = 0.0;
+
+      if (bookingType === "return") {
+        // Apply 10% discount for return bookings
+        returnDiscount = 0.10;
+        baseMultiplier = 1.0; // Distance is calculated for one leg, then doubled
+      } else if (bookingType === "hourly") {
+        // For hourly bookings, we'll use the same pricing structure but calculate based on hours
+        const hours = request.hours || 3;
+        if (hours < 3 || hours > 12) {
+          throw new Error("Hourly bookings must be between 3 and 12 hours");
+        }
+        // Hourly rate will be calculated per vehicle type
+      }
+
       // Calculate fare for each vehicle type
       const allVehicleTypes = Object.values(vehicleTypes);
       const vehicleOptions: VehicleOption[] = [];
@@ -235,12 +265,19 @@ export class EnhancedFareService {
           duration,
           additionalStops: additionalStops.length,
           requestDate,
-          airports,
+          airports: {
+            pickupAirport: airports.pickupAirport || undefined,
+            dropoffAirport: airports.dropoffAirport || undefined,
+          },
           passesThroughCCZ,
           hasDartfordCrossing,
           hasBlackwellSilverstoneTunnel,
           serviceZones: specialZones,
           passengers: request.passengers,
+          bookingType: request.bookingType || "one-way",
+          hours: request.hours || 0,
+          returnDiscount: returnDiscount,
+          returnType: request.returnType,
         });
 
         // Return vehicle option with calculated price
@@ -293,18 +330,26 @@ export class EnhancedFareService {
     hasBlackwellSilverstoneTunnel,
     serviceZones,
     passengers,
+    bookingType = "one-way",
+    hours = 0,
+    returnDiscount = 0.0,
+    returnType,
   }: {
     vehicleType: VehicleType;
     distance: number;
     duration: number;
     additionalStops: number;
     requestDate: Date;
-    airports: { pickupAirport: string | null; dropoffAirport: string | null };
+    airports: { pickupAirport?: string; dropoffAirport?: string };
     passesThroughCCZ: boolean;
     hasDartfordCrossing: boolean;
     hasBlackwellSilverstoneTunnel: boolean;
     serviceZones: string[];
     passengers?: BookingPassengersData;
+    bookingType?: string;
+    hours?: number;
+    returnDiscount?: number;
+    returnType?: 'wait-and-return' | 'later-date';
   }): VehiclePriceInfo {
 
 
@@ -386,6 +431,39 @@ export class EnhancedFareService {
     
     totalFare += specialZoneFees;
 
+    // Handle different booking types
+    let finalDistanceCharge = distanceCharge;
+    
+    if (bookingType === "hourly" && hours > 0) {
+      // For hourly bookings, calculate based on hours instead of distance
+      const hourlyRate = this.getHourlyRate(vehicleType, hours);
+      totalFare = hourlyRate * hours;
+      
+      // Add hourly booking message
+      messages.push(`Hourly rate (${hours} hours): £${hourlyRate.toFixed(2)}/hour`);
+      
+      // Reset distance charge for hourly bookings
+      finalDistanceCharge = 0;
+    } else if (bookingType === "return") {
+      // For return bookings, double the distance and apply discount
+      totalFare = totalFare * 2;
+      
+      // Apply return discount
+      const discountAmount = totalFare * returnDiscount;
+      totalFare -= discountAmount;
+      
+      // Add return booking messages based on return type
+      if (returnType === 'wait-and-return') {
+        messages.push("Return journey: Driver waits at destination and returns");
+        messages.push("Driver wait time: unlimited");
+      } else if (returnType === 'later-date') {
+        messages.push("Return journey: Scheduled return on different date/time");
+      }
+      
+      messages.push("Return journey: Distance doubled");
+      messages.push(`Return discount (10%): -£${discountAmount.toFixed(2)}`);
+    }
+
     // Add time surcharge message if applicable
     if (timeSurcharge > 0) {
       const day = requestDate.getDay();
@@ -447,7 +525,7 @@ export class EnhancedFareService {
       messages, // Include the messages array
       breakdown: {
         baseFare: 0, // No base rate anymore
-        distanceCharge,
+        distanceCharge: finalDistanceCharge,
         minimumFare: vehicleType.minimumFare,
         additionalStopFee: stopCharge,
         timeSurcharge,
@@ -548,5 +626,27 @@ export class EnhancedFareService {
     const timePeriod = timeSurcharges[timeCategory][period as keyof typeof timeSurcharges.weekdays];
     
     return timePeriod?.surcharges[mappedVehicleType] || 0;
+  }
+
+  /**
+   * Get hourly rate for a vehicle type based on hours
+   */
+  private static getHourlyRate(vehicleType: VehicleType, hours: number): number {
+    // Use the same hourly rates as the Executive Cars system
+    const hourlyRates = {
+      'saloon': { '3-6': 30.00, '6-12': 25.00 },
+      'estate': { '3-6': 35.00, '6-12': 30.00 },
+      'mpv-6': { '3-6': 35.00, '6-12': 35.00 },
+      'mpv-8': { '3-6': 40.00, '6-12': 35.00 },
+      'executive': { '3-6': 45.00, '6-12': 40.00 },
+      'executive-mpv': { '3-6': 55.00, '6-12': 50.00 },
+      'vip-saloon': { '3-6': 75.00, '6-12': 70.00 },
+      'vip-suv': { '3-6': 85.00, '6-12': 80.00 }
+    };
+
+    const vehicleId = vehicleType.id;
+    const rateKey = hours <= 6 ? '3-6' : '6-12';
+    
+    return hourlyRates[vehicleId as keyof typeof hourlyRates]?.[rateKey] || 30.00;
   }
 }

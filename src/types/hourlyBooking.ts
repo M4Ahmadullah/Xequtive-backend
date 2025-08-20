@@ -96,6 +96,7 @@ export interface HourlyBookingData {
   numVehicles?: number;
   specialRequests?: string;
   status: string;
+  referenceNumber: string; // XEQ_100, XEQ_101, etc.
   createdAt: string;
   updatedAt: string;
   // Executive Cars specific fields

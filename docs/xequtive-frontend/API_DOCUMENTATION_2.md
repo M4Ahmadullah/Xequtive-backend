@@ -10,8 +10,11 @@ Xequtive operates two distinct booking systems:
 
 ### **Executive Taxi (Point-to-Point)**
 - Standard taxi service for direct journeys
+- **NEW**: Now supports one-way, hourly (3-12 hours), and return bookings
 - Available through `/api/bookings/create-enhanced` endpoint
 - Uses standard fare calculation with time-based surcharges
+- **NEW**: Hourly bookings use tiered pricing (3-6h vs 6-12h)
+- **NEW**: Return bookings receive 10% discount
 
 ### **Executive Cars (Event & Group Transportation)**
 - Specialized service for events, hourly bookings, and group travel
@@ -19,6 +22,45 @@ Xequtive operates two distinct booking systems:
 - Includes hourly bookings (3-12 hours), one-way, and return journeys
 - **Return Bookings**: 10% discount applied to all fares
 - **Tiered Hourly Pricing**: Different rates for 3-6 hours vs 6-12 hours
+
+## Enhanced Taxi Booking Types
+
+**NEW**: The Enhanced Taxi system now supports three distinct booking types, providing flexibility for different travel needs:
+
+### **1. One-Way Bookings (Default)**
+- **Description**: Standard point-to-point journey
+- **Pricing**: Distance-based fare calculation using slab pricing
+- **Use Case**: Airport transfers, business meetings, shopping trips
+- **Additional Features**: All standard features (time surcharges, airport fees, special zones)
+
+### **2. Hourly Bookings (3-12 Hours)**
+- **Description**: Continuous service where the driver stays with you
+- **Pricing**: Tiered hourly rates × number of hours
+  - **3-6 Hours**: Higher hourly rates for shorter durations
+  - **6-12 Hours**: Lower hourly rates for longer durations
+- **Use Case**: Business meetings, shopping trips, city tours, event transportation
+- **Additional Features**: 
+  - Waiting time included in hourly rate
+  - Same tiered pricing as Executive Cars system
+  - Distance-based pricing replaced with hourly pricing
+
+### **3. Return Bookings**
+- **Description**: Round-trip journeys with two options
+- **Pricing**: Distance doubled + 10% discount applied
+- **Options**:
+  - **Wait-and-Return**: Driver waits at destination and returns you later
+  - **Later-Date**: Two separate scheduled one-way journeys
+- **Use Case**: Business meetings, airport pickups with return, day trips
+- **Additional Features**: 
+  - 10% discount on total fare
+  - Flexible return timing
+  - Same pricing structure as Executive Cars return bookings
+
+### **Enhanced Taxi vs Executive Cars Pricing**
+- **One-Way**: Uses standard Enhanced Taxi pricing (slab-based distance rates)
+- **Hourly**: Uses Executive Cars hourly rates (tiered 3-6h vs 6-12h)
+- **Return**: Uses Executive Cars return logic (distance doubled + 10% discount)
+- **All Other Features**: Time surcharges, airport fees, special zones remain the same
 
 ## Booking Process Overview
 
@@ -81,11 +123,21 @@ The booking process follows these steps:
         "id": "executive-saloon",
         "name": "Executive Saloon"
       },
-      "specialRequests": "Please call when arriving"
+      "specialRequests": "Please call when arriving",
+      "bookingType": "one-way", // NEW: "one-way" | "hourly" | "return" (default: "one-way")
+      "hours": 6, // NEW: Required for hourly bookings, Min: 3, Max: 12
+      "returnType": "wait-and-return", // NEW: Required for return bookings, "wait-and-return" | "later-date"
+      "returnDate": "2024-06-20", // NEW: Required for later-date returns, Format: YYYY-MM-DD
+      "returnTime": "18:00" // NEW: Required for later-date returns, Format: HH:mm
     }
   }
   ```
 - **Note**: The customer object is optional when the user is authenticated. The backend will automatically use the stored profile data.
+- **NEW: Booking Type Fields**:
+  - `bookingType`: Determines the type of booking (one-way, hourly, or return)
+  - `hours`: Required for hourly bookings, must be between 3 and 12
+  - `returnType`: Required for return bookings, either "wait-and-return" or "later-date"
+  - `returnDate` and `returnTime`: Required for later-date returns
 - **Success Response (201)**:
   ```json
   {
@@ -271,6 +323,172 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
     }
   }
 }
+```
+
+### **NEW: Enhanced Taxi Booking Type Examples**
+
+#### **Hourly Booking Example (6 hours)**
+
+```bash
+curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
+-H "Content-Type: application/json" \
+--cookie "token=[your-authentication-cookie]" \
+-d '{
+  "customer": {
+    "fullName": "John Smith",
+    "email": "john.smith@example.com",
+    "phoneNumber": "+447123456789"
+  },
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "Piccadilly Circus, London, UK",
+        "coordinates": {
+          "lat": 51.5100,
+          "lng": -0.1348
+        }
+      },
+      "dropoff": {
+        "address": "Heathrow Airport, London, UK",
+        "coordinates": {
+          "lat": 51.4700,
+          "lng": -0.4543
+        }
+      }
+    },
+    "datetime": {
+      "date": "2024-06-20",
+      "time": "14:00"
+    },
+    "passengers": {
+      "count": 2,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
+    },
+    "vehicle": {
+      "id": "executive-saloon",
+      "name": "Executive Saloon"
+    },
+    "specialRequests": "Business meeting transportation",
+    "bookingType": "hourly",
+    "hours": 6
+  }
+}'
+```
+
+#### **Return Booking Example (Wait-and-Return)**
+
+```bash
+curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
+-H "Content-Type: application/json" \
+--cookie "token=[your-authentication-cookie]" \
+-d '{
+  "customer": {
+    "fullName": "John Smith",
+    "email": "john.smith@example.com",
+    "phoneNumber": "+447123456789"
+  },
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "Piccadilly Circus, London, UK",
+        "coordinates": {
+          "lat": 51.5100,
+          "lng": -0.1348
+        }
+      },
+      "dropoff": {
+        "address": "Heathrow Airport, London, UK",
+        "coordinates": {
+          "lat": 51.4700,
+          "lng": -0.4543
+        }
+      }
+    },
+    "datetime": {
+      "date": "2024-06-20",
+      "time": "14:00"
+    },
+    "passengers": {
+      "count": 2,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
+    },
+    "vehicle": {
+      "id": "executive-saloon",
+      "name": "Executive Saloon"
+    },
+    "specialRequests": "Airport pickup and return",
+    "bookingType": "return",
+    "returnType": "wait-and-return"
+  }
+}'
+```
+
+#### **Return Booking Example (Later Date)**
+
+```bash
+curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
+-H "Content-Type: application/json" \
+--cookie "token=[your-authentication-cookie]" \
+-d '{
+  "customer": {
+    "fullName": "John Smith",
+    "email": "john.smith@example.com",
+    "phoneNumber": "+447123456789"
+  },
+  "booking": {
+    "locations": {
+      "pickup": {
+        "address": "Piccadilly Circus, London, UK",
+        "coordinates": {
+          "lat": 51.5100,
+          "lng": -0.1348
+        }
+      },
+      "dropoff": {
+        "address": "Heathrow Airport, London, UK",
+        "coordinates": {
+          "lat": 51.4700,
+          "lng": -0.4543
+        }
+      }
+    },
+    "datetime": {
+      "date": "2024-06-20",
+      "time": "14:00"
+    },
+    "passengers": {
+      "count": 2,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
+    },
+    "vehicle": {
+      "id": "executive-saloon",
+      "name": "Executive Saloon"
+    },
+    "specialRequests": "Two separate journeys",
+    "bookingType": "return",
+    "returnType": "later-date",
+    "returnDate": "2024-06-22",
+    "returnTime": "18:00"
+  }
+}'
 ```
 
 ## Security Features

@@ -78,6 +78,7 @@ router.post(
 );
 
 // Enhanced fare estimation endpoint - returns fares for all vehicle types
+// Supports: one-way, hourly (3-12 hours), and return bookings
 router.post(
   "/enhanced",
   verifyToken,

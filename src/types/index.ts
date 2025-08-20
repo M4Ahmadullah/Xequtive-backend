@@ -96,11 +96,16 @@ export interface RouteDetails {
 export interface EnhancedFareEstimateRequest {
   locations?: {
     pickup: BookingLocationData;
-    dropoff: BookingLocationData;
+    dropoff?: BookingLocationData; // Optional for hourly bookings
     additionalStops?: BookingLocationData[];
   };
   datetime?: BookingDateTimeData;
   passengers?: BookingPassengersData;
+  bookingType?: "one-way" | "hourly" | "return";
+  hours?: number; // Required for hourly bookings (3-12 hours)
+  returnType?: "wait-and-return" | "later-date"; // Required for return bookings
+  returnDate?: string; // Required for later-date returns (YYYY-MM-DD)
+  returnTime?: string; // Required for later-date returns (HH:MM)
 
   pickupLocation?: Coordinates;
   dropoffLocation?: Coordinates;
@@ -255,6 +260,10 @@ export interface CustomerData {
 export interface BookingVehicleData {
   id: string;
   name: string;
+  price: {
+    amount: number;
+    currency: string;
+  };
 }
 
 export interface EnhancedBookingData {
@@ -333,6 +342,8 @@ export interface BookingConfirmResponse {
 }
 
 export interface PermanentBookingData {
+  id: string;
+  referenceNumber: string; // XEQ_100, XEQ_101, etc.
   userId: string;
   customer: CustomerData;
   pickupDate: string;
@@ -342,28 +353,32 @@ export interface PermanentBookingData {
     dropoff: BookingLocationData;
     additionalStops?: BookingLocationData[];
   };
-  passengers: BookingPassengersData;
-  vehicle: {
-    id: string;
-    name: string;
-    price: {
-      amount: number;
-      currency: string;
-    };
+  vehicle: BookingVehicleData;
+  price: {
+    amount: number;
+    currency: string;
   };
-  journey: {
-    distance_miles: number;
-    duration_minutes: number;
-  };
+  additionalStops: string[];
+  waitingTime: number;
   specialRequests?: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  temporaryBookingId?: string;
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  bookingType: 'one-way' | 'hourly' | 'return';
+  hours?: number;
+  returnType?: 'wait-and-return' | 'later-date';
+  returnDate?: string;
+  returnTime?: string;
+  returnDiscount?: number;
+  passengers?: BookingPassengersData;
   travelInformation?: {
     type: "flight" | "train";
     details: FlightInformation | TrainInformation;
   };
+  journey?: {
+    distance_miles: number;
+    duration_minutes: number;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 // User booking management types
@@ -562,4 +577,73 @@ export interface VehicleTimeSurcharges {
   [timeCategory: string]: {
     [period: string]: TimeSurchargeConfig;
   };
+}
+
+export interface EnhancedBookingRequest {
+  pickupLocation: string;
+  dropoffLocation: string;
+  pickupDate: string;
+  pickupTime: string;
+  vehicleTypeId: string;
+  additionalStops?: string[];
+  waitingTime?: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  specialInstructions?: string;
+  bookingType: 'one-way' | 'hourly' | 'return';
+  hours?: number;
+  returnType?: 'wait-and-return' | 'later-date';
+  returnDate?: string;
+  returnTime?: string;
+  returnDiscount?: number;
+}
+
+export interface HourlyBookingRequest {
+  pickupLocation: string;
+  dropoffLocation: string;
+  pickupDate: string;
+  pickupTime: string;
+  hours: number; // 3-12 hours
+  vehicleTypeId: string;
+  additionalStops?: string[];
+  waitingTime?: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  specialInstructions?: string;
+  returnType?: 'wait-and-return' | 'later-date';
+  returnDate?: string;
+  returnTime?: string;
+  returnDiscount?: number;
+}
+
+export interface HourlyBookingData {
+  id: string;
+  referenceNumber: string; // XEQ_100, XEQ_101, etc.
+  userId: string;
+  customer: CustomerData;
+  pickupDate: string;
+  pickupTime: string;
+  hours: number;
+  locations: {
+    pickup: BookingLocationData;
+    dropoff: BookingLocationData;
+    additionalStops?: BookingLocationData[];
+  };
+  vehicle: BookingVehicleData;
+  price: {
+    amount: number;
+    currency: string;
+  };
+  additionalStops: string[];
+  waitingTime: number;
+  specialRequests?: string;
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  returnType?: 'wait-and-return' | 'later-date';
+  returnDate?: string;
+  returnTime?: string;
+  returnDiscount?: number;
+  createdAt: string;
+  updatedAt: string;
 }

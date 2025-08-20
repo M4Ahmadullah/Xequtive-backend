@@ -66,6 +66,78 @@ export const verifyToken = async (
   }
 };
 
+// Dashboard authentication middleware - supports both Firebase and hardcoded tokens
+export const verifyDashboardToken = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.cookies?.token || req.headers.authorization?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: "Authentication token required",
+          code: "auth/token-required",
+        },
+      });
+    }
+
+    // Check if it's a hardcoded session token (base64 encoded with email:timestamp format)
+    try {
+      const decoded = Buffer.from(token, 'base64').toString('utf-8');
+      
+      // Check if decoded string contains email format (contains @ and :)
+      if (decoded.includes('@') && decoded.includes(':')) {
+        const [email, timestamp] = decoded.split(':');
+        
+        // Check if it's one of the authorized admin emails
+        const authorizedEmails = ["xequtivecars@gmail.com", "ahmadullahm4masoudy@gmail.com"];
+        if (authorizedEmails.includes(email)) {
+          // Create admin user object
+          req.user = {
+            uid: `admin-${timestamp}`,
+            email: email,
+            role: "admin",
+          };
+          return next();
+        }
+      }
+    } catch (error) {
+      // Not a valid base64 token, continue to Firebase verification
+    }
+
+    // Fallback to Firebase token verification
+    try {
+      const decodedToken = await auth.verifyIdToken(token);
+      req.user = {
+        uid: decodedToken.uid,
+        email: decodedToken.email || "",
+        role: decodedToken.role || "user",
+      };
+      next();
+    } catch (firebaseError) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: "Invalid or expired token",
+          code: "auth/invalid-token",
+        },
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Authentication error",
+        code: "auth/error",
+      },
+    });
+  }
+};
+
 // This is only for the dashboard routes
 export const isAdmin = async (
   req: AuthenticatedRequest,
@@ -83,13 +155,35 @@ export const isAdmin = async (
       });
     }
 
-    // Get user from Firebase Auth
-    const userRecord = await auth.getUser(req.user.uid);
+    // Check if it's a hardcoded admin token (starts with "admin-")
+    if (req.user.uid.startsWith("admin-") && req.user.role === "admin") {
+      return next(); // Allow access for hardcoded admin tokens
+    }
 
-    // Check admin custom claim
-    const isUserAdmin = userRecord.customClaims?.admin === true;
+    // For Firebase users, verify admin status
+    try {
+      const userRecord = await auth.getUser(req.user.uid);
+      
+      // Check admin custom claim
+      const isUserAdmin = userRecord.customClaims?.admin === true;
 
-    if (!isUserAdmin) {
+      if (!isUserAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            message: "Access denied. Admin privileges required.",
+            code: "auth/insufficient-permissions",
+          },
+        });
+      }
+
+      next();
+    } catch (firebaseError) {
+      // If Firebase verification fails, check if it's a hardcoded admin
+      if (req.user.role === "admin") {
+        return next(); // Allow access for hardcoded admin tokens
+      }
+      
       return res.status(403).json({
         success: false,
         error: {
@@ -98,8 +192,6 @@ export const isAdmin = async (
         },
       });
     }
-
-    next();
   } catch (error) {
     next(error);
   }

@@ -38,7 +38,7 @@ export const enhancedFareEstimateSchema = z.object({
     dropoff: z.object({
       address: z.string().min(1, "Dropoff address is required"),
       coordinates: coordinatesSchema,
-    }),
+    }).optional(), // Make dropoff optional - will be validated conditionally
     stops: z.array(z.string()).optional(),
   }),
   datetime: z.object({
@@ -59,6 +59,29 @@ export const enhancedFareEstimateSchema = z.object({
     childSeat: z.number().int().min(0).max(5),
     wheelchair: z.number().int().min(0).max(2),
   }),
+  bookingType: z.enum(["one-way", "hourly", "return"]).default("one-way"),
+  hours: z.number().int().min(3).max(12).optional(), // Required for hourly bookings
+  returnType: z.enum(["wait-and-return", "later-date"]).optional(), // Required for return bookings
+  returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for later-date returns
+  returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for later-date returns
+}).refine((data) => {
+  // Conditional validation based on booking type
+  if (data.bookingType === "hourly") {
+    // Hourly bookings don't need dropoff location
+    if (data.hours === undefined || data.hours < 3 || data.hours > 12) {
+      return false;
+    }
+    return true;
+  } else {
+    // One-way and return bookings need dropoff location
+    if (!data.locations.dropoff) {
+      return false;
+    }
+    return true;
+  }
+}, {
+  message: "Validation failed based on booking type",
+  path: ["bookingType"],
 });
 
 // Booking validation
@@ -125,7 +148,7 @@ export const enhancedBookingCreateSchema = z.object({
       dropoff: z.object({
         address: z.string().min(1, "Dropoff address is required"),
         coordinates: coordinatesSchema,
-      }),
+      }).optional(), // Make dropoff optional for hourly bookings
       additionalStops: z
         .array(
           z.object({
@@ -158,6 +181,11 @@ export const enhancedBookingCreateSchema = z.object({
       name: z.string().min(1, "Vehicle name is required"),
     }),
     specialRequests: z.string().optional(),
+    bookingType: z.enum(["one-way", "hourly", "return"]).default("one-way"),
+    hours: z.number().int().min(3).max(12).optional(), // Required for hourly bookings
+    returnType: z.enum(["wait-and-return", "later-date"]).optional(), // Required for return bookings
+    returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for later-date returns
+    returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for later-date returns
     travelInformation: z
       .object({
         type: z.enum(["flight", "train"]),
@@ -168,6 +196,24 @@ export const enhancedBookingCreateSchema = z.object({
       })
       .optional(),
   }),
+}).refine((data) => {
+  // Conditional validation based on booking type
+  if (data.booking.bookingType === "hourly") {
+    // Hourly bookings don't need dropoff location but need hours
+    if (data.booking.hours === undefined || data.booking.hours < 3 || data.booking.hours > 12) {
+      return false;
+    }
+    return true;
+  } else {
+    // One-way and return bookings need dropoff location
+    if (!data.booking.locations.dropoff) {
+      return false;
+    }
+    return true;
+  }
+}, {
+  message: "Validation failed based on booking type",
+  path: ["booking", "bookingType"],
 });
 
 // Booking confirmation validation for second step

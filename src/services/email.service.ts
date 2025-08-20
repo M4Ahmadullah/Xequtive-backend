@@ -154,6 +154,7 @@ export class EmailService {
     email: string,
     bookingData: {
       id: string;
+      referenceNumber: string;
       fullName: string;
       pickupDate: string;
       pickupTime: string;
@@ -163,7 +164,7 @@ export class EmailService {
       price: number;
     }
   ): Promise<boolean> {
-    const subject = `Booking Confirmation: #${bookingData.id}`;
+    const subject = `Booking Confirmation: ${bookingData.referenceNumber}`;
     const html = this.getBookingConfirmationEmailTemplate(bookingData);
     return this.sendEmail(email, subject, html);
   }
@@ -358,6 +359,7 @@ export class EmailService {
 
   private static getBookingConfirmationEmailTemplate(bookingData: {
     id: string;
+    referenceNumber: string;
     fullName: string;
     pickupDate: string;
     pickupTime: string;
@@ -383,6 +385,10 @@ export class EmailService {
           
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Reference Number:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #e74c3c; font-weight: bold; font-size: 18px;">${bookingData.referenceNumber}</td>
+              </tr>
               <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Booking ID:</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.id}</td>
@@ -413,6 +419,8 @@ export class EmailService {
               </tr>
             </table>
           </div>
+          
+          <p><strong>Please quote your reference number (${bookingData.referenceNumber}) when contacting us about this booking.</strong></p>
           
           <p>Your driver will arrive at the pickup location at the scheduled time.</p>
           

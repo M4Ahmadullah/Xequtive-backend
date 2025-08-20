@@ -25,6 +25,34 @@ import { EmailService } from "../services/email.service";
 
 const router = Router();
 
+// Generate sequential reference number
+async function generateReferenceNumber(): Promise<string> {
+  try {
+    // Get the counter document
+    const counterRef = firestore.collection("counters").doc("bookingReference");
+    const counterDoc = await counterRef.get();
+
+    let nextNumber: number;
+
+    if (!counterDoc.exists) {
+      // Initialize counter starting from 100
+      nextNumber = 100;
+      await counterRef.set({ nextNumber: nextNumber + 1 });
+    } else {
+      // Get next number and increment
+      const counterData = counterDoc.data();
+      nextNumber = counterData?.nextNumber || 100;
+      await counterRef.update({ nextNumber: nextNumber + 1 });
+    }
+
+    return `XEQ_${nextNumber}`;
+  } catch (error) {
+    console.error("Error generating reference number:", error);
+    // Fallback to timestamp-based reference
+    return `XEQ_${Date.now()}`;
+  }
+}
+
 // Fare estimation endpoint for all booking types
 router.post(
   "/fare-estimate",
@@ -246,18 +274,25 @@ router.post(
         permanentBooking.returnDetails = bookingData.returnDetails;
       }
 
+      // Generate reference number
+      const referenceNumber = await generateReferenceNumber();
+
+      // Add reference number to the permanentBooking object
+      permanentBooking.referenceNumber = referenceNumber;
+
       // Save to hourly bookings collection
       const bookingDoc = await firestore
         .collection("hourlyBookings")
         .add(permanentBooking);
 
-
+      console.log(`📅 Executive Cars booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | Type: ${permanentBooking.bookingType} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
 
       // Send booking confirmation email (non-blocking)
       EmailService.sendBookingConfirmationEmail(
         permanentBooking.customer.email,
         {
           id: bookingDoc.id,
+          referenceNumber: referenceNumber,
           fullName: permanentBooking.customer.fullName,
           pickupDate: permanentBooking.pickupDate,
           pickupTime: permanentBooking.pickupTime,
@@ -273,6 +308,7 @@ router.post(
       // Prepare confirmation response
       const confirmationResponse = {
         bookingId: bookingDoc.id,
+        referenceNumber: referenceNumber,
         message: `Executive Cars ${bookingData.bookingType} booking successfully created`,
         details: {
           customerName: permanentBooking.customer.fullName,
