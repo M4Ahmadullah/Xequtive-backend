@@ -36,7 +36,7 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
         dropoff: zod_1.z.object({
             address: zod_1.z.string().min(1, "Dropoff address is required"),
             coordinates: coordinatesSchema,
-        }),
+        }).optional(), // Make dropoff optional - will be validated conditionally
         stops: zod_1.z.array(zod_1.z.string()).optional(),
     }),
     datetime: zod_1.z.object({
@@ -57,6 +57,30 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
         childSeat: zod_1.z.number().int().min(0).max(5),
         wheelchair: zod_1.z.number().int().min(0).max(2),
     }),
+    bookingType: zod_1.z.enum(["one-way", "hourly", "return"]).default("one-way"),
+    hours: zod_1.z.number().int().min(3).max(12).optional(), // Required for hourly bookings
+    returnType: zod_1.z.enum(["wait-and-return", "later-date"]).optional(), // Required for return bookings
+    returnDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for later-date returns
+    returnTime: zod_1.z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for later-date returns
+}).refine((data) => {
+    // Conditional validation based on booking type
+    if (data.bookingType === "hourly") {
+        // Hourly bookings don't need dropoff location
+        if (data.hours === undefined || data.hours < 3 || data.hours > 12) {
+            return false;
+        }
+        return true;
+    }
+    else {
+        // One-way and return bookings need dropoff location
+        if (!data.locations.dropoff) {
+            return false;
+        }
+        return true;
+    }
+}, {
+    message: "Validation failed based on booking type",
+    path: ["bookingType"],
 });
 // Booking validation
 exports.bookingSchema = zod_1.z.object({
@@ -119,7 +143,7 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
             dropoff: zod_1.z.object({
                 address: zod_1.z.string().min(1, "Dropoff address is required"),
                 coordinates: coordinatesSchema,
-            }),
+            }).optional(), // Make dropoff optional for hourly bookings
             additionalStops: zod_1.z
                 .array(zod_1.z.object({
                 address: zod_1.z.string().min(1, "Additional stop address is required"),
@@ -150,6 +174,11 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
             name: zod_1.z.string().min(1, "Vehicle name is required"),
         }),
         specialRequests: zod_1.z.string().optional(),
+        bookingType: zod_1.z.enum(["one-way", "hourly", "return"]).default("one-way"),
+        hours: zod_1.z.number().int().min(3).max(12).optional(), // Required for hourly bookings
+        returnType: zod_1.z.enum(["wait-and-return", "later-date"]).optional(), // Required for return bookings
+        returnDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for later-date returns
+        returnTime: zod_1.z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for later-date returns
         travelInformation: zod_1.z
             .object({
             type: zod_1.z.enum(["flight", "train"]),
@@ -160,6 +189,25 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
         })
             .optional(),
     }),
+}).refine((data) => {
+    // Conditional validation based on booking type
+    if (data.booking.bookingType === "hourly") {
+        // Hourly bookings don't need dropoff location but need hours
+        if (data.booking.hours === undefined || data.booking.hours < 3 || data.booking.hours > 12) {
+            return false;
+        }
+        return true;
+    }
+    else {
+        // One-way and return bookings need dropoff location
+        if (!data.booking.locations.dropoff) {
+            return false;
+        }
+        return true;
+    }
+}, {
+    message: "Validation failed based on booking type",
+    path: ["booking", "bookingType"],
 });
 // Booking confirmation validation for second step
 exports.bookingConfirmSchema = zod_1.z.object({

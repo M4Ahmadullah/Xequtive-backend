@@ -8,6 +8,18 @@ This document outlines the Xequtive booking process API, which follows the fare 
 
 Xequtive operates two distinct booking systems:
 
+## 🆕 Smart Reverse Route for Return Bookings
+
+**Return bookings now use an intelligent routing system:**
+
+- **Outbound Journey**: Calculated with pickup → stops → dropoff
+- **Return Journey**: Automatically reverses the outbound route (dropoff → stops in reverse → pickup)
+- **No Manual Stops Required**: The system intelligently handles the return route
+- **Consistent Pricing**: Return journey uses the same distance calculation as outbound
+- **10% Discount**: Applied to the total round-trip fare
+
+**Example**: If your outbound journey is A → B → C → D, your return will be D → C → B → A automatically.
+
 ### **Executive Taxi (Point-to-Point)**
 - Standard taxi service for direct journeys
 - **NEW**: Now supports one-way, hourly (3-12 hours), and return bookings
@@ -31,7 +43,7 @@ Xequtive operates two distinct booking systems:
 - **Description**: Standard point-to-point journey
 - **Pricing**: Distance-based fare calculation using slab pricing
 - **Use Case**: Airport transfers, business meetings, shopping trips
-- **Additional Features**: All standard features (time surcharges, airport fees, special zones)
+- **Additional Features**: All standard features (time surcharges, airport fees, special zones, stops support)
 
 ### **2. Hourly Bookings (3-12 Hours)**
 - **Description**: Continuous service where the driver stays with you
@@ -40,6 +52,7 @@ Xequtive operates two distinct booking systems:
   - **6-12 Hours**: Lower hourly rates for longer durations
 - **Use Case**: Business meetings, shopping trips, city tours, event transportation
 - **Additional Features**: 
+  - **No dropoff location required** - driver stays with you throughout
   - Waiting time included in hourly rate
   - Same tiered pricing as Executive Cars system
   - Distance-based pricing replaced with hourly pricing
@@ -54,6 +67,8 @@ Xequtive operates two distinct booking systems:
 - **Additional Features**: 
   - 10% discount on total fare
   - Flexible return timing
+  - **Smart Reverse Route**: Return journey automatically reverses outbound route with stops
+  - **No manual stops needed** - system handles return routing intelligently
   - Same pricing structure as Executive Cars return bookings
 
 ### **Enhanced Taxi vs Executive Cars Pricing**
@@ -138,6 +153,12 @@ The booking process follows these steps:
   - `hours`: Required for hourly bookings, must be between 3 and 12
   - `returnType`: Required for return bookings, either "wait-and-return" or "later-date"
   - `returnDate` and `returnTime`: Required for later-date returns
+- **NEW: Validation Rules**:
+  - **Hourly bookings**: No dropoff location required, driver stays with you
+  - **Return bookings**: Cannot include stops - uses smart reverse route
+  - **One-way bookings**: Full stops support maintained
+
+**Note:** The backend now properly handles hourly bookings without requiring a dropoff location. The fare calculation service automatically recognizes hourly bookings and adjusts validation accordingly.
 - **Success Response (201)**:
   ```json
   {
@@ -169,6 +190,7 @@ The booking process follows these steps:
           "duration_minutes": 52
         },
         "status": "pending",
+        "referenceNumber": "XEQ_105",
         "notifications": [
           "Your destination is Heathrow Airport. A £7.50 airport fee has been added."
         ]
@@ -176,6 +198,12 @@ The booking process follows these steps:
     }
   }
   ```
+
+**⚠️ IMPORTANT: Reference Number vs Firebase ID**
+
+- **`referenceNumber`**: This is the business reference number (e.g., `XEQ_105`) that should be displayed to users and used for customer service
+- **`bookingId`**: This is the Firebase auto-generated document ID (e.g., `45hptG5q4a0m68CZVzNd`) - use this for API calls but NOT for user display
+- **Frontend should always use `details.referenceNumber` for user-facing references**
 - **Error Response (400, 401, 500)**:
   ```json
   {
@@ -329,6 +357,12 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 
 #### **Hourly Booking Example (6 hours)**
 
+**Note**: Hourly bookings don't require dropoff location - driver stays with you for the specified hours.
+
+**Response will include both reference numbers:**
+- **`referenceNumber`**: Business reference (e.g., `XEQ_105`) - use this for user display
+- **`bookingId`**: Firebase ID (e.g., `ADzZOJTM5MOfquSOrQQb`) - use this for API calls
+
 ```bash
 curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 -H "Content-Type: application/json" \
@@ -346,13 +380,6 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
         "coordinates": {
           "lat": 51.5100,
           "lng": -0.1348
-        }
-      },
-      "dropoff": {
-        "address": "Heathrow Airport, London, UK",
-        "coordinates": {
-          "lat": 51.4700,
-          "lng": -0.4543
         }
       }
     },
@@ -382,6 +409,12 @@ curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
 ```
 
 #### **Return Booking Example (Wait-and-Return)**
+
+**Note**: Return bookings use smart reverse route - no stops array needed for return journey.
+
+**Response will include both reference numbers:**
+- **`referenceNumber`**: Business reference (e.g., `XEQ_106`) - use this for user display
+- **`bookingId`**: Firebase ID (e.g., `ADzZOJTM5MOfquSOrQQb`) - use this for API calls
 
 ```bash
 curl -X POST "http://localhost:5555/api/bookings/create-enhanced" \
@@ -501,6 +534,10 @@ To ensure fare integrity and prevent manipulation, the booking endpoint implemen
 4. **Client Data Validation**: All input data is validated against strict schemas
 5. **Authentication Required**: All booking endpoints require valid user authentication
 6. **Fare Breakdown**: Detailed fare breakdown is provided in the response for transparency
+7. **NEW: Enhanced Validation Rules**: 
+   - Hourly bookings validated to ensure no dropoff location required
+   - Return bookings validated to ensure no stops array included
+   - One-way bookings maintain full stops support
 
 When the client submits a booking request, the server:
 
@@ -1406,11 +1443,35 @@ The following vehicle types are available for bookings:
    }
    ```
 
-2. **"Invalid Vehicle ID" Error**:
+2. **"Validation failed based on booking type" Error**:
+   - **Cause**: Incorrect data structure for specific booking types
+   - **Solutions**:
+     - **Hourly bookings**: Remove dropoff location, include hours (3-12)
+     - **Return bookings**: Remove stops array, include returnType
+     - **One-way bookings**: Include dropoff location, stops allowed
+
+3. **Reference Number vs Firebase ID Confusion**:
+   - **Problem**: Frontend displaying Firebase ID instead of business reference number
+   - **Solution**: 
+     - **Display to users**: Use `response.data.details.referenceNumber` (e.g., `XEQ_105`)
+     - **API calls**: Use `response.data.bookingId` (Firebase ID)
+     - **Never show Firebase IDs** to users - they're internal system identifiers
+   ```javascript
+   // ❌ WRONG - Displaying Firebase ID to user
+   const userReference = response.data.bookingId; // "ADzZOJTM5MOfquSOrQQb"
+   
+   // ✅ CORRECT - Displaying business reference number
+   const userReference = response.data.details.referenceNumber; // "XEQ_105"
+   
+   // ✅ CORRECT - Using Firebase ID for API calls
+   const apiCallId = response.data.bookingId; // "ADzZOJTM5MOfquSOrQQb"
+   ```
+
+4. **"Invalid Vehicle ID" Error**:
    - **Cause**: Using wrong vehicle IDs
    - **Solution**: Use only these valid IDs: `standard-saloon`, `estate`, `large-mpv`, `extra-large-mpv`, `executive-saloon`, `vip`, `vip-mpv`, `wav`
 
-3. **"Invalid phone number format" Error**:
+5. **"Invalid phone number format" Error**:
    - **Cause**: Phone number contains spaces or invalid characters
    - **Solution**: Strip all spaces from phone number before sending
    ```javascript
@@ -1424,7 +1485,7 @@ The following vehicle types are available for bookings:
    const cleanPhone = phoneNumber.replace(/\s+/g, '');
    ```
 
-4. **Authentication Errors**:
+6. **Authentication Errors**:
    - **Solution**: Always include `credentials: "include"` in fetch requests
 
 ## Booking Process Flow

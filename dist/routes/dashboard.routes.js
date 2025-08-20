@@ -42,6 +42,76 @@ const router = (0, express_1.Router)();
 // =====================================================
 // Dashboard Auth Routes
 // =====================================================
+// Hardcoded Admin Authentication (Development/Testing)
+router.post("/auth/hardcoded-login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        // Validate required fields
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Email and password are required",
+                },
+            });
+        }
+        // Hardcoded admin credentials
+        const authorizedAdmins = {
+            "xequtivecars@gmail.com": "xequtive2025",
+            "ahmadullahm4masoudy@gmail.com": "xequtive2025"
+        };
+        // Check if email exists and password matches
+        if (!authorizedAdmins[email] || authorizedAdmins[email] !== password) {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "INVALID_CREDENTIALS",
+                    message: "Invalid email or password",
+                },
+            });
+        }
+        // Create admin user data
+        const adminUser = {
+            uid: `admin-${Date.now()}`, // Generate unique admin ID
+            email: email,
+            fullName: email === "xequtivecars@gmail.com" ? "Xequtive Cars Admin" : "Ahmadullah Masoudy",
+            role: "admin",
+            admin: true,
+            createdAt: new Date().toISOString(),
+        };
+        // Create a simple session token (not Firebase)
+        const sessionToken = Buffer.from(`${email}:${Date.now()}`).toString('base64');
+        // Set token in cookie
+        const isProduction = process.env.NODE_ENV === "production";
+        res.cookie("token", sessionToken, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: "strict",
+            maxAge: 5 * 24 * 60 * 60 * 1000, // 5 days
+        });
+        // Return admin user data
+        res.status(200).json({
+            success: true,
+            data: {
+                user: adminUser,
+                message: "Admin authentication successful",
+                sessionToken: sessionToken,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Hardcoded admin login error:", error);
+        res.status(500).json({
+            success: false,
+            error: {
+                code: "INTERNAL_ERROR",
+                message: "Internal server error during authentication",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
 // Admin registration (no verification needed for first admin)
 router.post("/auth/signup", async (req, res) => {
     try {
@@ -242,6 +312,31 @@ router.get("/auth/check-admin", async (req, res) => {
                 },
             });
         }
+        // Check if it's a hardcoded admin token
+        try {
+            const decoded = Buffer.from(token, 'base64').toString('utf-8');
+            // Check if decoded string contains email format (contains @ and :)
+            if (decoded.includes('@') && decoded.includes(':')) {
+                const [email, timestamp] = decoded.split(':');
+                // Check if it's one of the authorized admin emails
+                const authorizedEmails = ["xequtivecars@gmail.com", "ahmadullahm4masoudy@gmail.com"];
+                if (authorizedEmails.includes(email)) {
+                    return res.json({
+                        success: true,
+                        data: {
+                            uid: `admin-${timestamp}`,
+                            email: email,
+                            displayName: email === "xequtivecars@gmail.com" ? "Xequtive Cars Admin" : "Ahmadullah Masoudy",
+                            role: "admin",
+                        },
+                    });
+                }
+            }
+        }
+        catch (error) {
+            // Not a valid base64 token, continue to Firebase verification
+        }
+        // Firebase token verification
         try {
             // Verify the token
             const decodedToken = await firebase_2.auth.verifyIdToken(token);
@@ -303,8 +398,8 @@ router.get("/auth/check-admin", async (req, res) => {
         });
     }
 });
-// All other dashboard routes require admin authentication
-router.use(authMiddleware_1.verifyToken, authMiddleware_1.isAdmin);
+// Apply authentication and admin middleware to all routes below this point
+router.use(authMiddleware_1.verifyDashboardToken, authMiddleware_1.isAdmin);
 // =====================================================
 // Bookings Management
 // =====================================================

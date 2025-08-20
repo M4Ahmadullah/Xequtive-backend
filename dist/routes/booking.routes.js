@@ -9,6 +9,32 @@ const enhancedFare_service_1 = require("../services/enhancedFare.service");
 const rateLimiter_1 = require("../middleware/rateLimiter");
 const email_service_1 = require("../services/email.service");
 const router = (0, express_1.Router)();
+// Generate sequential reference number
+async function generateReferenceNumber() {
+    try {
+        // Get the counter document
+        const counterRef = firebase_1.firestore.collection("counters").doc("bookingReference");
+        const counterDoc = await counterRef.get();
+        let nextNumber;
+        if (!counterDoc.exists) {
+            // Initialize counter starting from 100
+            nextNumber = 100;
+            await counterRef.set({ nextNumber: nextNumber + 1 });
+        }
+        else {
+            // Get next number and increment
+            const counterData = counterDoc.data();
+            nextNumber = counterData?.nextNumber || 100;
+            await counterRef.update({ nextNumber: nextNumber + 1 });
+        }
+        return `XEQ_${nextNumber}`;
+    }
+    catch (error) {
+        console.error("Error generating reference number:", error);
+        // Fallback to timestamp-based reference
+        return `XEQ_${Date.now()}`;
+    }
+}
 // Submit Booking - Single Step with Fare Verification
 router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.bookingLimiter, async (req, res) => {
     try {
@@ -105,6 +131,7 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
         };
         // Create permanent booking directly
         const permanentBooking = {
+            id: "", // Will be set by Firestore
             userId: req.user.uid,
             customer: bookingData.customer,
             pickupDate: bookingData.booking.datetime.date,
@@ -116,12 +143,17 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 name: bookingData.booking.vehicle.name,
                 price: verifiedFare.price,
             },
+            price: verifiedFare.price,
+            additionalStops: [],
+            waitingTime: 0,
+            bookingType: "one-way",
             journey: {
                 distance_miles: verifiedFare.distance_miles,
                 duration_minutes: verifiedFare.duration_minutes,
             },
             specialRequests: bookingData.booking.specialRequests || "",
             status: "pending",
+            referenceNumber: "TEMP", // Temporary, will be updated
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
@@ -132,14 +164,19 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 details: bookingData.booking.travelInformation.details,
             };
         }
+        // Generate reference number
+        const referenceNumber = await generateReferenceNumber();
+        // Update reference number in the permanentBooking object
+        permanentBooking.referenceNumber = referenceNumber;
         // Save directly to bookings collection
         const bookingDoc = await firebase_1.firestore
             .collection("bookings")
             .add(permanentBooking);
-        console.log(`📅 Booking created: ${bookingDoc.id} | User: ${req.user.uid} | From: ${permanentBooking.locations.pickup.address} | To: ${permanentBooking.locations.dropoff.address} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
+        console.log(`📅 Booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | From: ${permanentBooking.locations.pickup.address} | To: ${permanentBooking.locations.dropoff.address} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
         // Send booking confirmation email (non-blocking)
         email_service_1.EmailService.sendBookingConfirmationEmail(permanentBooking.customer.email, {
             id: bookingDoc.id,
+            referenceNumber: referenceNumber,
             fullName: permanentBooking.customer.fullName,
             pickupDate: permanentBooking.pickupDate,
             pickupTime: permanentBooking.pickupTime,
@@ -153,6 +190,7 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
         // Prepare confirmation response
         const confirmationResponse = {
             bookingId: bookingDoc.id,
+            referenceNumber: referenceNumber,
             message: "Booking successfully created",
             details: {
                 fullName: permanentBooking.customer.fullName,
@@ -163,8 +201,8 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 vehicle: permanentBooking.vehicle.name,
                 price: permanentBooking.vehicle.price,
                 journey: {
-                    distance_miles: permanentBooking.journey.distance_miles,
-                    duration_minutes: permanentBooking.journey.duration_minutes,
+                    distance_miles: permanentBooking.journey?.distance_miles || 0,
+                    duration_minutes: permanentBooking.journey?.duration_minutes || 0,
                 },
                 status: "pending",
             },
@@ -224,8 +262,8 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
                 price: booking.vehicle.price.amount,
                 status: booking.status,
                 journey: {
-                    distance_miles: booking.journey.distance_miles,
-                    duration_minutes: booking.journey.duration_minutes,
+                    distance_miles: booking.journey?.distance_miles || 0,
+                    duration_minutes: booking.journey?.duration_minutes || 0,
                 },
                 createdAt: booking.createdAt,
             });
@@ -530,6 +568,7 @@ router.post("/update-booking/:id", authMiddleware_1.verifyToken, rateLimiter_1.b
         try {
             await email_service_1.EmailService.sendBookingConfirmationEmail(updatedBooking.customer.email, {
                 id: bookingId,
+                referenceNumber: existingBooking.referenceNumber || "N/A",
                 fullName: updatedBooking.customer.fullName,
                 pickupDate: updatedBooking.pickupDate,
                 pickupTime: updatedBooking.pickupTime,
@@ -555,8 +594,8 @@ router.post("/update-booking/:id", authMiddleware_1.verifyToken, rateLimiter_1.b
                 vehicle: updatedBooking.vehicle.name,
                 price: updatedBooking.vehicle.price,
                 journey: {
-                    distance_miles: updatedBooking.journey.distance_miles,
-                    duration_minutes: updatedBooking.journey.duration_minutes,
+                    distance_miles: updatedBooking.journey?.distance_miles || 0,
+                    duration_minutes: updatedBooking.journey?.duration_minutes || 0,
                 },
                 status: updatedBooking.status,
             },

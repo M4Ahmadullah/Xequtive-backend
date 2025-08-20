@@ -136,6 +136,11 @@ router.post(
         locations: bookingData.booking.locations,
         datetime: bookingData.booking.datetime,
         passengers: bookingData.booking.passengers,
+        bookingType: bookingData.booking.bookingType || "one-way",
+        hours: bookingData.booking.hours,
+        returnType: bookingData.booking.returnType,
+        returnDate: bookingData.booking.returnDate,
+        returnTime: bookingData.booking.returnTime,
       };
 
       // Calculate fares for all vehicles and find the selected one
@@ -183,9 +188,9 @@ router.post(
           price: verifiedFare.price,
         },
         price: verifiedFare.price,
-        additionalStops: [],
+        additionalStops: bookingData.booking.locations.additionalStops?.map(stop => stop.address) || [],
         waitingTime: 0,
-        bookingType: "one-way",
+        bookingType: bookingData.booking.bookingType || "one-way",
         journey: {
           distance_miles: verifiedFare.distance_miles,
           duration_minutes: verifiedFare.duration_minutes,
@@ -196,6 +201,20 @@ router.post(
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+
+      // Add optional fields only if they have values (to avoid undefined in Firestore)
+      if (bookingData.booking.hours !== undefined) {
+        permanentBooking.hours = bookingData.booking.hours;
+      }
+      if (bookingData.booking.returnType !== undefined) {
+        permanentBooking.returnType = bookingData.booking.returnType;
+      }
+      if (bookingData.booking.returnDate !== undefined) {
+        permanentBooking.returnDate = bookingData.booking.returnDate;
+      }
+      if (bookingData.booking.returnTime !== undefined) {
+        permanentBooking.returnTime = bookingData.booking.returnTime;
+      }
 
       // Add travelInformation to the permanentBooking object if it exists
       if (bookingData.booking.travelInformation) {
@@ -216,7 +235,8 @@ router.post(
         .collection("bookings")
         .add(permanentBooking);
 
-      console.log(`📅 Booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | From: ${permanentBooking.locations.pickup.address} | To: ${permanentBooking.locations.dropoff.address} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
+              const destination = permanentBooking.bookingType === "hourly" ? "Hourly booking" : permanentBooking.locations?.dropoff?.address || "Dropoff not specified";
+        console.log(`📅 Booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | Type: ${permanentBooking.bookingType} | From: ${permanentBooking.locations?.pickup?.address || "Pickup not specified"} | To: ${destination} | Vehicle: ${permanentBooking.vehicle?.name || "Vehicle not specified"} | Price: £${permanentBooking.vehicle?.price?.amount || 0}`);
 
       // Send booking confirmation email (non-blocking)
       EmailService.sendBookingConfirmationEmail(
@@ -227,8 +247,8 @@ router.post(
           fullName: permanentBooking.customer.fullName,
           pickupDate: permanentBooking.pickupDate,
           pickupTime: permanentBooking.pickupTime,
-          pickupLocation: permanentBooking.locations.pickup.address,
-          dropoffLocation: permanentBooking.locations.dropoff.address,
+          pickupLocation: permanentBooking.locations?.pickup?.address || "Pickup location not specified",
+          dropoffLocation: permanentBooking.bookingType === "hourly" ? "Hourly booking - driver stays with you" : permanentBooking.locations?.dropoff?.address || "Dropoff location not specified",
           vehicleType: permanentBooking.vehicle.name,
           price: permanentBooking.vehicle.price.amount,
         }
@@ -245,8 +265,8 @@ router.post(
           fullName: permanentBooking.customer.fullName,
           pickupDate: permanentBooking.pickupDate,
           pickupTime: permanentBooking.pickupTime,
-          pickupLocation: permanentBooking.locations.pickup.address,
-          dropoffLocation: permanentBooking.locations.dropoff.address,
+          pickupLocation: permanentBooking.locations?.pickup?.address || "Pickup location not specified",
+          dropoffLocation: permanentBooking.bookingType === "hourly" ? "Hourly booking - driver stays with you" : permanentBooking.locations?.dropoff?.address || "Dropoff location not specified",
           vehicle: permanentBooking.vehicle.name,
           price: permanentBooking.vehicle.price,
           journey: {
@@ -254,6 +274,9 @@ router.post(
             duration_minutes: permanentBooking.journey?.duration_minutes || 0,
           },
           status: "pending",
+          bookingType: permanentBooking.bookingType,
+          ...(permanentBooking.hours !== undefined && { hours: permanentBooking.hours }),
+          ...(permanentBooking.returnType !== undefined && { returnType: permanentBooking.returnType }),
         },
       };
 
@@ -301,30 +324,55 @@ router.get(
       // Execute query
       const snapshot = await query.get();
 
+      console.log(`📋 Found ${snapshot.size} bookings for user ${req.user.uid}`);
+
       // Map results to simplified booking array for user
       const bookings: UserBookingData[] = [];
       snapshot.forEach((doc) => {
-        const booking = doc.data() as PermanentBookingData;
-        bookings.push({
-          id: doc.id,
-          pickupDate: booking.pickupDate,
-          pickupTime: booking.pickupTime,
-          pickupLocation: {
-            address: booking.locations.pickup.address,
-          },
-          dropoffLocation: {
-            address: booking.locations.dropoff.address,
-          },
-          vehicleType: booking.vehicle.name,
-          price: booking.vehicle.price.amount,
-          status: booking.status,
-          journey: {
-            distance_miles: booking.journey?.distance_miles || 0,
-            duration_minutes: booking.journey?.duration_minutes || 0,
-          },
-          createdAt: booking.createdAt,
-        });
+        try {
+          const booking = doc.data() as PermanentBookingData;
+          
+          // Handle missing or malformed data gracefully
+          const pickupAddress = booking.locations?.pickup?.address || "Pickup location not specified";
+          const dropoffAddress = booking.locations?.dropoff?.address || "Dropoff location not specified";
+          const vehicleName = booking.vehicle?.name || "Vehicle not specified";
+          const vehiclePrice = booking.vehicle?.price?.amount || 0;
+          const bookingStatus = booking.status || "unknown";
+          const createdAt = booking.createdAt || new Date().toISOString();
+          
+          // Skip bookings with completely missing critical data
+          if (!booking.pickupDate || !booking.pickupTime) {
+            console.warn(`Skipping booking ${doc.id} - missing pickup date/time`);
+            return;
+          }
+          
+          bookings.push({
+            id: doc.id,
+            pickupDate: booking.pickupDate,
+            pickupTime: booking.pickupTime,
+            pickupLocation: {
+              address: pickupAddress,
+            },
+            dropoffLocation: {
+              address: dropoffAddress,
+            },
+            vehicleType: vehicleName,
+            price: vehiclePrice,
+            status: bookingStatus,
+            journey: {
+              distance_miles: booking.journey?.distance_miles || 0,
+              duration_minutes: booking.journey?.duration_minutes || 0,
+            },
+            createdAt: createdAt,
+          });
+        } catch (bookingError) {
+          console.error(`Error processing booking ${doc.id}:`, bookingError);
+          console.error(`Booking data:`, doc.data());
+          // Continue with other bookings instead of failing completely
+        }
       });
+
+      console.log(`✅ Successfully processed ${bookings.length} bookings out of ${snapshot.size} total`);
 
       // Sort manually in memory instead of in the query
       bookings.sort((a, b) => {
@@ -599,6 +647,11 @@ router.post(
         locations: bookingData.booking.locations,
         datetime: bookingData.booking.datetime,
         passengers: bookingData.booking.passengers,
+        bookingType: bookingData.booking.bookingType || "one-way",
+        hours: bookingData.booking.hours,
+        returnType: bookingData.booking.returnType,
+        returnDate: bookingData.booking.returnDate,
+        returnTime: bookingData.booking.returnTime,
       };
 
       // Calculate fares for all vehicles and find the selected one
@@ -686,8 +739,8 @@ router.post(
             fullName: updatedBooking.customer.fullName,
             pickupDate: updatedBooking.pickupDate,
             pickupTime: updatedBooking.pickupTime,
-            pickupLocation: updatedBooking.locations.pickup.address,
-            dropoffLocation: updatedBooking.locations.dropoff.address,
+            pickupLocation: updatedBooking.locations?.pickup?.address || "Pickup location not specified",
+            dropoffLocation: updatedBooking.locations?.dropoff?.address || "Dropoff location not specified",
             vehicleType: updatedBooking.vehicle.name,
             price: updatedBooking.vehicle.price.amount,
           }
@@ -704,8 +757,8 @@ router.post(
           fullName: updatedBooking.customer.fullName,
           pickupDate: updatedBooking.pickupDate,
           pickupTime: updatedBooking.pickupTime,
-          pickupLocation: updatedBooking.locations.pickup.address,
-          dropoffLocation: updatedBooking.locations.dropoff.address,
+          pickupLocation: updatedBooking.locations?.pickup?.address || "Pickup location not specified",
+          dropoffLocation: updatedBooking.locations?.dropoff?.address || "Dropoff location not specified",
           vehicle: updatedBooking.vehicle.name,
           price: updatedBooking.vehicle.price,
           journey: {

@@ -8,13 +8,27 @@ This document outlines the Xequtive booking update process, which follows the sa
 
 Xequtive operates two distinct booking systems:
 
+## 🆕 Smart Reverse Route for Return Bookings
+
+**Return bookings now use an intelligent routing system:**
+
+- **Outbound Journey**: Calculated with pickup → stops → dropoff
+- **Return Journey**: Automatically reverses the outbound route (dropoff → stops in reverse → pickup)
+- **No Manual Stops Required**: The system intelligently handles the return route
+- **Consistent Pricing**: Return journey uses the same distance calculation as outbound
+- **10% Discount**: Applied to the total round-trip fare
+
+**Example**: If your outbound journey is A → B → C → D, your return will be D → C → B → A automatically.
+
 ### **Executive Taxi (Point-to-Point)**
 - Standard taxi service for direct journeys
 - **NEW**: Now supports one-way, hourly (3-12 hours), and return bookings
 - Bookings updated through `/api/bookings/update-booking/:id` endpoint
 - Standard fare calculation with time-based surcharges
-- **NEW**: Hourly bookings use tiered pricing (3-6h vs 6-12h)
-- **NEW**: Return bookings receive 10% discount
+- **NEW**: Hourly bookings use tiered pricing (3-6h vs 6-12h) - no dropoff required
+- **NEW**: Return bookings receive 10% discount - no stops allowed (smart reverse route)
+
+**Note:** The backend now properly handles hourly bookings without requiring a dropoff location. The fare calculation service automatically recognizes hourly bookings and adjusts validation accordingly.
 
 ### **Executive Cars (Event & Group Transportation)**
 - Specialized service for events, hourly bookings, and group travel

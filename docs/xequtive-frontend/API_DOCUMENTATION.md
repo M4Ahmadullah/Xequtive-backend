@@ -46,6 +46,18 @@ We've introduced a new **Wait & Return** feature for both Enhanced and Hourly bo
 
 📖 **See full documentation**: [Wait & Return Feature Guide](./WAIT_AND_RETURN_FEATURE.md)
 
+## 🆕 Smart Reverse Route for Return Bookings
+
+**Return bookings now use an intelligent routing system:**
+
+- **Outbound Journey**: Calculated with pickup → stops → dropoff
+- **Return Journey**: Automatically reverses the outbound route (dropoff → stops in reverse → pickup)
+- **No Manual Stops Required**: The system intelligently handles the return route
+- **Consistent Pricing**: Return journey uses the same distance calculation as outbound
+- **10% Discount**: Applied to the total round-trip fare
+
+**Example**: If your outbound journey is A → B → C → D, your return will be D → C → B → A automatically.
+
 ## API Security
 
 All sensitive endpoints in this API are protected with authentication to ensure that only authorized users can access the data and services. The API employs several security measures:
@@ -247,8 +259,34 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
 **NEW: Enhanced Taxi now supports three booking types:**
 
 1. **One-Way** (default): Standard point-to-point journey with distance-based pricing
-2. **Hourly**: 3-12 hours of continuous service with tiered hourly rates
-3. **Return**: Round-trip journeys with 10% discount applied
+2. **Hourly**: 3-12 hours of continuous service with tiered hourly rates  
+3. **Return**: Round-trip journeys with 10% discount applied (no stops allowed - uses smart reverse route)
+
+**⚠️ IMPORTANT: Reference Number Structure**
+
+- **Business Reference**: All new bookings now generate sequential reference numbers in `XEQ_XXX` format (e.g., `XEQ_100`, `XEQ_101`, `XEQ_102`)
+- **Firebase ID**: The system also generates a Firebase document ID (e.g., `ADzZOJTM5MOfquSOrQQb`) for internal use
+- **Frontend Usage**: Always use the `referenceNumber` field for user display and customer service, NOT the Firebase ID
+- **API Calls**: Use the `bookingId` (Firebase ID) for subsequent API operations like updates and cancellations
+
+**Frontend Implementation Guide:**
+```javascript
+// ✅ CORRECT: Extract reference number for user display
+const userReference = response.data.details.referenceNumber; // "XEQ_105"
+
+// ✅ CORRECT: Extract Firebase ID for API calls
+const apiCallId = response.data.bookingId; // "ADzZOJTM5MOfquSOrQQb"
+
+// ❌ WRONG: Never show Firebase ID to users
+const wrongReference = response.data.bookingId; // "ADzZOJTM5MOfquSOrQQb"
+```
+
+**Important Validation Rules:**
+- **Hourly bookings**: No dropoff location required, driver stays with you
+- **Return bookings**: Cannot include stops array - uses smart reverse route
+- **One-way bookings**: Full stops support maintained
+
+**Note:** The backend now properly handles hourly bookings without requiring a dropoff location. The fare calculation service automatically recognizes hourly bookings and adjusts validation accordingly.
 
 **Endpoint**: `POST /api/fare-estimate/enhanced`
 
@@ -301,11 +339,13 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
 
 1. **One-Way Bookings** (`bookingType: "one-way"`):
    - Standard distance-based pricing
+   - Stops are allowed and supported
    - No additional fields required
    - Default behavior if no bookingType specified
 
 2. **Hourly Bookings** (`bookingType: "hourly"`):
    - Requires `hours` field (3-12 hours)
+   - **No dropoff location required** - driver stays with you
    - Uses tiered hourly rates:
      - **3-6 hours**: Higher hourly rates
      - **6-12 hours**: Lower hourly rates
@@ -317,6 +357,8 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
    - **Wait-and-Return**: Driver waits at destination and returns you later
    - **Later-Date**: Two separate scheduled one-way journeys
    - **10% discount** applied to total fare
+   - **No stops allowed** - uses smart reverse route for return journey
+   - **Smart Reverse Route**: Return journey automatically reverses the outbound route with any stops
    - For later-date returns, requires `returnDate` and `returnTime`
 
 **Validation Rules**:
@@ -347,6 +389,7 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
    - `hours`: Required for hourly bookings, integer between 3 and 12
    - `returnType`: Required for return bookings, must be "wait-and-return" or "later-date"
    - `returnDate` and `returnTime`: Required for later-date returns, must be valid date/time formats
+   - **Return bookings cannot have stops** - validation will reject return bookings with stops array
 
 **Error Response Format**:
 
@@ -451,6 +494,8 @@ The minimum fare acts as a floor price - if the distance-based calculation plus 
   }
 }
 ```
+
+**Note**: This is a fare estimation response. When creating actual bookings, the response will include both `referenceNumber` (for user display) and `bookingId` (for API calls).
 
 **Error Response**:
 

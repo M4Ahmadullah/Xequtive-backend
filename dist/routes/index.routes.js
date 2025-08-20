@@ -93,6 +93,7 @@ if (env_1.env.server.isDev) {
                 case "booking":
                     success = await email_service_1.EmailService.sendBookingConfirmationEmail(to, {
                         id: "TEST-123456",
+                        referenceNumber: "TEST-XEQ-001",
                         fullName: name,
                         pickupDate: "2023-06-01",
                         pickupTime: "14:30",

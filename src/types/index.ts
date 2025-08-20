@@ -276,6 +276,11 @@ export interface EnhancedBookingData {
   passengers: BookingPassengersData;
   vehicle: BookingVehicleData;
   specialRequests?: string;
+  bookingType?: "one-way" | "hourly" | "return";
+  hours?: number;
+  returnType?: "wait-and-return" | "later-date";
+  returnDate?: string;
+  returnTime?: string;
 }
 
 export interface EnhancedBookingCreateRequest {

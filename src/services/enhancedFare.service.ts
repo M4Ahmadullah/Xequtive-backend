@@ -77,9 +77,9 @@ export class EnhancedFareService {
         // Old format with location objects
         pickupLocation = request.locations.pickup.coordinates;
         
-        // For hourly bookings, dropoff location is optional
+        // Check booking type first to determine dropoff requirements
         if (request.bookingType === "hourly") {
-          // Use pickup location as dropoff for hourly bookings (no actual travel needed)
+          // For hourly bookings, dropoff location is optional
           dropoffLocation = request.locations.dropoff?.coordinates || pickupLocation;
         } else {
           // For one-way and return bookings, dropoff is required
@@ -92,31 +92,34 @@ export class EnhancedFareService {
         // Handle stops professionally - geocode addresses and include in route
         additionalStops = [];
         
-        // Check for stops in the locations object (frontend sends 'stops' as string array)
-        const locationsWithStops = request.locations as any;
-        if (locationsWithStops.stops && locationsWithStops.stops.length > 0) {
-          // Geocode each stop address to get coordinates
-          for (const stopAddress of locationsWithStops.stops) {
-            try {
-              const stopCoordinates = await this.geocodeAddress(stopAddress);
-              additionalStops.push({
-                location: stopCoordinates,
-                address: stopAddress
-              });
-            } catch (error) {
-              console.error(`❌ Failed to geocode stop: ${stopAddress}`, error);
-              // Continue with other stops even if one fails
+        // For return bookings, we don't use stops - will use smart reverse route
+        if (request.bookingType !== "return") {
+          // Check for stops in the locations object (frontend sends 'stops' as string array)
+          const locationsWithStops = request.locations as any;
+          if (locationsWithStops.stops && locationsWithStops.stops.length > 0) {
+            // Geocode each stop address to get coordinates
+            for (const stopAddress of locationsWithStops.stops) {
+              try {
+                const stopCoordinates = await this.geocodeAddress(stopAddress);
+                additionalStops.push({
+                  location: stopCoordinates,
+                  address: stopAddress
+                });
+              } catch (error) {
+                console.error(`❌ Failed to geocode stop: ${stopAddress}`, error);
+                // Continue with other stops even if one fails
+              }
             }
           }
-        }
-        
-        if (request.locations.additionalStops && request.locations.additionalStops.length > 0) {
-          additionalStops = request.locations.additionalStops.map(
-            (stop) => ({
-              location: stop.coordinates,
-              address: stop.address
-            })
-          );
+          
+          if (request.locations.additionalStops && request.locations.additionalStops.length > 0) {
+            additionalStops = request.locations.additionalStops.map(
+              (stop) => ({
+                location: stop.coordinates,
+                address: stop.address
+              })
+            );
+          }
         }
         
         requestDate = request.datetime
@@ -128,37 +131,81 @@ export class EnhancedFareService {
       }
 
       // Check if the route is within our service area
-      const serviceAreaCheck = isRouteServiceable(
-        pickupLocation,
-        dropoffLocation
-      );
-      
-      if (!serviceAreaCheck.serviceable) {
-        const error = new Error(
-          serviceAreaCheck.message || "Location is outside our service area"
+      if (request.bookingType === "hourly") {
+        // For hourly bookings, only check pickup location
+        const serviceAreaCheck = isRouteServiceable(
+          pickupLocation,
+          pickupLocation // Same location for pickup and dropoff
         );
-        // Add custom properties to the error object for better error handling
-        Object.assign(error, {
-          code: "LOCATION_NOT_SERVICEABLE",
-          details: serviceAreaCheck.message,
-        });
-        throw error;
+        
+        if (!serviceAreaCheck.serviceable) {
+          const error = new Error(
+            serviceAreaCheck.message || "Pickup location is outside our service area"
+          );
+          Object.assign(error, {
+            code: "LOCATION_NOT_SERVICEABLE",
+            details: serviceAreaCheck.message,
+          });
+          throw error;
+        }
+      } else {
+        // For one-way and return bookings, check the full route
+        const serviceAreaCheck = isRouteServiceable(
+          pickupLocation,
+          dropoffLocation
+        );
+        
+        if (!serviceAreaCheck.serviceable) {
+          const error = new Error(
+            serviceAreaCheck.message || "Location is outside our service area"
+          );
+          Object.assign(error, {
+            code: "LOCATION_NOT_SERVICEABLE",
+            details: serviceAreaCheck.message,
+          });
+          throw error;
+        }
       }
 
-      // Call the Mapbox Directions API to get distance and duration
-      // Build waypoints for the route including all stops
-      const waypoints = additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`);
+      // For hourly bookings, we don't need distance/duration calculation
+      let distance: number;
+      let duration: number;
       
-      const routeDetails = await MapboxDistanceService.getDistance(
-        `${pickupLocation.lat},${pickupLocation.lng}`,
-        `${dropoffLocation.lat},${dropoffLocation.lng}`,
-        waypoints
-      );
+      if (request.bookingType === "hourly") {
+        // Hourly bookings: distance = 0, duration = hours * 60
+        distance = 0;
+        duration = (request.hours || 3) * 60; // Convert hours to minutes
+      } else {
+        // One-way and return bookings: calculate actual distance and duration
+        if (request.bookingType === "return") {
+          // For return bookings, calculate outbound distance and double it (smart reverse route)
+          const waypoints = additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`);
+          
+          const outboundRoute = await MapboxDistanceService.getDistance(
+            `${pickupLocation.lat},${pickupLocation.lng}`,
+            `${dropoffLocation.lat},${dropoffLocation.lng}`,
+            waypoints
+          );
 
-      // Distance is already in miles from the new API
-      const distance = routeDetails.distance;
-      // Duration is already in minutes from the new API
-      const duration = routeDetails.duration;
+          // Return journey will follow reverse route, so double the distance
+          distance = outboundRoute.distance * 2;
+          duration = outboundRoute.duration * 2;
+        } else {
+          // One-way bookings: calculate actual distance and duration
+          const waypoints = additionalStops.map((stop) => `${stop.location.lat},${stop.location.lng}`);
+          
+          const routeDetails = await MapboxDistanceService.getDistance(
+            `${pickupLocation.lat},${pickupLocation.lng}`,
+            `${dropoffLocation.lat},${dropoffLocation.lng}`,
+            waypoints
+          );
+
+          // Distance is already in miles from the new API
+          distance = routeDetails.distance;
+          // Duration is already in minutes from the new API
+          duration = routeDetails.duration;
+        }
+      }
 
 
 
@@ -456,11 +503,13 @@ export class EnhancedFareService {
       if (returnType === 'wait-and-return') {
         messages.push("Return journey: Driver waits at destination and returns");
         messages.push("Driver wait time: unlimited");
+        messages.push("Return route: Smart reverse of outbound journey");
       } else if (returnType === 'later-date') {
         messages.push("Return journey: Scheduled return on different date/time");
+        messages.push("Return route: Smart reverse of outbound journey");
       }
       
-      messages.push("Return journey: Distance doubled");
+      messages.push("Return journey: Distance doubled (outbound + reverse route)");
       messages.push(`Return discount (10%): -£${discountAmount.toFixed(2)}`);
     }
 
@@ -481,7 +530,12 @@ export class EnhancedFareService {
 
     // Add additional stops message if applicable
     if (additionalStops > 0) {
-      messages.push(`Additional stops (${additionalStops}): £${stopCharge.toFixed(2)}`);
+      if (bookingType === "return") {
+        messages.push(`Additional stops (${additionalStops}): £${stopCharge.toFixed(2)} (applied to outbound journey)`);
+        messages.push(`Return journey will reverse the outbound route with stops`);
+      } else {
+        messages.push(`Additional stops (${additionalStops}): £${stopCharge.toFixed(2)}`);
+      }
     }
 
     // Calculate equipment charges
@@ -602,7 +656,7 @@ export class EnhancedFareService {
       'estate': 'estate',
       'mpv-6': 'mpv-6',
       'mpv-8': 'mpv-8',
-      'executive': 'executive',
+      'executive-saloon': 'executive-saloon',
       'executive-mpv': 'executive-mpv',
       'vip-saloon': 'vip-saloon',
       'vip-suv': 'vip-suv'
@@ -638,7 +692,7 @@ export class EnhancedFareService {
       'estate': { '3-6': 35.00, '6-12': 30.00 },
       'mpv-6': { '3-6': 35.00, '6-12': 35.00 },
       'mpv-8': { '3-6': 40.00, '6-12': 35.00 },
-      'executive': { '3-6': 45.00, '6-12': 40.00 },
+      'executive-saloon': { '3-6': 45.00, '6-12': 40.00 },
       'executive-mpv': { '3-6': 55.00, '6-12': 50.00 },
       'vip-saloon': { '3-6': 75.00, '6-12': 70.00 },
       'vip-suv': { '3-6': 85.00, '6-12': 80.00 }

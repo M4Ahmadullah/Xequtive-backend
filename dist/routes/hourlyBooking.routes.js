@@ -10,6 +10,32 @@ const hourlyFare_service_1 = require("../services/hourlyFare.service");
 const rateLimiter_1 = require("../middleware/rateLimiter");
 const email_service_1 = require("../services/email.service");
 const router = (0, express_1.Router)();
+// Generate sequential reference number
+async function generateReferenceNumber() {
+    try {
+        // Get the counter document
+        const counterRef = firebase_1.firestore.collection("counters").doc("bookingReference");
+        const counterDoc = await counterRef.get();
+        let nextNumber;
+        if (!counterDoc.exists) {
+            // Initialize counter starting from 100
+            nextNumber = 100;
+            await counterRef.set({ nextNumber: nextNumber + 1 });
+        }
+        else {
+            // Get next number and increment
+            const counterData = counterDoc.data();
+            nextNumber = counterData?.nextNumber || 100;
+            await counterRef.update({ nextNumber: nextNumber + 1 });
+        }
+        return `XEQ_${nextNumber}`;
+    }
+    catch (error) {
+        console.error("Error generating reference number:", error);
+        // Fallback to timestamp-based reference
+        return `XEQ_${Date.now()}`;
+    }
+}
 // Fare estimation endpoint for all booking types
 router.post("/fare-estimate", authMiddleware_1.verifyToken, async (req, res) => {
     try {
@@ -206,13 +232,19 @@ router.post("/create", authMiddleware_1.verifyToken, rateLimiter_1.bookingLimite
         if (bookingData.returnDetails) {
             permanentBooking.returnDetails = bookingData.returnDetails;
         }
+        // Generate reference number
+        const referenceNumber = await generateReferenceNumber();
+        // Add reference number to the permanentBooking object
+        permanentBooking.referenceNumber = referenceNumber;
         // Save to hourly bookings collection
         const bookingDoc = await firebase_1.firestore
             .collection("hourlyBookings")
             .add(permanentBooking);
+        console.log(`📅 Executive Cars booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | Type: ${permanentBooking.bookingType} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
         // Send booking confirmation email (non-blocking)
         email_service_1.EmailService.sendBookingConfirmationEmail(permanentBooking.customer.email, {
             id: bookingDoc.id,
+            referenceNumber: referenceNumber,
             fullName: permanentBooking.customer.fullName,
             pickupDate: permanentBooking.pickupDate,
             pickupTime: permanentBooking.pickupTime,
@@ -226,6 +258,7 @@ router.post("/create", authMiddleware_1.verifyToken, rateLimiter_1.bookingLimite
         // Prepare confirmation response
         const confirmationResponse = {
             bookingId: bookingDoc.id,
+            referenceNumber: referenceNumber,
             message: `Executive Cars ${bookingData.bookingType} booking successfully created`,
             details: {
                 customerName: permanentBooking.customer.fullName,

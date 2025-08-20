@@ -449,7 +449,7 @@ class HourlyFareService {
             return {
                 amount: roundedFare,
                 currency: this.DEFAULT_CURRENCY,
-                messages: this.generateReturnWaitMessages(outboundDistance, waitDuration, outboundTimeSurcharge, equipmentFees, numVehicles),
+                messages: this.generateReturnWaitMessages(outboundDistance, waitDuration, outboundTimeSurcharge, equipmentFees, numVehicles, 'wait-and-return'),
                 breakdown: {
                     baseFare: outboundFare,
                     distanceCharge: outboundDistanceCharge,
@@ -491,7 +491,7 @@ class HourlyFareService {
             return {
                 amount: roundedFare,
                 currency: this.DEFAULT_CURRENCY,
-                messages: this.generateReturnLaterMessages(outboundDistance, returnDistance, outboundTimeSurcharge, returnTimeSurcharge, equipmentFees, numVehicles),
+                messages: this.generateReturnLaterMessages(outboundDistance, returnDistance, outboundTimeSurcharge, returnTimeSurcharge, equipmentFees, numVehicles, returnType),
                 breakdown: {
                     baseFare: outboundFare + returnFare,
                     distanceCharge: outboundDistanceCharge + returnDistanceCharge,
@@ -618,11 +618,17 @@ class HourlyFareService {
     /**
      * Generate messages for Return Wait-and-Return pricing
      */
-    static generateReturnWaitMessages(distance, waitDuration, timeSurcharge, equipmentFees, numVehicles) {
+    static generateReturnWaitMessages(distance, waitDuration, timeSurcharge, equipmentFees, numVehicles, returnType) {
         const messages = [];
         messages.push(`Outbound: ${distance.toFixed(1)} miles`);
         messages.push(`Return: ${distance.toFixed(1)} miles (same route)`);
-        messages.push(`Driver wait time: ${waitDuration} hours`);
+        if (returnType === 'wait-and-return') {
+            messages.push("Return journey: Driver waits at destination and returns");
+            messages.push(`Driver wait time: ${waitDuration} hours`);
+        }
+        else if (returnType === 'later-date') {
+            messages.push("Return journey: Scheduled return on different date/time");
+        }
         messages.push(`Return booking: 10% discount applied`);
         if (timeSurcharge > 0) {
             messages.push(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
@@ -638,10 +644,13 @@ class HourlyFareService {
     /**
      * Generate messages for Return Later-Date pricing
      */
-    static generateReturnLaterMessages(outboundDistance, returnDistance, outboundTimeSurcharge, returnTimeSurcharge, equipmentFees, numVehicles) {
+    static generateReturnLaterMessages(outboundDistance, returnDistance, outboundTimeSurcharge, returnTimeSurcharge, equipmentFees, numVehicles, returnType) {
         const messages = [];
         messages.push(`Outbound: ${outboundDistance.toFixed(1)} miles`);
         messages.push(`Return: ${returnDistance.toFixed(1)} miles`);
+        if (returnType === 'later-date') {
+            messages.push("Return journey: Scheduled return on different date/time");
+        }
         messages.push(`Return booking: 10% discount applied`);
         if (outboundTimeSurcharge > 0 || returnTimeSurcharge > 0) {
             messages.push(`Time surcharges: £${(outboundTimeSurcharge + returnTimeSurcharge).toFixed(2)}`);

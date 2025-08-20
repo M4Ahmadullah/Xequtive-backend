@@ -86,10 +86,10 @@ const returnDetailsSchema = zod_1.z.object({
     outboundStops: zod_1.z.array(locationSchema).optional(),
     // Return journey
     returnType: zod_1.z.enum(["wait-and-return", "later-date"]),
-    returnPickup: locationSchema.optional(),
-    returnDropoff: locationSchema.optional(),
-    returnDateTime: dateTimeSchema.optional(),
-    waitDuration: zod_1.z.number().min(0).optional(),
+    returnPickup: locationSchema.optional(), // For later-date returns
+    returnDropoff: locationSchema.optional(), // For later-date returns
+    returnDateTime: dateTimeSchema.optional(), // For later-date returns
+    waitDuration: zod_1.z.number().min(0).optional(), // Hours for wait-and-return
     returnStops: zod_1.z.array(locationSchema).optional(),
 });
 // Fare estimate request validation for all booking types
