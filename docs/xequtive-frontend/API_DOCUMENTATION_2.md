@@ -199,6 +199,61 @@ The booking process follows these steps:
   }
   ```
 
+**NEW: Enhanced Response Structure**
+
+The booking creation response now includes comprehensive data that matches the user booking retrieval endpoints:
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": "45hptG5q4a0m68CZVzNd",
+    "message": "Booking successfully created",
+    "details": {
+      "fullName": "John Smith",
+      "pickupDate": "2024-06-20",
+      "pickupTime": "14:00",
+      "pickupLocation": "Piccadilly Circus, London, UK",
+      "dropoffLocation": "Heathrow Airport, London, UK",
+      "vehicle": "Executive Saloon",
+      "price": {
+        "amount": 128,
+        "currency": "GBP",
+        "breakdown": {
+          "distanceCharge": 108.0,
+          "minimumFare": 34.40,
+          "additionalStopFee": 0,
+          "timeSurcharge": 0,
+          "airportFee": 7.5,
+          "specialZoneFees": 0
+        }
+      },
+      "journey": {
+        "distance_miles": 27.4,
+        "duration_minutes": 52
+      },
+      "status": "pending",
+      "referenceNumber": "XEQ_105",
+      "notifications": [
+        "Your destination is Heathrow Airport. A £7.50 airport fee has been added."
+      ]
+    },
+    // ⚠️ IMPORTANT: Reference Number Usage Guide
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'bookingId' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    },
+    // Booking Type Definitions
+    "bookingTypeDefinitions": {
+      "hourly": "Continuous service for specified hours, no dropoff required",
+      "one-way": "Single journey from pickup to dropoff location",
+      "return": "Round-trip journey with 10% discount, uses smart reverse route"
+    }
+  }
+}
+```
+
 **⚠️ IMPORTANT: Reference Number vs Firebase ID**
 
 - **`referenceNumber`**: This is the business reference number (e.g., `XEQ_105`) that should be displayed to users and used for customer service

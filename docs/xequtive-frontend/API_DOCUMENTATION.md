@@ -213,6 +213,280 @@ async function logout() {
 }
 ```
 
+## User Booking Management Endpoints
+
+### Get All User Bookings (Enhanced)
+
+**NEW**: Retrieves comprehensive booking data for all booking types (one-way, return, hourly) in a unified view.
+
+**Endpoint:** `GET /api/bookings/user`
+
+**Authentication:** Required (cookie-based)
+
+**Query Parameters:**
+- `status` (optional): Filter by booking status (e.g., `pending`, `confirmed`, `completed`, `cancelled`)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookings": [
+      {
+        "id": "booking123",
+        "referenceNumber": "XEQ_105",
+        "customer": {
+          "fullName": "John Doe",
+          "email": "john@example.com",
+          "phoneNumber": "+44123456789"
+        },
+        "bookingType": "one-way",
+        "status": "confirmed",
+        "pickupDate": "2025-01-20",
+        "pickupTime": "14:00",
+        "locations": {
+          "pickup": {
+            "address": "London Heathrow Airport",
+            "coordinates": {
+              "lat": 51.47,
+              "lng": -0.4543
+            }
+          },
+          "dropoff": {
+            "address": "London City",
+            "coordinates": {
+              "lat": 51.5074,
+              "lng": -0.1278
+            }
+          },
+          "additionalStops": []
+        },
+        "vehicle": {
+          "id": "standard-saloon",
+          "name": "Standard Saloon",
+          "price": {
+            "amount": 45.5,
+            "currency": "GBP"
+          }
+        },
+        "journey": {
+          "distance_miles": 15.2,
+          "duration_minutes": 35
+        },
+        "hours": null,
+        "returnType": null,
+        "returnDate": null,
+        "returnTime": null,
+        "passengers": {
+          "count": 2,
+          "checkedLuggage": 1,
+          "handLuggage": 1,
+          "mediumLuggage": 0,
+          "babySeat": 0,
+          "childSeat": 0,
+          "boosterSeat": 0,
+          "wheelchair": 0
+        },
+        "specialRequests": "Please call when arriving",
+        "additionalStops": [],
+        "waitingTime": 0,
+        "travelInformation": null,
+        "createdAt": "2025-01-15T10:30:00.000Z",
+        "updatedAt": "2025-01-15T10:30:00.000Z"
+      },
+      {
+        "id": "hourly123",
+        "referenceNumber": "XEQ_106",
+        "customer": {
+          "fullName": "John Doe",
+          "email": "john@example.com",
+          "phoneNumber": "+44123456789"
+        },
+        "bookingType": "hourly",
+        "status": "confirmed",
+        "pickupDate": "2025-01-22",
+        "pickupTime": "09:00",
+        "locations": {
+          "pickup": {
+            "address": "London Bridge",
+            "coordinates": null
+          },
+          "dropoff": {
+            "address": "Hourly booking - driver stays with you",
+            "coordinates": null
+          },
+          "additionalStops": []
+        },
+        "vehicle": {
+          "id": "executive-saloon",
+          "name": "Executive Saloon",
+          "price": {
+            "amount": 180.00,
+            "currency": "GBP"
+          }
+        },
+        "journey": {
+          "distance_miles": 0,
+          "duration_minutes": 240
+        },
+        "hours": 4,
+        "returnType": null,
+        "returnDate": null,
+        "returnTime": null,
+        "passengers": {
+          "count": 2,
+          "checkedLuggage": 1,
+          "handLuggage": 1,
+          "mediumLuggage": 0,
+          "babySeat": 0,
+          "childSeat": 0,
+          "boosterSeat": 0,
+          "wheelchair": 0
+        },
+        "specialRequests": "Corporate event transportation",
+        "additionalStops": [],
+        "waitingTime": 0,
+        "travelInformation": null,
+        "createdAt": "2025-01-16T10:30:00.000Z",
+        "updatedAt": "2025-01-16T10:30:00.000Z"
+      }
+    ],
+    "total": 2,
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'id' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    },
+    "bookingTypeDefinitions": {
+      "hourly": "Continuous service for specified hours, no dropoff required",
+      "one-way": "Single journey from pickup to dropoff location",
+      "return": "Round-trip journey with 10% discount, uses smart reverse route"
+    }
+  }
+}
+```
+
+**Key Features:**
+- ✅ **Unified View**: All booking types (one-way, return, hourly) in a single response
+- ✅ **Comprehensive Data**: Complete booking information for frontend cards
+- ✅ **Reference Numbers**: Business reference numbers (XEQ_105) for user display
+- ✅ **Safe Data Access**: Prevents crashes from missing or malformed data
+- ✅ **Status Filtering**: Optional filtering by booking status
+- ✅ **Built-in Documentation**: Reference number guide and booking type definitions
+
+### Get Specific Booking Details
+
+**NEW**: Retrieves comprehensive details for a specific booking.
+
+**Endpoint:** `GET /api/bookings/:id`
+
+**Authentication:** Required (cookie-based)
+
+**Response:** Same comprehensive structure as above, but for a single booking.
+
+### Get User Bookings by Type
+
+**NEW**: Retrieves bookings filtered by specific type (one-way, return, or hourly).
+
+**Endpoint:** `GET /api/bookings/user/type/:bookingType`
+
+**Authentication:** Required (cookie-based)
+
+**Path Parameters:**
+- `bookingType`: Must be `one-way`, `return`, or `hourly`
+
+**Response:** Same structure as the main endpoint, but filtered by booking type.
+
+### Get User Booking Statistics
+
+**NEW**: Provides comprehensive statistics and insights about user's booking history.
+
+**Endpoint:** `GET /api/bookings/user/statistics`
+
+**Authentication:** Required (cookie-based)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 25,
+    "byType": {
+      "hourly": {
+        "count": 8,
+        "totalHours": 36,
+        "avgHours": 4.5
+      },
+      "one-way": {
+        "count": 12,
+        "totalDistance": 219.6,
+        "avgDistance": 18.3
+      },
+      "return": {
+        "count": 5,
+        "totalDistance": 110.5,
+        "avgDistance": 22.1,
+        "returnDiscounts": 5
+      }
+    },
+    "byStatus": {
+      "pending": 3,
+      "confirmed": 8,
+      "assigned": 2,
+      "in_progress": 4,
+      "completed": 6,
+      "cancelled": 2,
+      "declined": 0,
+      "no_show": 0
+    },
+    "byVehicle": {
+      "Standard Saloon": {
+        "count": 15,
+        "totalSpent": 675.50
+      },
+      "Executive Saloon": {
+        "count": 6,
+        "totalSpent": 1080.00
+      }
+    },
+    "totalSpent": 2231.00,
+    "recentActivity": [
+      {
+        "id": "booking123",
+        "referenceNumber": "XEQ_105",
+        "bookingType": "one-way",
+        "status": "confirmed",
+        "pickupDate": "2025-01-20",
+        "pickupTime": "14:00",
+        "vehicle": "Standard Saloon",
+        "amount": 45.5,
+        "createdAt": "2025-01-15T10:30:00.000Z"
+      }
+    ],
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'id' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    },
+    "bookingTypeDefinitions": {
+      "hourly": "Continuous service for specified hours, no dropoff required",
+      "one-way": "Single journey from pickup to dropoff location",
+      "return": "Round-trip journey with 10% discount, uses smart reverse route"
+    }
+  }
+}
+```
+
+**Key Features:**
+- ✅ **Type-Based Analytics**: Separate statistics for each booking type
+- ✅ **Status Distribution**: Counts by booking status
+- ✅ **Vehicle Performance**: Statistics by vehicle type
+- ✅ **Financial Insights**: Total spent and spending patterns
+- ✅ **Recent Activity**: Last 10 bookings for quick overview
+- ✅ **Reference Number Guide**: Clear usage instructions
+
 ## Fare Estimation Endpoints
 
 ### Executive Cars System (Hourly/Event Bookings)

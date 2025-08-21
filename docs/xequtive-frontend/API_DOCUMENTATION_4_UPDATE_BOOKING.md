@@ -167,6 +167,60 @@ The request body follows the same structure as the booking creation endpoint:
 }
 ```
 
+**NEW: Enhanced Response Structure**
+
+The booking update response now includes comprehensive data that matches the user booking retrieval endpoints:
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": "45hptG5q4a0m68CZVzNd",
+    "message": "Booking successfully updated",
+    "details": {
+      "fullName": "John Smith",
+      "pickupDate": "2024-06-20",
+      "pickupTime": "14:00",
+      "pickupLocation": "Piccadilly Circus, London, UK",
+      "dropoffLocation": "Heathrow Airport, London, UK",
+      "vehicle": "Executive Saloon",
+      "price": {
+        "amount": 128,
+        "currency": "GBP",
+        "breakdown": {
+          "baseFare": 12.5,
+          "distanceCharge": 108.0,
+          "additionalStopFee": 0,
+          "timeMultiplier": 0,
+          "specialLocationFees": 7.5,
+          "waitingCharge": 0
+        }
+      },
+      "journey": {
+        "distance_miles": 27.4,
+        "duration_minutes": 52
+      },
+      "status": "pending",
+      "notifications": [
+        "Your destination is Heathrow Airport. A £7.50 airport fee has been added."
+      ]
+    },
+    // ⚠️ IMPORTANT: Reference Number Usage Guide
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'bookingId' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    },
+    // Booking Type Definitions
+    "bookingTypeDefinitions": {
+      "hourly": "Continuous service for specified hours, no dropoff required",
+      "one-way": "Single journey from pickup to dropoff location",
+      "return": "Round-trip journey with 10% discount, uses smart reverse route"
+    }
+  }
+}
+```
+
 ### Error Responses
 
 1. **24-Hour Update Restriction (400 Bad Request)**
@@ -275,3 +329,53 @@ curl -X POST "http://localhost:5555/api/bookings/update-booking/45hptG5q4a0m68CZ
 - Email notifications are sent to the user upon successful booking update
 - Notifications include details of the changes made
 - Driver is automatically notified of booking modifications
+
+## Enhanced Frontend Integration
+
+**NEW**: The booking update system now provides comprehensive data that seamlessly integrates with the enhanced user booking management endpoints:
+
+### Key Benefits:
+
+1. **Consistent Data Structure**: Update responses match the structure of user booking retrieval endpoints
+2. **Reference Number Guidance**: Built-in instructions for proper reference number usage
+3. **Booking Type Definitions**: Clear explanations of each booking type for frontend developers
+4. **Complete Information**: All relevant booking data returned for immediate frontend updates
+
+### Frontend Implementation:
+
+```javascript
+// Example: Update booking and refresh user data
+const updateBooking = async (bookingId, updateData) => {
+  try {
+    const response = await fetch(`/api/bookings/update-booking/${bookingId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updateData)
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      // Update successful - refresh user bookings
+      await refreshUserBookings();
+      
+      // Show success message with reference number
+      const referenceNumber = data.data.details.referenceNumber;
+      showSuccessMessage(`Booking ${referenceNumber} updated successfully`);
+      
+      return data.data;
+    }
+  } catch (error) {
+    console.error('Update failed:', error);
+    throw error;
+  }
+};
+```
+
+### Data Consistency:
+
+- **Before Update**: User retrieves comprehensive booking data via `/api/bookings/user`
+- **During Update**: User submits changes via `/api/bookings/update-booking/:id`
+- **After Update**: Frontend receives updated data and refreshes user view
+- **Result**: Seamless user experience with consistent data structure throughout
