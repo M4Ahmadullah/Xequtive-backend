@@ -92,10 +92,10 @@ For journeys crossing the River Thames via the Dartford Crossing:
 | Estate              |           4           |     £6.50     |       £3.45       |         £30.00          |
 | MPV-6               |           6           |    £12.50     |       £6.45       |         £35.00          |
 | MPV-8               |           8           |    £18.50     |       £6.95       |         £45.00          |
-| Executive Saloon    |           3           |    £10.50     |       £5.95       |         £45.00          |
-| Executive MPV-8     |           6           |    £20.50     |       £7.95       |         £55.00          |
-| VIP Executive       |           3           |    £35.00     |       £7.45       |         £75.00          |
-| VIP Executive MPV   |           6           |    £35.00     |       £7.95       |         £95.00          |
+| Executive Saloon    |           4           |    £10.50     |       £5.95       |         £45.00          |
+| Executive MPV       |           8           |    £20.50     |       £7.95       |         £55.00          |
+| VIP Saloon          |           3           |    £35.00     |       £7.45       |         £75.00          |
+| VIP MPV/SUV         |           6           |    £35.00     |       £7.95       |         £95.00          |
 | WAV                 |           4           |    £12.50     |       £4.75       |         £35.00          |
 
 ## Vehicle Features
@@ -118,24 +118,29 @@ For journeys crossing the River Thames via the Dartford Crossing:
   - Flexible interior configuration
 
 - **MPV-8**: Ford Tourneo, Mercedes Vito
-  - Accommodates 8 passengers with 6 luggage items
+  - Accommodates 8 passengers with 8 luggage items
   - Maximum capacity for both passengers and luggage
   - Ideal for group transportation
 
 ### Premium Vehicles
 
 - **Executive Saloon**: Mercedes E-Class, BMW 5-Series
-  - Accommodates 3 passengers with 2 luggage items
+  - Accommodates 4 passengers with 2 luggage items
   - WiFi, bottled water, professional chauffeur, flight tracking
   - Premium comfort for business travel and special occasions
 
-- **VIP Executive**: Mercedes S-Class, BMW 7-Series
+- **Executive MPV**: Mercedes V-Class, Volkswagen Caravelle
+  - Accommodates 8 passengers with 8 luggage items
+  - WiFi, bottled water, professional chauffeur, flight tracking
+  - Premium group transportation for business and events
+
+- **VIP Saloon**: Mercedes S-Class, BMW 7-Series
   - Accommodates 3 passengers with 2 luggage items
   - WiFi, premium drinks, luxury interior, professional chauffeur, priority service, privacy partition
   - Ultimate luxury experience for high-profile clients
 
-- **VIP Executive MPV**: Mercedes V-Class Luxury
-  - Accommodates 6 passengers with 4 luggage items
+- **VIP MPV/SUV**: Mercedes V-Class Luxury, Range Rover
+  - Accommodates 6 passengers with 6 luggage items
   - WiFi, premium drinks, luxury interior, professional chauffeur, priority service, enhanced climate control
   - Premium group transportation with the highest level of service
 

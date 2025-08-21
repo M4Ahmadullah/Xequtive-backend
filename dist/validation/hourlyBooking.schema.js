@@ -70,10 +70,11 @@ const oneWayDetailsSchema = zod_1.z.object({
 });
 // Hourly booking details validation
 // Supports tiered pricing: 3-6 hours (higher rates) vs 6-12 hours (lower rates)
+// Hourly bookings don't need a dropoff location - driver stays with passenger
 const hourlyDetailsSchema = zod_1.z.object({
     hours: zod_1.z.number().min(3, "Minimum 3 hours required").max(12, "Maximum 12 hours allowed"),
     pickupLocation: locationSchema,
-    dropoffLocation: locationSchema.optional(),
+    // No dropoff location needed for hourly bookings
     additionalStops: zod_1.z.array(locationSchema).optional(),
 });
 // Return booking details validation
@@ -108,7 +109,7 @@ exports.fareEstimateSchema = zod_1.z.object({
     hourlyDetails: zod_1.z.object({
         hours: zod_1.z.number().min(3).max(12),
         pickupLocation: coordinatesSchema,
-        dropoffLocation: coordinatesSchema.optional(),
+        // No dropoff location needed for hourly bookings
         additionalStops: zod_1.z.array(coordinatesSchema).optional(),
     }).optional(),
     // Return specific

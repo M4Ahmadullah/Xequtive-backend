@@ -37,15 +37,11 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
             address: zod_1.z.string().min(1, "Dropoff address is required"),
             coordinates: coordinatesSchema,
         }).optional(), // Make dropoff optional - will be validated conditionally
-        stops: zod_1.z.array(zod_1.z.string()).optional(),
+        stops: zod_1.z.array(zod_1.z.string()).optional(), // Stops allowed for one-way, not for return
     }),
     datetime: zod_1.z.object({
-        date: zod_1.z
-            .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
-        time: zod_1.z
-            .string()
-            .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+        date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+        time: zod_1.z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
     }),
     passengers: zod_1.z.object({
         count: zod_1.z.number().int().min(1).max(16),
@@ -65,14 +61,29 @@ exports.enhancedFareEstimateSchema = zod_1.z.object({
 }).refine((data) => {
     // Conditional validation based on booking type
     if (data.bookingType === "hourly") {
-        // Hourly bookings don't need dropoff location
+        // Hourly bookings don't need dropoff location but need hours
         if (data.hours === undefined || data.hours < 3 || data.hours > 12) {
             return false;
         }
         return true;
     }
+    else if (data.bookingType === "return") {
+        // Return bookings need dropoff location AND returnType
+        if (!data.locations.dropoff || !data.returnType) {
+            return false;
+        }
+        // For later-date returns, need return date and time
+        if (data.returnType === "later-date" && (!data.returnDate || !data.returnTime)) {
+            return false;
+        }
+        // Return bookings should not have stops (will use smart reverse route)
+        if (data.locations.stops && data.locations.stops.length > 0) {
+            return false;
+        }
+        return true;
+    }
     else {
-        // One-way and return bookings need dropoff location
+        // One-way bookings need dropoff location
         if (!data.locations.dropoff) {
             return false;
         }
@@ -144,6 +155,7 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
                 address: zod_1.z.string().min(1, "Dropoff address is required"),
                 coordinates: coordinatesSchema,
             }).optional(), // Make dropoff optional for hourly bookings
+            // Additional stops removed for return bookings - will use smart reverse route
             additionalStops: zod_1.z
                 .array(zod_1.z.object({
                 address: zod_1.z.string().min(1, "Additional stop address is required"),
@@ -198,8 +210,23 @@ exports.enhancedBookingCreateSchema = zod_1.z.object({
         }
         return true;
     }
+    else if (data.booking.bookingType === "return") {
+        // Return bookings need dropoff location AND returnType
+        if (!data.booking.locations.dropoff || !data.booking.returnType) {
+            return false;
+        }
+        // For later-date returns, need return date and time
+        if (data.booking.returnType === "later-date" && (!data.booking.returnDate || !data.booking.returnTime)) {
+            return false;
+        }
+        // Return bookings should not have additional stops (will use smart reverse route)
+        if (data.booking.locations.additionalStops && data.booking.locations.additionalStops.length > 0) {
+            return false;
+        }
+        return true;
+    }
     else {
-        // One-way and return bookings need dropoff location
+        // One-way bookings need dropoff location
         if (!data.booking.locations.dropoff) {
             return false;
         }

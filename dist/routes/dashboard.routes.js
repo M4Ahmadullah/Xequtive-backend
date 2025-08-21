@@ -403,7 +403,7 @@ router.use(authMiddleware_1.verifyDashboardToken, authMiddleware_1.isAdmin);
 // =====================================================
 // Bookings Management
 // =====================================================
-// Get all bookings with filtering
+// Get all bookings with comprehensive filtering and separation
 router.get("/bookings", async (req, res) => {
     try {
         // Extract query parameters
@@ -411,6 +411,7 @@ router.get("/bookings", async (req, res) => {
         const endDate = req.query.endDate;
         const status = req.query.status;
         const vehicleType = req.query.vehicleType;
+        const bookingType = req.query.bookingType; // NEW: Filter by booking type
         const page = parseInt(req.query.page || "1");
         const limit = parseInt(req.query.limit || "20");
         const sort = req.query.sort || "pickupDate";
@@ -430,6 +431,9 @@ router.get("/bookings", async (req, res) => {
         if (vehicleType) {
             query = query.where("vehicle.id", "==", vehicleType);
         }
+        if (bookingType) {
+            query = query.where("bookingType", "==", bookingType);
+        }
         // Get total count for pagination
         const countSnapshot = await query.get();
         const total = countSnapshot.size;
@@ -440,13 +444,69 @@ router.get("/bookings", async (req, res) => {
         query = query.limit(limit).offset(offset);
         // Execute query
         const snapshot = await query.get();
-        // Map results to bookings array
+        // Map results to comprehensive bookings array
         const bookings = [];
         snapshot.forEach((doc) => {
-            bookings.push({
+            const bookingData = doc.data();
+            // Enhanced booking object with proper reference number handling
+            const enhancedBooking = {
                 id: doc.id,
-                ...doc.data(),
-            });
+                // ⚠️ IMPORTANT: Use referenceNumber for display, NOT Firebase ID
+                referenceNumber: bookingData.referenceNumber || "N/A",
+                firebaseId: doc.id, // Keep Firebase ID for API operations
+                // Customer Information
+                customer: {
+                    fullName: bookingData.customer?.fullName || "N/A",
+                    email: bookingData.customer?.email || "N/A",
+                    phoneNumber: bookingData.customer?.phoneNumber || "N/A",
+                },
+                // Booking Details
+                bookingType: bookingData.bookingType || "one-way",
+                status: bookingData.status || "pending",
+                pickupDate: bookingData.pickupDate || "N/A",
+                pickupTime: bookingData.pickupTime || "N/A",
+                // Location Information (with safe access)
+                locations: {
+                    pickup: {
+                        address: bookingData.locations?.pickup?.address || "Pickup location not specified",
+                        coordinates: bookingData.locations?.pickup?.coordinates || null,
+                    },
+                    dropoff: {
+                        address: bookingData.locations?.dropoff?.address || "Dropoff location not specified",
+                        coordinates: bookingData.locations?.dropoff?.coordinates || null,
+                    },
+                    additionalStops: bookingData.locations?.additionalStops || [],
+                },
+                // Vehicle Information
+                vehicle: {
+                    id: bookingData.vehicle?.id || "N/A",
+                    name: bookingData.vehicle?.name || "Vehicle not specified",
+                    price: {
+                        amount: bookingData.vehicle?.price?.amount || 0,
+                        currency: bookingData.vehicle?.price?.currency || "GBP",
+                    },
+                },
+                // Journey Information
+                journey: {
+                    distance_miles: bookingData.journey?.distance_miles || 0,
+                    duration_minutes: bookingData.journey?.duration_minutes || 0,
+                },
+                // Special Booking Types
+                hours: bookingData.hours || null, // For hourly bookings
+                returnType: bookingData.returnType || null, // For return bookings
+                returnDate: bookingData.returnDate || null,
+                returnTime: bookingData.returnTime || null,
+                // Additional Information
+                passengers: bookingData.passengers || {},
+                specialRequests: bookingData.specialRequests || "",
+                additionalStops: bookingData.additionalStops || [],
+                waitingTime: bookingData.waitingTime || 0,
+                // Metadata
+                userId: bookingData.userId || "N/A",
+                createdAt: bookingData.createdAt || "N/A",
+                updatedAt: bookingData.updatedAt || "N/A",
+            };
+            bookings.push(enhancedBooking);
         });
         // Calculate pagination information
         const pages = Math.ceil(total / limit);
@@ -459,6 +519,12 @@ router.get("/bookings", async (req, res) => {
                     pages,
                     currentPage: page,
                     limit,
+                },
+                // ⚠️ IMPORTANT: Reference Number Usage Guide
+                referenceNumberGuide: {
+                    display: "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+                    apiOperations: "Use 'firebaseId' field for API calls like updates and cancellations",
+                    warning: "Never display Firebase IDs to users - they are internal system identifiers",
                 },
             },
         });
@@ -475,12 +541,13 @@ router.get("/bookings", async (req, res) => {
         });
     }
 });
-// Get booking calendar data
+// Get booking calendar data with enhanced information
 router.get("/bookings/calendar", async (req, res) => {
     try {
         const startDate = req.query.startDate;
         const endDate = req.query.endDate;
         const status = req.query.status;
+        const bookingType = req.query.bookingType; // NEW: Filter by booking type
         if (!startDate || !endDate) {
             return res.status(400).json({
                 success: false,
@@ -498,32 +565,78 @@ router.get("/bookings/calendar", async (req, res) => {
         if (status) {
             query = query.where("status", "==", status);
         }
+        if (bookingType) {
+            query = query.where("bookingType", "==", bookingType);
+        }
         // Execute query
         const snapshot = await query.get();
-        // Format data for calendar
+        // Format data for calendar with enhanced information
         const events = [];
         snapshot.forEach((doc) => {
             const booking = doc.data();
-            // Calculate end time based on duration
+            // Calculate end time based on duration or hours
             const startTime = `${booking.pickupDate}T${booking.pickupTime}:00`;
-            const durationMinutes = booking.journey?.duration_minutes || 60; // Default to 1 hour if no duration
+            let durationMinutes = 60; // Default to 1 hour
+            if (booking.bookingType === "hourly" && booking.hours) {
+                durationMinutes = booking.hours * 60; // Convert hours to minutes
+            }
+            else if (booking.journey?.duration_minutes) {
+                durationMinutes = booking.journey.duration_minutes;
+            }
             const endTime = new Date(new Date(startTime).getTime() + durationMinutes * 60000).toISOString();
-            events.push({
+            // Enhanced event object with proper reference number handling
+            const enhancedEvent = {
                 id: doc.id,
-                title: `${booking.customer.fullName} - ${booking.vehicle.name}`,
+                // ⚠️ IMPORTANT: Use referenceNumber for display, NOT Firebase ID
+                referenceNumber: booking.referenceNumber || "N/A",
+                firebaseId: doc.id, // Keep Firebase ID for API operations
+                title: `${booking.customer?.fullName || "Unknown"} - ${booking.vehicle?.name || "Vehicle"} (${booking.bookingType || "one-way"})`,
                 start: startTime,
                 end: endTime,
-                status: booking.status,
-                customer: booking.customer.fullName,
-                pickupLocation: booking.locations.pickup.address,
-                dropoffLocation: booking.locations.dropoff.address,
-                vehicleType: booking.vehicle.name,
-            });
+                // Booking Information
+                status: booking.status || "pending",
+                bookingType: booking.bookingType || "one-way",
+                // Customer Information
+                customer: {
+                    fullName: booking.customer?.fullName || "Unknown",
+                    email: booking.customer?.email || "N/A",
+                    phoneNumber: booking.customer?.phoneNumber || "N/A",
+                },
+                // Location Information (with safe access)
+                pickupLocation: booking.locations?.pickup?.address || "Pickup location not specified",
+                dropoffLocation: booking.bookingType === "hourly" ? "Hourly booking - driver stays with you" : (booking.locations?.dropoff?.address || "Dropoff location not specified"),
+                // Vehicle Information
+                vehicleType: booking.vehicle?.name || "Vehicle not specified",
+                vehicleId: booking.vehicle?.id || "N/A",
+                // Special Booking Types
+                hours: booking.hours || null, // For hourly bookings
+                returnType: booking.returnType || null, // For return bookings
+                returnDate: booking.returnDate || null,
+                returnTime: booking.returnTime || null,
+                // Journey Information
+                distance_miles: booking.journey?.distance_miles || 0,
+                duration_minutes: durationMinutes,
+                // Price Information
+                price: {
+                    amount: booking.vehicle?.price?.amount || 0,
+                    currency: booking.vehicle?.price?.currency || "GBP",
+                },
+                // Additional Information
+                additionalStops: booking.additionalStops || [],
+                specialRequests: booking.specialRequests || "",
+            };
+            events.push(enhancedEvent);
         });
         return res.json({
             success: true,
             data: {
                 events,
+                // ⚠️ IMPORTANT: Reference Number Usage Guide
+                referenceNumberGuide: {
+                    display: "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+                    apiOperations: "Use 'firebaseId' field for API calls like updates and cancellations",
+                    warning: "Never display Firebase IDs to users - they are internal system identifiers",
+                },
             },
         });
     }
@@ -539,7 +652,7 @@ router.get("/bookings/calendar", async (req, res) => {
         });
     }
 });
-// Get booking details
+// Get booking details with enhanced information
 router.get("/bookings/:id", async (req, res) => {
     try {
         const bookingId = req.params.id;
@@ -566,20 +679,92 @@ router.get("/bookings/:id", async (req, res) => {
         timelineSnapshot.forEach((doc) => {
             timeline.push(doc.data());
         });
-        // Return booking with timeline
+        // Enhanced booking data with proper reference number handling
+        const bookingData = bookingDoc.data();
+        if (!bookingData) {
+            return res.status(500).json({
+                success: false,
+                error: {
+                    code: "DATA_ERROR",
+                    message: "Booking data is corrupted or missing",
+                },
+            });
+        }
+        const enhancedBooking = {
+            id: bookingDoc.id,
+            // ⚠️ IMPORTANT: Use referenceNumber for display, NOT Firebase ID
+            referenceNumber: bookingData.referenceNumber || "N/A",
+            firebaseId: bookingDoc.id, // Keep Firebase ID for API operations
+            // Customer Information
+            customer: {
+                fullName: bookingData.customer?.fullName || "N/A",
+                email: bookingData.customer?.email || "N/A",
+                phoneNumber: bookingData.customer?.phoneNumber || "N/A",
+            },
+            // Booking Details
+            bookingType: bookingData.bookingType || "one-way",
+            status: bookingData.status || "pending",
+            pickupDate: bookingData.pickupDate || "N/A",
+            pickupTime: bookingData.pickupTime || "N/A",
+            // Location Information (with safe access)
+            locations: {
+                pickup: {
+                    address: bookingData.locations?.pickup?.address || "Pickup location not specified",
+                    coordinates: bookingData.locations?.pickup?.coordinates || null,
+                },
+                dropoff: {
+                    address: bookingData.locations?.dropoff?.address || "Dropoff location not specified",
+                    coordinates: bookingData.locations?.dropoff?.coordinates || null,
+                },
+                additionalStops: bookingData.locations?.additionalStops || [],
+            },
+            // Vehicle Information
+            vehicle: {
+                id: bookingData.vehicle?.id || "N/A",
+                name: bookingData.vehicle?.name || "Vehicle not specified",
+                price: {
+                    amount: bookingData.vehicle?.price?.amount || 0,
+                    currency: bookingData.vehicle?.price?.currency || "GBP",
+                },
+            },
+            // Journey Information
+            journey: {
+                distance_miles: bookingData.journey?.distance_miles || 0,
+                duration_minutes: bookingData.journey?.duration_minutes || 0,
+            },
+            // Special Booking Types
+            hours: bookingData.hours || null, // For hourly bookings
+            returnType: bookingData.returnType || null, // For return bookings
+            returnDate: bookingData.returnDate || null,
+            returnTime: bookingData.returnTime || null,
+            // Additional Information
+            passengers: bookingData.passengers || {},
+            specialRequests: bookingData.specialRequests || "",
+            additionalStops: bookingData.additionalStops || [],
+            waitingTime: bookingData.waitingTime || 0,
+            // Metadata
+            userId: bookingData.userId || "N/A",
+            createdAt: bookingData.createdAt || "N/A",
+            updatedAt: bookingData.updatedAt || "N/A",
+            // Timeline
+            timeline: timeline.length > 0
+                ? timeline
+                : [
+                    {
+                        status: bookingData.status || "pending",
+                        timestamp: bookingData.createdAt,
+                    },
+                ],
+        };
+        // Return enhanced booking with timeline
         return res.json({
             success: true,
-            data: {
-                id: bookingDoc.id,
-                ...bookingDoc.data(),
-                timeline: timeline.length > 0
-                    ? timeline
-                    : [
-                        {
-                            status: bookingDoc.data()?.status || "pending",
-                            timestamp: bookingDoc.data()?.createdAt,
-                        },
-                    ],
+            data: enhancedBooking,
+            // ⚠️ IMPORTANT: Reference Number Usage Guide
+            referenceNumberGuide: {
+                display: "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+                apiOperations: "Use 'firebaseId' field for API calls like updates and cancellations",
+                warning: "Never display Firebase IDs to users - they are internal system identifiers",
             },
         });
     }
@@ -590,6 +775,326 @@ router.get("/bookings/:id", async (req, res) => {
             error: {
                 code: "SERVER_ERROR",
                 message: "Failed to fetch booking details",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// NEW: Get separated bookings by type (Events vs Taxi)
+router.get("/bookings/separated", async (req, res) => {
+    try {
+        // Extract query parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const status = req.query.status;
+        const page = parseInt(req.query.page || "1");
+        const limit = parseInt(req.query.limit || "20");
+        // Build base query
+        let query = firebase_1.firestore.collection("bookings");
+        // Apply filters if provided
+        if (startDate) {
+            query = query.where("pickupDate", ">=", startDate);
+        }
+        if (endDate) {
+            query = query.where("pickupDate", "<=", endDate);
+        }
+        if (status) {
+            query = query.where("status", "==", status);
+        }
+        // Execute query to get all bookings
+        const snapshot = await query.get();
+        // Separate bookings by type
+        const eventsBookings = []; // Hourly bookings
+        const taxiBookings = []; // One-way and return bookings
+        snapshot.forEach((doc) => {
+            const bookingData = doc.data();
+            // Enhanced booking object with proper reference number handling
+            const enhancedBooking = {
+                id: doc.id,
+                // ⚠️ IMPORTANT: Use referenceNumber for display, NOT Firebase ID
+                referenceNumber: bookingData.referenceNumber || "N/A",
+                firebaseId: doc.id, // Keep Firebase ID for API operations
+                // Customer Information
+                customer: {
+                    fullName: bookingData.customer?.fullName || "N/A",
+                    email: bookingData.customer?.email || "N/A",
+                    phoneNumber: bookingData.customer?.phoneNumber || "N/A",
+                },
+                // Booking Details
+                bookingType: bookingData.bookingType || "one-way",
+                status: bookingData.status || "pending",
+                pickupDate: bookingData.pickupDate || "N/A",
+                pickupTime: bookingData.pickupTime || "N/A",
+                // Location Information (with safe access)
+                locations: {
+                    pickup: {
+                        address: bookingData.locations?.pickup?.address || "Pickup location not specified",
+                        coordinates: bookingData.locations?.pickup?.coordinates || null,
+                    },
+                    dropoff: {
+                        address: bookingData.locations?.dropoff?.address || "Dropoff location not specified",
+                        coordinates: bookingData.locations?.dropoff?.coordinates || null,
+                    },
+                    additionalStops: bookingData.locations?.additionalStops || [],
+                },
+                // Vehicle Information
+                vehicle: {
+                    id: bookingData.vehicle?.id || "N/A",
+                    name: bookingData.vehicle?.name || "Vehicle not specified",
+                    price: {
+                        amount: bookingData.vehicle?.price?.amount || 0,
+                        currency: bookingData.vehicle?.price?.currency || "GBP",
+                    },
+                },
+                // Journey Information
+                journey: {
+                    distance_miles: bookingData.journey?.distance_miles || 0,
+                    duration_minutes: bookingData.journey?.duration_minutes || 0,
+                },
+                // Special Booking Types
+                hours: bookingData.hours || null, // For hourly bookings
+                returnType: bookingData.returnType || null, // For return bookings
+                returnDate: bookingData.returnDate || null,
+                returnTime: bookingData.returnTime || null,
+                // Additional Information
+                passengers: bookingData.passengers || {},
+                specialRequests: bookingData.specialRequests || "",
+                additionalStops: bookingData.additionalStops || [],
+                waitingTime: bookingData.waitingTime || 0,
+                // Metadata
+                userId: bookingData.userId || "N/A",
+                createdAt: bookingData.createdAt || "N/A",
+                updatedAt: bookingData.updatedAt || "N/A",
+            };
+            // Categorize by booking type
+            if (bookingData.bookingType === "hourly") {
+                eventsBookings.push(enhancedBooking);
+            }
+            else {
+                // One-way and return bookings go to taxi bookings
+                taxiBookings.push(enhancedBooking);
+            }
+        });
+        // Sort both arrays by creation date (newest first)
+        eventsBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        taxiBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Apply pagination to both arrays
+        const eventsStart = (page - 1) * limit;
+        const eventsEnd = eventsStart + limit;
+        const taxiStart = (page - 1) * limit;
+        const taxiEnd = taxiStart + limit;
+        const paginatedEvents = eventsBookings.slice(eventsStart, eventsEnd);
+        const paginatedTaxi = taxiBookings.slice(taxiStart, taxiEnd);
+        // Calculate pagination information
+        const totalEvents = eventsBookings.length;
+        const totalTaxi = taxiBookings.length;
+        const totalBookings = totalEvents + totalTaxi;
+        const pages = Math.ceil(totalBookings / limit);
+        return res.json({
+            success: true,
+            data: {
+                // Events Bookings (Hourly)
+                events: {
+                    bookings: paginatedEvents,
+                    total: totalEvents,
+                    currentPage: page,
+                    pages: Math.ceil(totalEvents / limit),
+                    limit,
+                },
+                // Taxi Bookings (One-way and Return)
+                taxi: {
+                    bookings: paginatedTaxi,
+                    total: totalTaxi,
+                    currentPage: page,
+                    pages: Math.ceil(totalTaxi / limit),
+                    limit,
+                },
+                // Combined Statistics
+                combined: {
+                    total: totalBookings,
+                    totalPages: pages,
+                    currentPage: page,
+                    limit,
+                },
+                // ⚠️ IMPORTANT: Reference Number Usage Guide
+                referenceNumberGuide: {
+                    display: "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+                    apiOperations: "Use 'firebaseId' field for API calls like updates and cancellations",
+                    warning: "Never display Firebase IDs to users - they are internal system identifiers",
+                },
+                // Booking Type Definitions
+                bookingTypeDefinitions: {
+                    events: "Hourly bookings (3-12 hours) - driver stays with you throughout",
+                    taxi: "One-way and return journeys - point-to-point transportation",
+                    hourly: "Continuous service for specified hours, no dropoff required",
+                    oneWay: "Single journey from pickup to dropoff location",
+                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                },
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error fetching separated bookings:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "SERVER_ERROR",
+                message: "Failed to fetch separated bookings",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// NEW: Get booking statistics by type
+router.get("/bookings/statistics", async (req, res) => {
+    try {
+        // Extract query parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        // Build base query
+        let query = firebase_1.firestore.collection("bookings");
+        // Apply date filters if provided
+        if (startDate) {
+            query = query.where("pickupDate", ">=", startDate);
+        }
+        if (endDate) {
+            query = query.where("pickupDate", "<=", endDate);
+        }
+        // Execute query to get all bookings
+        const snapshot = await query.get();
+        // Initialize statistics
+        const stats = {
+            total: 0,
+            byType: {
+                hourly: { count: 0, revenue: 0, avgHours: 0, totalHours: 0 },
+                "one-way": { count: 0, revenue: 0, avgDistance: 0, totalDistance: 0 },
+                return: { count: 0, revenue: 0, avgDistance: 0, totalDistance: 0, returnDiscounts: 0 },
+            },
+            byStatus: {
+                pending: 0,
+                confirmed: 0,
+                assigned: 0,
+                "in_progress": 0,
+                completed: 0,
+                cancelled: 0,
+                declined: 0,
+                "no_show": 0,
+            },
+            byVehicle: {},
+            topRoutes: [],
+            revenue: {
+                total: 0,
+                hourly: 0,
+                "one-way": 0,
+                return: 0,
+            },
+        };
+        // Process each booking
+        snapshot.forEach((doc) => {
+            const booking = doc.data();
+            stats.total++;
+            // Count by status
+            const status = booking.status || "pending";
+            if (status in stats.byStatus) {
+                stats.byStatus[status]++;
+            }
+            else {
+                // Handle unknown statuses
+                stats.byStatus.pending++;
+            }
+            // Count by vehicle type
+            const vehicleName = booking.vehicle?.name || "Unknown";
+            if (!stats.byVehicle[vehicleName]) {
+                stats.byVehicle[vehicleName] = { count: 0, revenue: 0 };
+            }
+            stats.byVehicle[vehicleName].count++;
+            // Calculate revenue
+            const amount = booking.vehicle?.price?.amount || 0;
+            stats.revenue.total += amount;
+            stats.byVehicle[vehicleName].revenue += amount;
+            // Process by booking type
+            const bookingType = booking.bookingType || "one-way";
+            if (bookingType === "hourly") {
+                stats.byType.hourly.count++;
+                stats.byType.hourly.revenue += amount;
+                stats.revenue.hourly += amount;
+                const hours = booking.hours || 0;
+                stats.byType.hourly.totalHours += hours;
+            }
+            else if (bookingType === "one-way") {
+                stats.byType["one-way"].count++;
+                stats.byType["one-way"].revenue += amount;
+                stats.revenue["one-way"] += amount;
+                const distance = booking.journey?.distance_miles || 0;
+                stats.byType["one-way"].totalDistance += distance;
+            }
+            else if (bookingType === "return") {
+                stats.byType.return.count++;
+                stats.byType.return.revenue += amount;
+                stats.revenue.return += amount;
+                stats.byType.return.returnDiscounts++;
+                const distance = booking.journey?.distance_miles || 0;
+                stats.byType.return.totalDistance += distance;
+            }
+            // Track routes for top routes calculation
+            if (booking.locations?.pickup?.address && booking.locations?.dropoff?.address) {
+                const route = `${booking.locations.pickup.address} → ${booking.locations.dropoff.address}`;
+                const existingRoute = stats.topRoutes.find(r => r.route === route);
+                if (existingRoute) {
+                    existingRoute.count++;
+                }
+                else {
+                    stats.topRoutes.push({ route, count: 1 });
+                }
+            }
+        });
+        // Calculate averages
+        if (stats.byType.hourly.count > 0) {
+            stats.byType.hourly.avgHours = parseFloat((stats.byType.hourly.totalHours / stats.byType.hourly.count).toFixed(1));
+        }
+        if (stats.byType["one-way"].count > 0) {
+            stats.byType["one-way"].avgDistance = parseFloat((stats.byType["one-way"].totalDistance / stats.byType["one-way"].count).toFixed(1));
+        }
+        if (stats.byType.return.count > 0) {
+            stats.byType.return.avgDistance = parseFloat((stats.byType.return.totalDistance / stats.byType.return.count).toFixed(1));
+        }
+        // Sort top routes by count
+        stats.topRoutes.sort((a, b) => b.count - a.count);
+        stats.topRoutes = stats.topRoutes.slice(0, 10); // Top 10 routes
+        // Sort vehicle stats by revenue
+        const sortedVehicles = Object.entries(stats.byVehicle)
+            .sort(([, a], [, b]) => b.revenue - a.revenue)
+            .reduce((obj, [key, value]) => {
+            obj[key] = value;
+            return obj;
+        }, {});
+        return res.json({
+            success: true,
+            data: {
+                ...stats,
+                byVehicle: sortedVehicles,
+                // ⚠️ IMPORTANT: Reference Number Usage Guide
+                referenceNumberGuide: {
+                    display: "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+                    apiOperations: "Use 'firebaseId' field for API calls like updates and cancellations",
+                    warning: "Never display Firebase IDs to users - they are internal system identifiers",
+                },
+                // Booking Type Definitions
+                bookingTypeDefinitions: {
+                    hourly: "Continuous service for specified hours, no dropoff required",
+                    "one-way": "Single journey from pickup to dropoff location",
+                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                },
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error fetching booking statistics:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "SERVER_ERROR",
+                message: "Failed to fetch booking statistics",
                 details: error instanceof Error ? error.message : "Unknown error",
             },
         });

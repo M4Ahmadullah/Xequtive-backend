@@ -1448,25 +1448,30 @@ The following vehicle types are available for bookings:
 
 4. **MPV-8** (`extra-large-mpv`)
 
-   - Capacity: 8 passengers, 6 luggage
+   - Capacity: 8 passengers, 8 luggage
    - Examples: Ford Tourneo, Mercedes Vito
 
 5. **Executive Saloon** (`executive-saloon`)
 
-   - Capacity: 3 passengers, 2 luggage
+   - Capacity: 4 passengers, 2 luggage
    - Examples: Mercedes E-Class, BMW 5-Series
 
-6. **VIP Executive** (`vip`)
+6. **Executive MPV** (`executive-mpv`)
+
+   - Capacity: 8 passengers, 8 luggage
+   - Examples: Mercedes V-Class, Volkswagen Caravelle
+
+7. **VIP Saloon** (`vip`)
 
    - Capacity: 3 passengers, 2 luggage
    - Examples: Mercedes S-Class, BMW 7-Series
 
-7. **VIP Executive MPV** (`vip-mpv`)
+8. **VIP MPV/SUV** (`vip-mpv`)
 
-   - Capacity: 6 passengers, 4 luggage
-   - Examples: Mercedes V-Class Luxury
+   - Capacity: 6 passengers, 6 luggage
+   - Examples: Mercedes V-Class Luxury, Range Rover
 
-8. **Wheelchair Accessible** (`wav`)
+9. **Wheelchair Accessible** (`wav`)
    - Capacity: 4 passengers + wheelchair, 2 luggage
    - Examples: Specially adapted vans
 
