@@ -84,6 +84,8 @@ The Xequtive Dashboard is a comprehensive admin-only platform that provides comp
 3. [API Endpoints](#api-endpoints)
    - [Analytics](#analytics-endpoints)
    - [Bookings Management](#bookings-management)
+     - [Enhanced Booking Endpoints](#enhanced-booking-endpoints)
+     - [Reference Number Handling](#reference-number-handling)
    - [User Management](#user-management)
    - [Vehicle Information](#vehicle-information)
    - [System Settings](#system-settings)
@@ -99,6 +101,11 @@ The Xequtive Dashboard is a comprehensive admin-only platform that provides comp
    - [Customer Service Tools](#customer-service-tools)
    - [Business Intelligence](#business-intelligence)
    - [Operational Control](#operational-control)
+7. [Enhanced Admin Dashboard Features](#enhanced-admin-dashboard-features)
+   - [Events vs Taxi Separation](#events-vs-taxi-separation)
+   - [Reference Number Management](#reference-number-management)
+   - [Safe Data Access](#safe-data-access)
+   - [Comprehensive Analytics](#comprehensive-analytics)
 
 ## Authentication
 
@@ -918,9 +925,9 @@ Provides website traffic analytics data with visitor insights.
 
 ### Bookings Management
 
-#### Get All Bookings
+#### Get All Bookings (Enhanced)
 
-Retrieves a list of all bookings with comprehensive filtering options.
+Retrieves a comprehensive list of all bookings with enhanced filtering options and complete booking details.
 
 **Endpoint:** `GET /api/dashboard/bookings`
 
@@ -930,6 +937,7 @@ Retrieves a list of all bookings with comprehensive filtering options.
 - `endDate` (optional): Filter by end date (YYYY-MM-DD)
 - `status` (optional): Filter by booking status (`pending`, `confirmed`, `completed`, `cancelled`)
 - `vehicleType` (optional): Filter by vehicle type ID
+- `bookingType` (optional): Filter by booking type (`hourly`, `one-way`, `return`)
 - `page` (optional): Page number for pagination (default: 1)
 - `limit` (optional): Number of bookings per page (default: 20)
 - `sort` (optional): Field to sort by (default: `pickupDate`)
@@ -944,11 +952,15 @@ Retrieves a list of all bookings with comprehensive filtering options.
     "bookings": [
       {
         "id": "booking123",
+        "referenceNumber": "XEQ_105",
+        "firebaseId": "booking123",
         "customer": {
           "fullName": "John Doe",
           "email": "john@example.com",
-          "phone": "+44123456789"
+          "phoneNumber": "+44123456789"
         },
+        "bookingType": "one-way",
+        "status": "confirmed",
         "pickupDate": "2025-05-15",
         "pickupTime": "14:30",
         "locations": {
@@ -976,16 +988,6 @@ Retrieves a list of all bookings with comprehensive filtering options.
             }
           ]
         },
-        "passengers": {
-          "count": 2,
-          "checkedLuggage": 1,
-          "handLuggage": 1,
-          "mediumLuggage": 0,
-          "babySeat": 0,
-          "childSeat": 0,
-          "boosterSeat": 0,
-          "wheelchair": 0
-        },
         "vehicle": {
           "id": "standard-saloon",
           "name": "Standard Saloon",
@@ -998,16 +1000,24 @@ Retrieves a list of all bookings with comprehensive filtering options.
           "distance_miles": 15.2,
           "duration_minutes": 35
         },
-        "status": "confirmed",
-        "specialRequests": "Please call when arriving",
-        "travelInformation": {
-          "type": "flight",
-          "details": {
-            "airline": "British Airways",
-            "flightNumber": "BA123",
-            "scheduledDeparture": "2025-05-15T16:00:00Z"
-          }
+        "hours": null,
+        "returnType": null,
+        "returnDate": null,
+        "returnTime": null,
+        "passengers": {
+          "count": 2,
+          "checkedLuggage": 1,
+          "handLuggage": 1,
+          "mediumLuggage": 0,
+          "babySeat": 0,
+          "childSeat": 0,
+          "boosterSeat": 0,
+          "wheelchair": 0
         },
+        "specialRequests": "Please call when arriving",
+        "additionalStops": [],
+        "waitingTime": 0,
+        "userId": "user123",
         "createdAt": "2025-05-10T10:30:00.000Z",
         "updatedAt": "2025-05-10T11:15:00.000Z"
       }
@@ -1017,14 +1027,26 @@ Retrieves a list of all bookings with comprehensive filtering options.
       "pages": 1,
       "currentPage": 1,
       "limit": 20
+    },
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'firebaseId' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
     }
   }
 }
 ```
 
-#### Get Booking Calendar
+**Enhanced Features:**
+- ✅ **Complete Booking Details**: All booking information with safe data access
+- ✅ **Reference Number Handling**: Clear distinction between display and API usage
+- ✅ **Booking Type Filtering**: Filter by hourly, one-way, or return bookings
+- ✅ **Safe Data Access**: Prevents crashes from missing or malformed data
+- ✅ **Comprehensive Information**: Includes all booking fields and metadata
 
-Retrieves booking data formatted for calendar view.
+#### Get Booking Calendar (Enhanced)
+
+Retrieves comprehensive booking data formatted for calendar view with enhanced information and smart duration calculation.
 
 **Endpoint:** `GET /api/dashboard/bookings/calendar`
 
@@ -1033,6 +1055,7 @@ Retrieves booking data formatted for calendar view.
 - `startDate`: Start date for calendar view (required, YYYY-MM-DD)
 - `endDate`: End date for calendar view (required, YYYY-MM-DD)
 - `status` (optional): Filter by booking status
+- `bookingType` (optional): Filter by booking type (`hourly`, `one-way`, `return`)
 
 **Response:**
 
@@ -1043,23 +1066,56 @@ Retrieves booking data formatted for calendar view.
     "events": [
       {
         "id": "booking123",
-        "title": "John Doe - Standard Saloon",
+        "referenceNumber": "XEQ_105",
+        "firebaseId": "booking123",
+        "title": "John Doe - Standard Saloon (one-way)",
         "start": "2025-05-15T14:30:00",
         "end": "2025-05-15T15:30:00",
         "status": "confirmed",
-        "customer": "John Doe",
+        "bookingType": "one-way",
+        "customer": {
+          "fullName": "John Doe",
+          "email": "john@example.com",
+          "phoneNumber": "+44123456789"
+        },
         "pickupLocation": "London Heathrow Airport",
         "dropoffLocation": "London City",
-        "vehicleType": "Standard Saloon"
+        "vehicleType": "Standard Saloon",
+        "vehicleId": "standard-saloon",
+        "hours": null,
+        "returnType": null,
+        "returnDate": null,
+        "returnTime": null,
+        "distance_miles": 15.2,
+        "duration_minutes": 35,
+        "price": {
+          "amount": 45.5,
+          "currency": "GBP"
+        },
+        "additionalStops": [],
+        "specialRequests": "Please call when arriving"
       }
-    ]
+    ],
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'firebaseId' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    }
   }
 }
 ```
 
-#### Get Booking Details
+**Enhanced Features:**
+- ✅ **Smart Duration Calculation**: Automatically handles hourly bookings vs regular bookings
+- ✅ **Complete Event Information**: Rich event objects with all booking details
+- ✅ **Reference Number Support**: Proper handling for both display and API operations
+- ✅ **Booking Type Filtering**: Can filter calendar by specific booking types
+- ✅ **Enhanced Customer Data**: Full customer information and contact details
+- ✅ **Safe Data Access**: Prevents crashes from missing location or vehicle data
 
-Retrieves comprehensive details of a specific booking including timeline.
+#### Get Booking Details (Enhanced)
+
+Retrieves comprehensive details of a specific booking including timeline, with enhanced information and proper reference number handling.
 
 **Endpoint:** `GET /api/dashboard/bookings/:id`
 
@@ -1070,11 +1126,15 @@ Retrieves comprehensive details of a specific booking including timeline.
   "success": true,
   "data": {
     "id": "booking123",
+    "referenceNumber": "XEQ_105",
+    "firebaseId": "booking123",
     "customer": {
       "fullName": "John Doe",
       "email": "john@example.com",
-      "phone": "+44123456789"
+      "phoneNumber": "+44123456789"
     },
+    "bookingType": "one-way",
+    "status": "confirmed",
     "pickupDate": "2025-05-15",
     "pickupTime": "14:30",
     "locations": {
@@ -1102,16 +1162,6 @@ Retrieves comprehensive details of a specific booking including timeline.
         }
       ]
     },
-    "passengers": {
-      "count": 2,
-      "checkedLuggage": 1,
-      "handLuggage": 1,
-      "mediumLuggage": 0,
-      "babySeat": 0,
-      "childSeat": 0,
-      "boosterSeat": 0,
-      "wheelchair": 0
-    },
     "vehicle": {
       "id": "standard-saloon",
       "name": "Standard Saloon",
@@ -1124,16 +1174,26 @@ Retrieves comprehensive details of a specific booking including timeline.
       "distance_miles": 15.2,
       "duration_minutes": 35
     },
-    "status": "confirmed",
-    "specialRequests": "Please call when arriving",
-    "travelInformation": {
-      "type": "flight",
-      "details": {
-        "airline": "British Airways",
-        "flightNumber": "BA123",
-        "scheduledDeparture": "2025-05-15T16:00:00Z"
-      }
+    "hours": null,
+    "returnType": null,
+    "returnDate": null,
+    "returnTime": null,
+    "passengers": {
+      "count": 2,
+      "checkedLuggage": 1,
+      "handLuggage": 1,
+      "mediumLuggage": 0,
+      "babySeat": 0,
+      "childSeat": 0,
+      "boosterSeat": 0,
+      "wheelchair": 0
     },
+    "specialRequests": "Please call when arriving",
+    "additionalStops": [],
+    "waitingTime": 0,
+    "userId": "user123",
+    "createdAt": "2025-05-10T10:30:00.000Z",
+    "updatedAt": "2025-05-10T11:15:00.000Z",
     "timeline": [
       {
         "status": "pending",
@@ -1144,12 +1204,22 @@ Retrieves comprehensive details of a specific booking including timeline.
         "timestamp": "2025-05-10T11:15:00.000Z",
         "updatedBy": "admin123"
       }
-    ],
-    "createdAt": "2025-05-10T10:30:00.000Z",
-    "updatedAt": "2025-05-10T11:15:00.000Z"
+    ]
+  },
+  "referenceNumberGuide": {
+    "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+    "apiOperations": "Use 'firebaseId' field for API calls like updates and cancellations",
+    "warning": "Never display Firebase IDs to users - they are internal system identifiers"
   }
 }
 ```
+
+**Enhanced Features:**
+- ✅ **Complete Booking Information**: All booking details in organized structure
+- ✅ **Timeline Support**: Includes booking history and status changes
+- ✅ **Safe Data Access**: Prevents crashes from corrupted booking data
+- ✅ **Reference Number Guide**: Clear instructions for frontend usage
+- ✅ **Enhanced Data Structure**: Better organized and more comprehensive information
 
 #### Update Booking
 
@@ -1180,6 +1250,274 @@ Updates a booking's status and other editable fields.
   }
 }
 ```
+
+#### Get Separated Bookings by Type
+
+**NEW**: Retrieves bookings separated by type (Events vs Taxi) with comprehensive filtering and dual pagination.
+
+**Endpoint:** `GET /api/dashboard/bookings/separated`
+
+**Query Parameters:**
+
+- `startDate` (optional): Filter by start date (YYYY-MM-DD)
+- `endDate` (optional): Filter by end date (YYYY-MM-DD)
+- `status` (optional): Filter by booking status
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of bookings per page (default: 20)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "events": {
+      "bookings": [
+        {
+          "id": "hourly123",
+          "referenceNumber": "XEQ_106",
+          "firebaseId": "hourly123",
+          "customer": {
+            "fullName": "Jane Smith",
+            "email": "jane@example.com",
+            "phoneNumber": "+44987654321"
+          },
+          "bookingType": "hourly",
+          "status": "confirmed",
+          "pickupDate": "2025-05-20",
+          "pickupTime": "09:00",
+          "locations": {
+            "pickup": {
+              "address": "London Bridge",
+              "coordinates": null
+            },
+            "dropoff": {
+              "address": "Hourly booking - driver stays with you",
+              "coordinates": null
+            },
+            "additionalStops": []
+          },
+          "vehicle": {
+            "id": "executive-saloon",
+            "name": "Executive Saloon",
+            "price": {
+              "amount": 180.00,
+              "currency": "GBP"
+            }
+          },
+          "journey": {
+            "distance_miles": 0,
+            "duration_minutes": 240
+          },
+          "hours": 4,
+          "returnType": null,
+          "returnDate": null,
+          "returnTime": null,
+          "passengers": {},
+          "specialRequests": "Corporate event transportation",
+          "additionalStops": [],
+          "waitingTime": 0,
+          "userId": "user456",
+          "createdAt": "2025-05-15T10:30:00.000Z",
+          "updatedAt": "2025-05-15T10:30:00.000Z"
+        }
+      ],
+      "total": 1,
+      "currentPage": 1,
+      "pages": 1,
+      "limit": 20
+    },
+    "taxi": {
+      "bookings": [
+        {
+          "id": "oneway123",
+          "referenceNumber": "XEQ_105",
+          "firebaseId": "oneway123",
+          "customer": {
+            "fullName": "John Doe",
+            "email": "john@example.com",
+            "phoneNumber": "+44123456789"
+          },
+          "bookingType": "one-way",
+          "status": "confirmed",
+          "pickupDate": "2025-05-15",
+          "pickupTime": "14:30",
+          "locations": {
+            "pickup": {
+              "address": "London Heathrow Airport",
+              "coordinates": null
+            },
+            "dropoff": {
+              "address": "London City",
+              "coordinates": null
+            },
+            "additionalStops": []
+          },
+          "vehicle": {
+            "id": "standard-saloon",
+            "name": "Standard Saloon",
+            "price": {
+              "amount": 45.5,
+              "currency": "GBP"
+            }
+          },
+          "journey": {
+            "distance_miles": 15.2,
+            "duration_minutes": 35
+          },
+          "hours": null,
+          "returnType": null,
+          "returnDate": null,
+          "returnTime": null,
+          "passengers": {},
+          "specialRequests": "",
+          "additionalStops": [],
+          "waitingTime": 0,
+          "userId": "user123",
+          "createdAt": "2025-05-10T10:30:00.000Z",
+          "updatedAt": "2025-05-10T10:30:00.000Z"
+        }
+      ],
+      "total": 1,
+      "currentPage": 1,
+      "pages": 1,
+      "limit": 20
+    },
+    "combined": {
+      "total": 2,
+      "totalPages": 1,
+      "currentPage": 1,
+      "limit": 20
+    },
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'firebaseId' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    },
+    "bookingTypeDefinitions": {
+      "events": "Hourly bookings (3-12 hours) - driver stays with you throughout",
+      "taxi": "One-way and return journeys - point-to-point transportation",
+      "hourly": "Continuous service for specified hours, no dropoff required",
+      "oneWay": "Single journey from pickup to dropoff location",
+      "return": "Round-trip journey with 10% discount, uses smart reverse route"
+    }
+  }
+}
+```
+
+**Key Features:**
+- ✅ **Automatic Separation**: Events (hourly) vs Taxi (one-way/return) bookings
+- ✅ **Dual Pagination**: Separate pagination for each category
+- ✅ **Comprehensive Data**: All booking details with safe data access
+- ✅ **Reference Number Handling**: Clear distinction between display and API usage
+- ✅ **Booking Type Definitions**: Clear explanations of each booking type
+- ✅ **Combined Statistics**: Total overview and individual category counts
+
+#### Get Booking Statistics
+
+**NEW**: Retrieves comprehensive booking statistics by type with detailed analytics and insights.
+
+**Endpoint:** `GET /api/dashboard/bookings/statistics`
+
+**Query Parameters:**
+
+- `startDate` (optional): Filter by start date (YYYY-MM-DD)
+- `endDate` (optional): Filter by end date (YYYY-MM-DD)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 25,
+    "byType": {
+      "hourly": {
+        "count": 8,
+        "revenue": 1440.00,
+        "avgHours": 4.5,
+        "totalHours": 36
+      },
+      "one-way": {
+        "count": 12,
+        "revenue": 546.00,
+        "avgDistance": 18.3,
+        "totalDistance": 219.6
+      },
+      "return": {
+        "count": 5,
+        "revenue": 245.00,
+        "avgDistance": 22.1,
+        "totalDistance": 110.5,
+        "returnDiscounts": 5
+      }
+    },
+    "byStatus": {
+      "pending": 3,
+      "confirmed": 8,
+      "assigned": 2,
+      "in_progress": 4,
+      "completed": 6,
+      "cancelled": 2,
+      "declined": 0,
+      "no_show": 0
+    },
+    "byVehicle": {
+      "Standard Saloon": {
+        "count": 15,
+        "revenue": 675.50
+      },
+      "Executive Saloon": {
+        "count": 6,
+        "revenue": 1080.00
+      },
+      "VIP-Saloon": {
+        "count": 4,
+        "revenue": 675.50
+      }
+    },
+    "topRoutes": [
+      {
+        "route": "London Heathrow Airport → London City",
+        "count": 8
+      },
+      {
+        "route": "London Gatwick → Brighton",
+        "count": 5
+      },
+      {
+        "route": "Manchester Airport → Manchester City Centre",
+        "count": 3
+      }
+    ],
+    "revenue": {
+      "total": 2231.00,
+      "hourly": 1440.00,
+      "one-way": 546.00,
+      "return": 245.00
+    },
+    "referenceNumberGuide": {
+      "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+      "apiOperations": "Use 'firebaseId' field for API calls like updates and cancellations",
+      "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+    },
+    "bookingTypeDefinitions": {
+      "hourly": "Continuous service for specified hours, no dropoff required",
+      "one-way": "Single journey from pickup to dropoff location",
+      "return": "Round-trip journey with 10% discount, uses smart reverse route"
+    }
+  }
+}
+```
+
+**Key Features:**
+- ✅ **Type-Based Analytics**: Separate statistics for hourly, one-way, and return bookings
+- ✅ **Revenue Tracking**: Revenue breakdown by booking type and vehicle
+- ✅ **Status Distribution**: Counts by booking status
+- ✅ **Vehicle Performance**: Revenue and count by vehicle type
+- ✅ **Top Routes**: Most popular pickup-to-dropoff combinations
+- ✅ **Reference Number Guide**: Clear usage instructions for frontend
+- ✅ **Booking Type Definitions**: Clear explanations of each booking type
 
 #### Update Booking Status & Management
 
@@ -2460,3 +2798,225 @@ When implementing the dashboard authentication, keep these security consideratio
 For maximum security, prefer the Firebase SDK approach over the Fetch API approach in production environments, as it provides additional security measures and session management features.
 
 > **Note**: The dashboard does not support creating new bookings. All bookings are created through the customer-facing API endpoints. The dashboard is designed for monitoring, managing, and analyzing existing bookings and system performance.
+
+## Enhanced Admin Dashboard Features
+
+The Xequtive Admin Dashboard has been significantly enhanced with new capabilities for better booking management, analytics, and operational control. These enhancements provide comprehensive insights and improved user experience for administrators.
+
+### Events vs Taxi Separation
+
+**NEW**: The dashboard now automatically separates and categorizes bookings by type for better operational management:
+
+#### **Events Bookings (Hourly)**
+- **Service Type**: Continuous service for specified hours (3-12 hours)
+- **Driver Behavior**: Driver stays with you throughout the booking
+- **Use Cases**: Corporate events, sightseeing tours, airport transfers with waiting
+- **Pricing**: Hourly rates based on vehicle type and duration
+- **Management**: Separate view and analytics for event-based services
+
+#### **Taxi Bookings (One-way & Return)**
+- **Service Type**: Point-to-point transportation
+- **Driver Behavior**: Driver takes you from pickup to dropoff
+- **Use Cases**: Airport transfers, business travel, personal transportation
+- **Pricing**: Distance-based pricing with return discounts
+- **Management**: Traditional taxi service management and analytics
+
+#### **Separation Benefits:**
+- ✅ **Clear Operational View**: Separate management for different service types
+- ✅ **Targeted Analytics**: Specific insights for events vs taxi services
+- ✅ **Resource Planning**: Better allocation of vehicles and drivers
+- ✅ **Customer Experience**: Tailored service for different booking types
+- ✅ **Revenue Optimization**: Separate pricing strategies and optimization
+
+### Reference Number Management
+
+**CRITICAL**: The dashboard now provides clear distinction between business reference numbers and system identifiers:
+
+#### **Reference Number (XEQ_105)**
+- **Purpose**: User-facing booking identifier for customers
+- **Format**: Sequential format starting from XEQ_100
+- **Usage**: Display on confirmations, invoices, and customer communications
+- **Business Value**: Professional, memorable booking reference for customers
+
+#### **Firebase ID (ADzZOJTM5MOfquSOrQQb)**
+- **Purpose**: Internal system identifier for API operations
+- **Format**: Auto-generated Firestore document ID
+- **Usage**: Database queries, API calls, and system operations
+- **Technical Value**: Unique identifier for database operations
+
+#### **Implementation Guide:**
+```javascript
+// ✅ CORRECT: Use referenceNumber for user display
+const displayReference = booking.referenceNumber; // "XEQ_105"
+
+// ✅ CORRECT: Use firebaseId for API operations
+const updateBooking = await fetch(`/api/dashboard/bookings/${booking.firebaseId}`, {
+  method: 'PUT',
+  body: JSON.stringify(updateData)
+});
+
+// ❌ WRONG: Never display Firebase IDs to users
+const wrongDisplay = booking.firebaseId; // "ADzZOJTM5MOfquSOrQQb"
+```
+
+#### **Reference Number Guide:**
+All enhanced endpoints now include a `referenceNumberGuide` object:
+```json
+{
+  "referenceNumberGuide": {
+    "display": "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
+    "apiOperations": "Use 'firebaseId' field for API calls like updates and cancellations",
+    "warning": "Never display Firebase IDs to users - they are internal system identifiers"
+  }
+}
+```
+
+### Safe Data Access
+
+**ENHANCED**: The dashboard now implements robust data handling to prevent crashes and provide graceful degradation:
+
+#### **Optional Chaining Implementation:**
+```typescript
+// Safe access to nested properties
+const pickupAddress = booking.locations?.pickup?.address || "Pickup location not specified";
+const vehicleName = booking.vehicle?.name || "Vehicle not specified";
+const customerName = booking.customer?.fullName || "Customer name not available";
+```
+
+#### **Fallback Values:**
+- **Missing Addresses**: "Location not specified" instead of crashes
+- **Missing Vehicle Info**: "Vehicle not specified" with default values
+- **Missing Customer Data**: "Customer information not available"
+- **Missing Journey Data**: Default to 0 for distance and duration
+
+#### **Error Handling:**
+- ✅ **Individual Booking Processing**: Errors in one booking don't crash the entire request
+- ✅ **Graceful Degradation**: Missing data is handled with fallbacks
+- ✅ **Comprehensive Logging**: All issues are logged for debugging
+- ✅ **User Experience**: Dashboard continues to function even with data inconsistencies
+
+#### **Benefits:**
+- **No More Crashes**: Dashboard remains stable regardless of data quality
+- **Better User Experience**: Users see meaningful information instead of errors
+- **Data Recovery**: Malformed bookings can still be viewed and managed
+- **System Reliability**: Improved overall dashboard stability
+
+### Comprehensive Analytics
+
+**NEW**: Enhanced analytics provide deeper insights into business performance:
+
+#### **Type-Based Analytics:**
+```json
+{
+  "byType": {
+    "hourly": {
+      "count": 8,
+      "revenue": 1440.00,
+      "avgHours": 4.5,
+      "totalHours": 36
+    },
+    "one-way": {
+      "count": 12,
+      "revenue": 546.00,
+      "avgDistance": 18.3,
+      "totalDistance": 219.6
+    },
+    "return": {
+      "count": 5,
+      "revenue": 245.00,
+      "avgDistance": 22.1,
+      "totalDistance": 110.5,
+      "returnDiscounts": 5
+    }
+  }
+}
+```
+
+#### **Revenue Intelligence:**
+- **Total Revenue**: Overall financial performance
+- **Type Breakdown**: Revenue by booking type
+- **Vehicle Performance**: Revenue by vehicle type
+- **Status Analysis**: Revenue by booking status
+- **Trend Identification**: Revenue patterns over time
+
+#### **Operational Insights:**
+- **Top Routes**: Most popular pickup-to-dropoff combinations
+- **Vehicle Utilization**: Performance metrics by vehicle type
+- **Status Distribution**: Booking lifecycle analysis
+- **Customer Behavior**: Booking patterns and preferences
+- **Service Quality**: Performance and satisfaction metrics
+
+#### **Business Intelligence:**
+- **Growth Trends**: Booking volume and revenue trends
+- **Seasonal Patterns**: Peak and off-peak analysis
+- **Customer Segments**: Analysis by customer type and behavior
+- **Route Optimization**: Popular routes and demand patterns
+- **Resource Planning**: Vehicle and driver allocation insights
+
+### Enhanced Endpoint Capabilities
+
+#### **1. Enhanced Bookings Endpoint (`/api/dashboard/bookings`)**
+- **Complete Data**: All booking information with comprehensive details
+- **Type Filtering**: Filter by hourly, one-way, or return bookings
+- **Safe Access**: Robust data handling with fallback values
+- **Reference Numbers**: Clear distinction between display and API usage
+
+#### **2. Enhanced Calendar Endpoint (`/api/dashboard/bookings/calendar`)**
+- **Smart Duration**: Automatic handling of hourly vs regular bookings
+- **Rich Events**: Comprehensive event information for calendar views
+- **Type Filtering**: Filter calendar by specific booking types
+- **Enhanced Data**: Full customer and vehicle information
+
+#### **3. Enhanced Details Endpoint (`/api/dashboard/bookings/:id`)**
+- **Complete Information**: All booking details in organized structure
+- **Timeline Support**: Full booking history and status changes
+- **Safe Access**: Prevents crashes from corrupted data
+- **Reference Guide**: Built-in usage instructions
+
+#### **4. New Separated Endpoint (`/api/dashboard/bookings/separated`)**
+- **Automatic Separation**: Events vs Taxi booking categorization
+- **Dual Pagination**: Separate pagination for each category
+- **Type Definitions**: Clear explanations of each booking type
+- **Combined Statistics**: Overview and individual category counts
+
+#### **5. New Statistics Endpoint (`/api/dashboard/bookings/statistics`)**
+- **Type-Based Analytics**: Separate statistics for each booking type
+- **Revenue Tracking**: Comprehensive financial analysis
+- **Performance Metrics**: Vehicle and route performance insights
+- **Business Intelligence**: Growth trends and optimization opportunities
+
+### Implementation Benefits
+
+#### **For Administrators:**
+- ✅ **Better Operational Control**: Clear separation of different service types
+- ✅ **Improved Decision Making**: Comprehensive analytics and insights
+- ✅ **Enhanced User Experience**: Stable dashboard with meaningful information
+- ✅ **Professional Appearance**: Proper reference numbers for customer communications
+
+#### **For Frontend Developers:**
+- ✅ **Clear Data Structure**: Well-organized and consistent API responses
+- ✅ **Built-in Documentation**: Reference number guides and usage instructions
+- ✅ **Error Prevention**: Safe data access prevents crashes
+- ✅ **Easy Integration**: Simple and intuitive API design
+
+#### **For Business Operations:**
+- ✅ **Service Optimization**: Better understanding of different service types
+- ✅ **Revenue Analysis**: Detailed financial insights and trends
+- ✅ **Customer Experience**: Professional reference numbers and reliable service
+- ✅ **Resource Planning**: Better allocation of vehicles and drivers
+
+### Migration Guide
+
+#### **For Existing Implementations:**
+1. **Update API Calls**: Use new enhanced endpoints for better data
+2. **Reference Numbers**: Switch from Firebase IDs to reference numbers for display
+3. **Error Handling**: Implement fallback values for missing data
+4. **Analytics**: Use new statistics endpoint for comprehensive insights
+
+#### **For New Implementations:**
+1. **Start with Enhanced Endpoints**: Use the new comprehensive endpoints
+2. **Follow Reference Number Guide**: Implement proper display vs API usage
+3. **Implement Safe Access**: Use fallback values for robust data handling
+4. **Leverage Analytics**: Use statistics endpoint for business intelligence
+
+The enhanced Xequtive Admin Dashboard provides a comprehensive, stable, and insightful platform for managing all aspects of the transportation service with professional-grade features and robust data handling.
