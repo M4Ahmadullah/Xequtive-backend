@@ -101,7 +101,7 @@ router.post("/user-login", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: {
-          message: "Token is required",
+          message: "Token is required!",
         },
       } as ApiResponse<never>);
     }
