@@ -106,6 +106,7 @@ export interface EnhancedFareEstimateRequest {
   returnType?: "wait-and-return" | "later-date"; // Required for return bookings
   returnDate?: string; // Required for later-date returns (YYYY-MM-DD)
   returnTime?: string; // Required for later-date returns (HH:MM)
+  waitDuration?: number; // Wait duration in hours for wait-and-return bookings (max 12 hours)
 
   pickupLocation?: Coordinates;
   dropoffLocation?: Coordinates;
@@ -281,6 +282,10 @@ export interface EnhancedBookingData {
   returnType?: "wait-and-return" | "later-date";
   returnDate?: string;
   returnTime?: string;
+  paymentMethods?: {
+    cashOnArrival: boolean;
+    cardOnArrival: boolean;
+  };
 }
 
 export interface EnhancedBookingCreateRequest {
@@ -381,6 +386,10 @@ export interface PermanentBookingData {
   journey?: {
     distance_miles: number;
     duration_minutes: number;
+  };
+  paymentMethods?: {
+    cashOnArrival: boolean;
+    cardOnArrival: boolean;
   };
   createdAt: string;
   updatedAt: string;

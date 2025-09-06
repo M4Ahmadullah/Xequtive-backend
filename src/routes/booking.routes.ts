@@ -224,6 +224,14 @@ router.post(
         };
       }
 
+      // Add payment methods to the permanentBooking object if they exist
+      if (bookingData.booking.paymentMethods) {
+        permanentBooking.paymentMethods = {
+          cashOnArrival: bookingData.booking.paymentMethods.cashOnArrival || false,
+          cardOnArrival: bookingData.booking.paymentMethods.cardOnArrival || false,
+        };
+      }
+
       // Generate reference number
       const referenceNumber = await generateReferenceNumber();
 

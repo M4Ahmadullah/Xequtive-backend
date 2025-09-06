@@ -220,7 +220,12 @@ export class EnhancedFareService {
 
       // Check for airports
       const airportsPickup = getAirportsNearLocation(pickupLocation);
-      const airportsDropoff = getAirportsNearLocation(dropoffLocation);
+      
+      // For hourly bookings, only check pickup location for airports (no dropoff)
+      let airportsDropoff: string[] = [];
+      if (request.bookingType !== "hourly") {
+        airportsDropoff = getAirportsNearLocation(dropoffLocation);
+      }
 
       const airports = {
         pickupAirport: airportsPickup.length > 0 ? airportsPickup[0] : null,
@@ -243,7 +248,8 @@ export class EnhancedFareService {
         }
       }
 
-      if (airports.dropoffAirport) {
+      // For hourly bookings, only show pickup airport notifications (no dropoff)
+      if (request.bookingType !== "hourly" && airports.dropoffAirport) {
         const airport =
           AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
         if (airport) {
@@ -287,8 +293,8 @@ export class EnhancedFareService {
       let hourlyRate = 0.0;
 
       if (bookingType === "return") {
-        // Apply 10% discount for return bookings
-        returnDiscount = 0.10;
+        // No discount for return bookings (removed 10% discount)
+        returnDiscount = 0.0;
         baseMultiplier = 1.0; // Distance is calculated for one leg, then doubled
       } else if (bookingType === "hourly") {
         // For hourly bookings, we'll use the same pricing structure but calculate based on hours
@@ -325,6 +331,7 @@ export class EnhancedFareService {
           hours: request.hours || 0,
           returnDiscount: returnDiscount,
           returnType: request.returnType,
+          waitDuration: request.waitDuration || 0,
         });
 
         // Return vehicle option with calculated price
@@ -381,6 +388,7 @@ export class EnhancedFareService {
     hours = 0,
     returnDiscount = 0.0,
     returnType,
+    waitDuration = 0,
   }: {
     vehicleType: VehicleType;
     distance: number;
@@ -397,6 +405,7 @@ export class EnhancedFareService {
     hours?: number;
     returnDiscount?: number;
     returnType?: 'wait-and-return' | 'later-date';
+    waitDuration?: number;
   }): VehiclePriceInfo {
 
 
@@ -433,7 +442,9 @@ export class EnhancedFareService {
         messages.push(`Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
       }
     }
-    if (airports.dropoffAirport) {
+    
+    // For hourly bookings, only apply pickup airport fees (no dropoff fees)
+    if (bookingType !== "hourly" && airports.dropoffAirport) {
       const airport = AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
       if (airport) {
         airportFee += airport.fees.dropoff;
@@ -492,25 +503,26 @@ export class EnhancedFareService {
       // Reset distance charge for hourly bookings
       finalDistanceCharge = 0;
     } else if (bookingType === "return") {
-      // For return bookings, double the distance and apply discount
+      // For return bookings, double the distance (no discount)
       totalFare = totalFare * 2;
-      
-      // Apply return discount
-      const discountAmount = totalFare * returnDiscount;
-      totalFare -= discountAmount;
       
       // Add return booking messages based on return type
       if (returnType === 'wait-and-return') {
         messages.push("Return journey: Driver waits at destination and returns");
-        messages.push("Driver wait time: unlimited");
         messages.push("Return route: Smart reverse of outbound journey");
+        
+        // Add wait duration message if provided
+        if (waitDuration && waitDuration > 0) {
+          messages.push(`Driver wait time: ${waitDuration} hours`);
+        } else {
+          messages.push("Driver wait time: Up to 12 hours (within same day)");
+        }
       } else if (returnType === 'later-date') {
         messages.push("Return journey: Scheduled return on different date/time");
         messages.push("Return route: Smart reverse of outbound journey");
       }
       
       messages.push("Return journey: Distance doubled (outbound + reverse route)");
-      messages.push(`Return discount (10%): -£${discountAmount.toFixed(2)}`);
     }
 
     // Add time surcharge message if applicable

@@ -314,7 +314,7 @@ pending -> confirmed -> assigned -> in_progress -> completed
             "additionalStops": []
           },
           "vehicle": {
-            "id": "executive-saloon",
+            "id": "executive",
             "name": "Executive Saloon",
             "price": {
               "amount": 444.5,
@@ -370,7 +370,7 @@ pending -> confirmed -> assigned -> in_progress -> completed
             "additionalStops": []
           },
           "vehicle": {
-            "id": "executive-saloon",
+            "id": "executive",
             "name": "Executive Saloon",
             "price": {
               "amount": 180.00,
@@ -857,7 +857,7 @@ interface TrainInformation {
       "wheelchair": 0
     },
     "vehicle": {
-      "id": "standard-saloon",
+      "id": "saloon",
       "name": "Standard Saloon"
     },
     "travelInformation": {
@@ -915,7 +915,7 @@ interface TrainInformation {
       "wheelchair": 0
     },
     "vehicle": {
-      "id": "standard-saloon",
+      "id": "saloon",
       "name": "Standard Saloon"
     },
     "travelInformation": {

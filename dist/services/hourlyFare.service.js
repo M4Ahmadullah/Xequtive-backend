@@ -439,8 +439,8 @@ class HourlyFareService {
             // Equipment charges
             const equipmentFees = this.calculateEquipmentFees(passengers, vehicleType);
             totalFare += equipmentFees;
-            // Apply 10% return booking discount
-            totalFare = totalFare * 0.90;
+            // No discount for return bookings (removed 10% discount)
+            // totalFare = totalFare * 0.90; // Removed discount
             // Multiply by number of vehicles
             if (numVehicles > 1) {
                 totalFare = totalFare * numVehicles;
@@ -481,8 +481,8 @@ class HourlyFareService {
             // Equipment charges
             const equipmentFees = this.calculateEquipmentFees(passengers, vehicleType);
             totalFare += equipmentFees;
-            // Apply 10% return booking discount
-            totalFare = totalFare * 0.90;
+            // No discount for return bookings (removed 10% discount)
+            // totalFare = totalFare * 0.90; // Removed discount
             // Multiply by number of vehicles
             if (numVehicles > 1) {
                 totalFare = totalFare * numVehicles;
@@ -629,7 +629,7 @@ class HourlyFareService {
         else if (returnType === 'later-date') {
             messages.push("Return journey: Scheduled return on different date/time");
         }
-        messages.push(`Return booking: 10% discount applied`);
+        // Removed 10% discount message
         if (timeSurcharge > 0) {
             messages.push(`Time surcharge: £${timeSurcharge.toFixed(2)}`);
         }
@@ -651,7 +651,7 @@ class HourlyFareService {
         if (returnType === 'later-date') {
             messages.push("Return journey: Scheduled return on different date/time");
         }
-        messages.push(`Return booking: 10% discount applied`);
+        // Removed 10% discount message
         if (outboundTimeSurcharge > 0 || returnTimeSurcharge > 0) {
             messages.push(`Time surcharges: £${(outboundTimeSurcharge + returnTimeSurcharge).toFixed(2)}`);
         }

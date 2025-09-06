@@ -135,7 +135,7 @@ The booking process follows these steps:
         "wheelchair": 0
       },
       "vehicle": {
-        "id": "executive-saloon",
+        "id": "executive",
         "name": "Executive Saloon"
       },
       "specialRequests": "Please call when arriving",
@@ -918,7 +918,7 @@ If the limit is exceeded, the API will respond with:
 **Notes:**
 
 - If the `customer` object is omitted, the system will use the authenticated user's profile information instead
-- Available vehicle IDs: "standard-saloon", "estate", "large-mpv", "extra-large-mpv", "executive-saloon", "vip", "vip-mpv", "wav" (wheelchair-accessible)
+- Available vehicle IDs: "saloon", "estate", "mpv-6", "mpv-8", "executive", "executive-mpv", "vip-saloon", "vip-suv"
 
 **IMPORTANT: All passenger fields are REQUIRED, even if set to 0:**
 
@@ -1130,7 +1130,7 @@ const bookingWithCustomer = {
     },
     datetime: { date: "2024-07-20", time: "14:00" },
     passengers: { count: 2, checkedLuggage: 1, handLuggage: 1 },
-    vehicle: { id: "standard-saloon", name: "Standard Saloon" },
+    vehicle: { id: "saloon", name: "Standard Saloon" },
     specialRequests: "Please wait at the entrance",
   },
 };
@@ -1150,7 +1150,7 @@ const bookingWithoutCustomer = {
     },
     datetime: { date: "2024-07-20", time: "14:00" },
     passengers: { count: 2, checkedLuggage: 1, handLuggage: 1 },
-    vehicle: { id: "standard-saloon", name: "Standard Saloon" },
+    vehicle: { id: "saloon", name: "Standard Saloon" },
     specialRequests: "Please wait at the entrance",
   },
 };
@@ -1332,7 +1332,7 @@ The API will include messages for each additional charge in the response:
     "bookingId": "XQ-123456",
     "verificationToken": "abc123xyz789",
     "verifiedFare": {
-      "vehicleId": "standard-saloon",
+              "vehicleId": "saloon",
       "vehicleName": "Standard Saloon",
       "price": {
         "amount": 85.5,
@@ -1431,49 +1431,46 @@ The API will include messages for each additional charge in the response:
 
 The following vehicle types are available for bookings:
 
-1. **Standard Saloon** (`standard-saloon`)
-
+1. **Standard Saloon** (`saloon`)
    - Capacity: 4 passengers, 2 luggage
    - Examples: Toyota Prius, Ford Mondeo
 
 2. **Estate** (`estate`)
-
-   - Capacity: 4 passengers, 4 luggage
+   - Capacity: 4 passengers, 3 luggage
    - Examples: Mercedes E-Class Estate, Volkswagen Passat Estate
 
-3. **MPV-6** (`large-mpv`)
-
-   - Capacity: 6 passengers, 4 luggage
+3. **MPV-6 Seater** (`mpv-6`)
+   - Capacity: 6 passengers, 3 luggage
    - Examples: Ford Galaxy, Volkswagen Sharan
 
-4. **MPV-8** (`extra-large-mpv`)
-
-   - Capacity: 8 passengers, 8 luggage
+4. **MPV-8 Seater** (`mpv-8`)
+   - Capacity: 8 passengers, 4 luggage
    - Examples: Ford Tourneo, Mercedes Vito
 
-5. **Executive Saloon** (`executive-saloon`)
-
-   - Capacity: 4 passengers, 2 luggage
+5. **Executive Saloon** (`executive`)
+   - Capacity: 3 passengers, 2 luggage
    - Examples: Mercedes E-Class, BMW 5-Series
 
-6. **Executive MPV** (`executive-mpv`)
+6. **Executive MPV-8** (`executive-mpv`)
+   - Capacity: 6 passengers, 4 luggage
+   - Examples: Mercedes V-Class, BMW 2-Series Gran Tourer
 
-   - Capacity: 8 passengers, 8 luggage
-   - Examples: Mercedes V-Class, Volkswagen Caravelle
-
-7. **VIP Saloon** (`vip`)
-
+7. **VIP-Saloon** (`vip-saloon`)
    - Capacity: 3 passengers, 2 luggage
    - Examples: Mercedes S-Class, BMW 7-Series
 
-8. **VIP MPV/SUV** (`vip-mpv`)
+8. **VIP-SUV/MPV** (`vip-suv`)
+   - Capacity: 6 passengers, 4 luggage
+   - Examples: Mercedes GLS, BMW X7, Range Rover
 
-   - Capacity: 6 passengers, 6 luggage
-   - Examples: Mercedes V-Class Luxury, Range Rover
+**⚠️ CRITICAL: Vehicle Data Integrity**
 
-9. **Wheelchair Accessible** (`wav`)
-   - Capacity: 4 passengers + wheelchair, 2 luggage
-   - Examples: Specially adapted vans
+The backend returns exactly 8 unique vehicle types with correct names, IDs, and pricing. The frontend must:
+- **NEVER modify or duplicate** vehicle names from the backend
+- **NEVER display £0 prices** - this indicates a frontend error
+- **Use backend data exactly as received** - no data manipulation allowed
+- **Display each vehicle only once** - no duplicate entries
+- **Use correct vehicle IDs** as shown above for API calls
 
 ## 🚨 CRITICAL: Frontend Troubleshooting Guide
 
@@ -1529,7 +1526,7 @@ The following vehicle types are available for bookings:
 
 4. **"Invalid Vehicle ID" Error**:
    - **Cause**: Using wrong vehicle IDs
-   - **Solution**: Use only these valid IDs: `standard-saloon`, `estate`, `large-mpv`, `extra-large-mpv`, `executive-saloon`, `vip`, `vip-mpv`, `wav`
+   - **Solution**: Use only these valid IDs: `saloon`, `estate`, `mpv-6`, `mpv-8`, `executive`, `executive-mpv`, `vip-saloon`, `vip-suv`
 
 5. **"Invalid phone number format" Error**:
    - **Cause**: Phone number contains spaces or invalid characters

@@ -263,8 +263,8 @@ async function logout() {
           "additionalStops": []
         },
         "vehicle": {
-          "id": "standard-saloon",
-          "name": "Standard Saloon",
+                  "id": "saloon",
+        "name": "Standard Saloon",
           "price": {
             "amount": 45.5,
             "currency": "GBP"
@@ -319,7 +319,7 @@ async function logout() {
           "additionalStops": []
         },
         "vehicle": {
-          "id": "executive-saloon",
+          "id": "executive",
           "name": "Executive Saloon",
           "price": {
             "amount": 180.00,
@@ -731,9 +731,9 @@ const wrongReference = response.data.bookingId; // "ADzZOJTM5MOfquSOrQQb"
     "fare": {
       "vehicleOptions": [
         {
-          "id": "standard-saloon",
-          "name": "Standard Saloon",
-          "description": "Comfortable ride for up to 4 passengers",
+                  "id": "saloon",
+        "name": "Standard Saloon",
+        "description": "Comfortable ride for up to 4 passengers",
           "capacity": {
             "passengers": 4,
             "luggage": 2
@@ -760,7 +760,7 @@ const wrongReference = response.data.bookingId; // "ADzZOJTM5MOfquSOrQQb"
             }
           },
           "eta": 10,
-          "imageUrl": "/images/vehicles/standard-saloon.jpg"
+          "imageUrl": "/images/vehicles/saloon.jpg"
         }
         // ... other vehicle options
       ]

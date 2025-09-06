@@ -411,7 +411,10 @@ router.get("/bookings", async (req, res) => {
         const endDate = req.query.endDate;
         const status = req.query.status;
         const vehicleType = req.query.vehicleType;
-        const bookingType = req.query.bookingType; // NEW: Filter by booking type
+        const bookingType = req.query.bookingType; // Filter by booking type
+        const returnType = req.query.returnType; // Filter by return type (wait-and-return, later-date)
+        const paymentMethod = req.query.paymentMethod; // Filter by payment method (cashOnArrival, cardOnArrival)
+        const waitDuration = req.query.waitDuration; // Filter by wait duration range
         const page = parseInt(req.query.page || "1");
         const limit = parseInt(req.query.limit || "20");
         const sort = req.query.sort || "pickupDate";
@@ -433,6 +436,9 @@ router.get("/bookings", async (req, res) => {
         }
         if (bookingType) {
             query = query.where("bookingType", "==", bookingType);
+        }
+        if (returnType) {
+            query = query.where("returnType", "==", returnType);
         }
         // Get total count for pagination
         const countSnapshot = await query.get();
@@ -496,6 +502,9 @@ router.get("/bookings", async (req, res) => {
                 returnType: bookingData.returnType || null, // For return bookings
                 returnDate: bookingData.returnDate || null,
                 returnTime: bookingData.returnTime || null,
+                waitDuration: bookingData.waitDuration || null, // For wait-and-return bookings
+                // Payment Methods
+                paymentMethods: bookingData.paymentMethods || null,
                 // Additional Information
                 passengers: bookingData.passengers || {},
                 specialRequests: bookingData.specialRequests || "",
@@ -508,14 +517,38 @@ router.get("/bookings", async (req, res) => {
             };
             bookings.push(enhancedBooking);
         });
+        // Apply post-query filters for payment methods and wait duration
+        let filteredBookings = bookings;
+        if (paymentMethod) {
+            filteredBookings = filteredBookings.filter(booking => {
+                if (!booking.paymentMethods)
+                    return false;
+                if (paymentMethod === "cashOnArrival")
+                    return booking.paymentMethods.cashOnArrival === true;
+                if (paymentMethod === "cardOnArrival")
+                    return booking.paymentMethods.cardOnArrival === true;
+                return false;
+            });
+        }
+        if (waitDuration) {
+            const [minDuration, maxDuration] = waitDuration.split("-").map(Number);
+            filteredBookings = filteredBookings.filter(booking => {
+                if (!booking.waitDuration)
+                    return false;
+                return booking.waitDuration >= minDuration && booking.waitDuration <= maxDuration;
+            });
+        }
+        // Apply pagination to filtered results
+        const filteredTotal = filteredBookings.length;
+        const paginatedBookings = filteredBookings.slice((page - 1) * limit, page * limit);
+        const pages = Math.ceil(filteredTotal / limit);
         // Calculate pagination information
-        const pages = Math.ceil(total / limit);
         return res.json({
             success: true,
             data: {
-                bookings,
+                bookings: paginatedBookings,
                 pagination: {
-                    total,
+                    total: filteredTotal,
                     pages,
                     currentPage: page,
                     limit,
@@ -613,6 +646,9 @@ router.get("/bookings/calendar", async (req, res) => {
                 returnType: booking.returnType || null, // For return bookings
                 returnDate: booking.returnDate || null,
                 returnTime: booking.returnTime || null,
+                waitDuration: booking.waitDuration || null, // For wait-and-return bookings
+                // Payment Methods
+                paymentMethods: booking.paymentMethods || null,
                 // Journey Information
                 distance_miles: booking.journey?.distance_miles || 0,
                 duration_minutes: durationMinutes,
@@ -737,6 +773,9 @@ router.get("/bookings/:id", async (req, res) => {
             returnType: bookingData.returnType || null, // For return bookings
             returnDate: bookingData.returnDate || null,
             returnTime: bookingData.returnTime || null,
+            waitDuration: bookingData.waitDuration || null, // For wait-and-return bookings
+            // Payment Methods
+            paymentMethods: bookingData.paymentMethods || null,
             // Additional Information
             passengers: bookingData.passengers || {},
             specialRequests: bookingData.specialRequests || "",
@@ -928,7 +967,9 @@ router.get("/bookings/separated", async (req, res) => {
                     taxi: "One-way and return journeys - point-to-point transportation",
                     hourly: "Continuous service for specified hours, no dropoff required",
                     oneWay: "Single journey from pickup to dropoff location",
-                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                    return: "Round-trip journey with smart reverse route (no discount)",
+                    waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+                    laterDate: "Scheduled return on different date/time",
                 },
             },
         });
@@ -1083,7 +1124,9 @@ router.get("/bookings/statistics", async (req, res) => {
                 bookingTypeDefinitions: {
                     hourly: "Continuous service for specified hours, no dropoff required",
                     "one-way": "Single journey from pickup to dropoff location",
-                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                    return: "Round-trip journey with smart reverse route (no discount)",
+                    waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+                    laterDate: "Scheduled return on different date/time",
                 },
             },
         });
@@ -1461,8 +1504,340 @@ router.post("/users/:uid/disable", async (req, res) => {
     }
 });
 // =====================================================
+// Filter Options and Metadata
+// =====================================================
+// Get available filter options for the dashboard
+router.get("/filters/options", async (req, res) => {
+    try {
+        // Get all bookings to extract unique values
+        const snapshot = await firebase_1.firestore.collection("bookings").get();
+        const filterOptions = {
+            bookingTypes: new Set(),
+            returnTypes: new Set(),
+            paymentMethods: new Set(),
+            waitDurationRanges: new Set(),
+            vehicleTypes: new Set(),
+            statuses: new Set(),
+        };
+        snapshot.forEach((doc) => {
+            const booking = doc.data();
+            // Collect booking types
+            if (booking.bookingType) {
+                filterOptions.bookingTypes.add(booking.bookingType);
+            }
+            // Collect return types
+            if (booking.returnType) {
+                filterOptions.returnTypes.add(booking.returnType);
+            }
+            // Collect payment methods
+            if (booking.paymentMethods) {
+                if (booking.paymentMethods.cashOnArrival) {
+                    filterOptions.paymentMethods.add("cashOnArrival");
+                }
+                if (booking.paymentMethods.cardOnArrival) {
+                    filterOptions.paymentMethods.add("cardOnArrival");
+                }
+            }
+            // Collect wait duration ranges
+            if (booking.waitDuration !== undefined && booking.waitDuration !== null) {
+                const duration = booking.waitDuration;
+                if (duration <= 2)
+                    filterOptions.waitDurationRanges.add("0-2");
+                else if (duration <= 4)
+                    filterOptions.waitDurationRanges.add("3-4");
+                else if (duration <= 6)
+                    filterOptions.waitDurationRanges.add("5-6");
+                else if (duration <= 8)
+                    filterOptions.waitDurationRanges.add("7-8");
+                else if (duration <= 10)
+                    filterOptions.waitDurationRanges.add("9-10");
+                else
+                    filterOptions.waitDurationRanges.add("11-12");
+            }
+            // Collect vehicle types
+            if (booking.vehicle?.id) {
+                filterOptions.vehicleTypes.add(booking.vehicle.id);
+            }
+            // Collect statuses
+            if (booking.status) {
+                filterOptions.statuses.add(booking.status);
+            }
+        });
+        return res.json({
+            success: true,
+            data: {
+                bookingTypes: Array.from(filterOptions.bookingTypes).sort(),
+                returnTypes: Array.from(filterOptions.returnTypes).sort(),
+                paymentMethods: Array.from(filterOptions.paymentMethods).sort(),
+                waitDurationRanges: Array.from(filterOptions.waitDurationRanges).sort(),
+                vehicleTypes: Array.from(filterOptions.vehicleTypes).sort(),
+                statuses: Array.from(filterOptions.statuses).sort(),
+                // Filter definitions
+                filterDefinitions: {
+                    bookingTypes: {
+                        "one-way": "Single journey from pickup to dropoff location",
+                        "hourly": "Continuous service for specified hours (3-12 hours)",
+                        "return": "Round-trip journey with smart reverse route"
+                    },
+                    returnTypes: {
+                        "wait-and-return": "Driver waits at destination and returns (up to 12 hours)",
+                        "later-date": "Scheduled return on different date/time"
+                    },
+                    paymentMethods: {
+                        "cashOnArrival": "Customer pays with cash when driver arrives",
+                        "cardOnArrival": "Customer pays with card when driver arrives"
+                    },
+                    waitDurationRanges: {
+                        "0-2": "0 to 2 hours wait time",
+                        "3-4": "3 to 4 hours wait time",
+                        "5-6": "5 to 6 hours wait time",
+                        "7-8": "7 to 8 hours wait time",
+                        "9-10": "9 to 10 hours wait time",
+                        "11-12": "11 to 12 hours wait time"
+                    }
+                }
+            }
+        });
+    }
+    catch (error) {
+        console.error("Error fetching filter options:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "SERVER_ERROR",
+                message: "Failed to fetch filter options",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// =====================================================
 // Analytics
 // =====================================================
+// Payment Methods Analytics
+router.get("/analytics/payment-methods", async (req, res) => {
+    try {
+        // Extract query parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        // Build base query
+        let query = firebase_1.firestore.collection("bookings");
+        // Apply date filters if provided
+        if (startDate) {
+            query = query.where("pickupDate", ">=", startDate);
+        }
+        if (endDate) {
+            query = query.where("pickupDate", "<=", endDate);
+        }
+        // Execute query to get all bookings
+        const snapshot = await query.get();
+        // Initialize payment method statistics
+        const paymentStats = {
+            total: 0,
+            withPaymentMethods: 0,
+            withoutPaymentMethods: 0,
+            byMethod: {
+                cashOnArrival: 0,
+                cardOnArrival: 0,
+            },
+            byBookingType: {
+                hourly: { cash: 0, card: 0, none: 0 },
+                "one-way": { cash: 0, card: 0, none: 0 },
+                return: { cash: 0, card: 0, none: 0 },
+            },
+            revenue: {
+                cashOnArrival: 0,
+                cardOnArrival: 0,
+                none: 0,
+            },
+        };
+        // Process each booking
+        snapshot.forEach((doc) => {
+            const booking = doc.data();
+            paymentStats.total++;
+            const paymentMethods = booking.paymentMethods;
+            const amount = booking.vehicle?.price?.amount || 0;
+            const bookingType = booking.bookingType || "one-way";
+            if (paymentMethods) {
+                paymentStats.withPaymentMethods++;
+                const hasCash = paymentMethods.cashOnArrival || false;
+                const hasCard = paymentMethods.cardOnArrival || false;
+                if (hasCash) {
+                    paymentStats.byMethod.cashOnArrival++;
+                    paymentStats.revenue.cashOnArrival += amount;
+                    paymentStats.byBookingType[bookingType].cash++;
+                }
+                else if (hasCard) {
+                    paymentStats.byMethod.cardOnArrival++;
+                    paymentStats.revenue.cardOnArrival += amount;
+                    paymentStats.byBookingType[bookingType].card++;
+                }
+            }
+            else {
+                paymentStats.withoutPaymentMethods++;
+                paymentStats.revenue.none += amount;
+                paymentStats.byBookingType[bookingType].none++;
+            }
+        });
+        // Calculate percentages
+        const percentages = {
+            withPaymentMethods: paymentStats.total > 0 ? Math.round((paymentStats.withPaymentMethods / paymentStats.total) * 100) : 0,
+            withoutPaymentMethods: paymentStats.total > 0 ? Math.round((paymentStats.withoutPaymentMethods / paymentStats.total) * 100) : 0,
+            byMethod: {
+                cashOnArrival: paymentStats.withPaymentMethods > 0 ? Math.round((paymentStats.byMethod.cashOnArrival / paymentStats.withPaymentMethods) * 100) : 0,
+                cardOnArrival: paymentStats.withPaymentMethods > 0 ? Math.round((paymentStats.byMethod.cardOnArrival / paymentStats.withPaymentMethods) * 100) : 0,
+            },
+        };
+        return res.json({
+            success: true,
+            data: {
+                ...paymentStats,
+                percentages,
+                // Payment Method Definitions
+                paymentMethodDefinitions: {
+                    cashOnArrival: "Customer pays with cash when driver arrives",
+                    cardOnArrival: "Customer pays with card when driver arrives",
+                    none: "No payment method specified (to be determined later)",
+                },
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error fetching payment methods analytics:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "SERVER_ERROR",
+                message: "Failed to fetch payment methods analytics",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Wait Timer Analytics
+router.get("/analytics/wait-timers", async (req, res) => {
+    try {
+        // Extract query parameters
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        // Build base query
+        let query = firebase_1.firestore.collection("bookings");
+        // Apply date filters if provided
+        if (startDate) {
+            query = query.where("pickupDate", ">=", startDate);
+        }
+        if (endDate) {
+            query = query.where("pickupDate", "<=", endDate);
+        }
+        // Execute query to get all bookings
+        const snapshot = await query.get();
+        // Initialize wait timer statistics
+        const waitStats = {
+            totalReturnBookings: 0,
+            waitAndReturnBookings: 0,
+            laterDateBookings: 0,
+            withWaitDuration: 0,
+            withoutWaitDuration: 0,
+            waitDurationDistribution: {
+                "0-2": 0,
+                "3-4": 0,
+                "5-6": 0,
+                "7-8": 0,
+                "9-10": 0,
+                "11-12": 0,
+            },
+            averageWaitDuration: 0,
+            totalWaitDuration: 0,
+            byBookingType: {
+                waitAndReturn: {
+                    withTimer: 0,
+                    withoutTimer: 0,
+                    averageDuration: 0,
+                },
+            },
+        };
+        // Process each booking
+        snapshot.forEach((doc) => {
+            const booking = doc.data();
+            if (booking.bookingType === "return") {
+                waitStats.totalReturnBookings++;
+                if (booking.returnType === "wait-and-return") {
+                    waitStats.waitAndReturnBookings++;
+                    if (booking.waitDuration !== undefined && booking.waitDuration !== null) {
+                        waitStats.withWaitDuration++;
+                        waitStats.totalWaitDuration += booking.waitDuration;
+                        waitStats.byBookingType.waitAndReturn.withTimer++;
+                        // Categorize wait duration
+                        if (booking.waitDuration <= 2) {
+                            waitStats.waitDurationDistribution["0-2"]++;
+                        }
+                        else if (booking.waitDuration <= 4) {
+                            waitStats.waitDurationDistribution["3-4"]++;
+                        }
+                        else if (booking.waitDuration <= 6) {
+                            waitStats.waitDurationDistribution["5-6"]++;
+                        }
+                        else if (booking.waitDuration <= 8) {
+                            waitStats.waitDurationDistribution["7-8"]++;
+                        }
+                        else if (booking.waitDuration <= 10) {
+                            waitStats.waitDurationDistribution["9-10"]++;
+                        }
+                        else {
+                            waitStats.waitDurationDistribution["11-12"]++;
+                        }
+                    }
+                    else {
+                        waitStats.withoutWaitDuration++;
+                        waitStats.byBookingType.waitAndReturn.withoutTimer++;
+                    }
+                }
+                else if (booking.returnType === "later-date") {
+                    waitStats.laterDateBookings++;
+                }
+            }
+        });
+        // Calculate averages
+        if (waitStats.withWaitDuration > 0) {
+            waitStats.averageWaitDuration = parseFloat((waitStats.totalWaitDuration / waitStats.withWaitDuration).toFixed(1));
+        }
+        if (waitStats.byBookingType.waitAndReturn.withTimer > 0) {
+            waitStats.byBookingType.waitAndReturn.averageDuration = parseFloat((waitStats.totalWaitDuration / waitStats.byBookingType.waitAndReturn.withTimer).toFixed(1));
+        }
+        // Calculate percentages
+        const percentages = {
+            waitAndReturn: waitStats.totalReturnBookings > 0 ? Math.round((waitStats.waitAndReturnBookings / waitStats.totalReturnBookings) * 100) : 0,
+            laterDate: waitStats.totalReturnBookings > 0 ? Math.round((waitStats.laterDateBookings / waitStats.totalReturnBookings) * 100) : 0,
+            withTimer: waitStats.waitAndReturnBookings > 0 ? Math.round((waitStats.withWaitDuration / waitStats.waitAndReturnBookings) * 100) : 0,
+            withoutTimer: waitStats.waitAndReturnBookings > 0 ? Math.round((waitStats.withoutWaitDuration / waitStats.waitAndReturnBookings) * 100) : 0,
+        };
+        return res.json({
+            success: true,
+            data: {
+                ...waitStats,
+                percentages,
+                // Wait Timer Definitions
+                waitTimerDefinitions: {
+                    waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+                    laterDate: "Scheduled return on different date/time (no wait timer)",
+                    withTimer: "Customer specified exact wait duration",
+                    withoutTimer: "Customer did not specify wait duration (up to 12 hours default)",
+                },
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error fetching wait timer analytics:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "SERVER_ERROR",
+                message: "Failed to fetch wait timer analytics",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
 // Dashboard overview
 router.get("/analytics/overview", async (req, res) => {
     try {

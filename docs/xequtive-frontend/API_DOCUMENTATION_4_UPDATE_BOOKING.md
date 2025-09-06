@@ -110,7 +110,7 @@ The request body follows the same structure as the booking creation endpoint:
       "wheelchair": 0
     },
     "vehicle": {
-      "id": "executive-saloon",
+      "id": "executive",
       "name": "Executive Saloon"
     },
     "specialRequests": "Please call when arriving",
