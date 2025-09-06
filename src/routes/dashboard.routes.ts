@@ -164,11 +164,11 @@ router.post(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-          token: customToken,
-          returnSecureToken: true,
+          body: JSON.stringify({
+            token: customToken,
+            returnSecureToken: true,
           expiresIn: 432000, // 5 days in seconds
-        }),
+          }),
         }
       );
 
@@ -484,45 +484,81 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
     // Execute query
     const snapshot = await query.get();
 
+    // Helper function to generate Google Maps links
+    const generateGoogleMapsLink = (coordinates: { lat: number; lng: number } | null, address: string) => {
+      if (!coordinates) return null;
+      return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}&t=m&z=15`;
+    };
+
     // Map results to comprehensive bookings array
     const bookings: any[] = [];
     snapshot.forEach((doc) => {
       const bookingData = doc.data();
       
-      // Enhanced booking object with proper reference number handling
+      // Enhanced booking object with ALL available data
       const enhancedBooking = {
+        // =====================================================
+        // 1. CORE BOOKING INFORMATION
+        // =====================================================
         id: doc.id,
-        // ⚠️ IMPORTANT: Use referenceNumber for display, NOT Firebase ID
-        referenceNumber: bookingData.referenceNumber || "N/A",
-        firebaseId: doc.id, // Keep Firebase ID for API operations
+        firebaseId: doc.id, // Firebase document ID for API operations
+        referenceNumber: bookingData.referenceNumber || "N/A", // Business reference (XEQ_XXX)
+        userId: bookingData.userId || "N/A",
+        status: bookingData.status || "pending",
+        bookingType: bookingData.bookingType || "one-way",
+        pickupDate: bookingData.pickupDate || "N/A",
+        pickupTime: bookingData.pickupTime || "N/A",
+        createdAt: bookingData.createdAt || "N/A",
+        updatedAt: bookingData.updatedAt || "N/A",
+        waitingTime: bookingData.waitingTime || 0,
         
-        // Customer Information
+        // =====================================================
+        // 2. CUSTOMER INFORMATION
+        // =====================================================
         customer: {
           fullName: bookingData.customer?.fullName || "N/A",
           email: bookingData.customer?.email || "N/A",
           phoneNumber: bookingData.customer?.phoneNumber || "N/A",
         },
         
-        // Booking Details
-        bookingType: bookingData.bookingType || "one-way",
-        status: bookingData.status || "pending",
-        pickupDate: bookingData.pickupDate || "N/A",
-        pickupTime: bookingData.pickupTime || "N/A",
-        
-        // Location Information (with safe access)
+        // =====================================================
+        // 3. LOCATION INFORMATION WITH GOOGLE MAPS LINKS
+        // =====================================================
         locations: {
           pickup: {
             address: bookingData.locations?.pickup?.address || "Pickup location not specified",
             coordinates: bookingData.locations?.pickup?.coordinates || null,
+            googleMapsLink: generateGoogleMapsLink(
+              bookingData.locations?.pickup?.coordinates || null,
+              bookingData.locations?.pickup?.address || ""
+            ),
           },
           dropoff: {
             address: bookingData.locations?.dropoff?.address || "Dropoff location not specified",
             coordinates: bookingData.locations?.dropoff?.coordinates || null,
+            googleMapsLink: generateGoogleMapsLink(
+              bookingData.locations?.dropoff?.coordinates || null,
+              bookingData.locations?.dropoff?.address || ""
+            ),
           },
-          additionalStops: bookingData.locations?.additionalStops || [],
+          additionalStops: (bookingData.locations?.additionalStops || []).map((stop: any) => ({
+            address: stop.address || "Stop location not specified",
+            coordinates: stop.coordinates || null,
+            googleMapsLink: generateGoogleMapsLink(stop.coordinates || null, stop.address || ""),
+          })),
         },
         
-        // Vehicle Information
+        // =====================================================
+        // 4. JOURNEY DETAILS
+        // =====================================================
+        journey: {
+          distance_miles: bookingData.journey?.distance_miles || 0,
+          duration_minutes: bookingData.journey?.duration_minutes || 0,
+        },
+        
+        // =====================================================
+        // 5. VEHICLE & PRICING INFORMATION
+        // =====================================================
         vehicle: {
           id: bookingData.vehicle?.id || "N/A",
           name: bookingData.vehicle?.name || "Vehicle not specified",
@@ -532,32 +568,92 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
           },
         },
         
-        // Journey Information
-        journey: {
-          distance_miles: bookingData.journey?.distance_miles || 0,
-          duration_minutes: bookingData.journey?.duration_minutes || 0,
+        // Legacy price field for backward compatibility
+        price: {
+          amount: bookingData.price?.amount || bookingData.vehicle?.price?.amount || 0,
+          currency: bookingData.price?.currency || bookingData.vehicle?.price?.currency || "GBP",
         },
         
-        // Special Booking Types
-        hours: bookingData.hours || null, // For hourly bookings
-        returnType: bookingData.returnType || null, // For return bookings
-        returnDate: bookingData.returnDate || null,
-        returnTime: bookingData.returnTime || null,
-        waitDuration: bookingData.waitDuration || null, // For wait-and-return bookings
+        // =====================================================
+        // 6. PASSENGER & LUGGAGE DETAILS
+        // =====================================================
+        passengers: {
+          count: bookingData.passengers?.count || 0,
+          checkedLuggage: bookingData.passengers?.checkedLuggage || 0,
+          handLuggage: bookingData.passengers?.handLuggage || 0,
+          mediumLuggage: bookingData.passengers?.mediumLuggage || 0,
+          babySeat: bookingData.passengers?.babySeat || 0,
+          childSeat: bookingData.passengers?.childSeat || 0,
+          boosterSeat: bookingData.passengers?.boosterSeat || 0,
+          wheelchair: bookingData.passengers?.wheelchair || 0,
+        },
         
-        // Payment Methods
+        // =====================================================
+        // 7. SPECIAL REQUIREMENTS
+        // =====================================================
+        specialRequests: bookingData.specialRequests || "",
+        
+        // =====================================================
+        // 8. ADDITIONAL STOPS (LEGACY FORMAT)
+        // =====================================================
+        additionalStops: bookingData.additionalStops || [],
+        
+        // =====================================================
+        // 9. PAYMENT METHODS
+        // =====================================================
         paymentMethods: bookingData.paymentMethods || null,
         
-        // Additional Information
-        passengers: bookingData.passengers || {},
-        specialRequests: bookingData.specialRequests || "",
-        additionalStops: bookingData.additionalStops || [],
-        waitingTime: bookingData.waitingTime || 0,
+        // =====================================================
+        // 10. RETURN BOOKING INFORMATION
+        // =====================================================
+        returnType: bookingData.returnType || null,
+        returnDate: bookingData.returnDate || null,
+        returnTime: bookingData.returnTime || null,
+        waitDuration: bookingData.waitDuration || null,
+        returnDiscount: bookingData.returnDiscount || 0,
         
-        // Metadata
-        userId: bookingData.userId || "N/A",
-        createdAt: bookingData.createdAt || "N/A",
-        updatedAt: bookingData.updatedAt || "N/A",
+        // =====================================================
+        // 11. SERVICE DURATION (HOURLY BOOKINGS)
+        // =====================================================
+        hours: bookingData.hours || null,
+        
+        // =====================================================
+        // 12. TRAVEL INFORMATION
+        // =====================================================
+        travelInformation: bookingData.travelInformation || null,
+        
+        // =====================================================
+        // 13. BOOKING TIMELINE (STATUS HISTORY)
+        // =====================================================
+        timeline: [
+          {
+            status: "created",
+            timestamp: bookingData.createdAt || "N/A",
+            updatedBy: "system",
+            description: "Booking created"
+          },
+          ...(bookingData.status !== "pending" ? [{
+            status: bookingData.status,
+            timestamp: bookingData.updatedAt || "N/A",
+            updatedBy: "system",
+            description: `Booking ${bookingData.status}`
+          }] : [])
+        ],
+        
+        // =====================================================
+        // 14. SYSTEM METADATA
+        // =====================================================
+        metadata: {
+          documentId: doc.id,
+          referenceNumber: bookingData.referenceNumber || "N/A",
+          bookingType: bookingData.bookingType || "one-way",
+          hasCoordinates: !!(bookingData.locations?.pickup?.coordinates),
+          hasDropoff: !!(bookingData.locations?.dropoff?.address),
+          hasPaymentMethod: !!(bookingData.paymentMethods),
+          isReturnBooking: bookingData.bookingType === "return",
+          isHourlyBooking: bookingData.bookingType === "hourly",
+          waitAndReturn: bookingData.returnType === "wait-and-return",
+        }
       };
       
       bookings.push(enhancedBooking);
@@ -605,6 +701,38 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
           display: "Use 'referenceNumber' field for user-facing displays (e.g., XEQ_105)",
           apiOperations: "Use 'firebaseId' field for API calls like updates and cancellations",
           warning: "Never display Firebase IDs to users - they are internal system identifiers",
+        },
+        
+        // 📊 Complete Data Structure Information
+        dataStructure: {
+          totalFields: 14,
+          sections: [
+            "Core Booking Information (id, referenceNumber, status, etc.)",
+            "Customer Information (fullName, email, phoneNumber)",
+            "Location Information (pickup, dropoff, additionalStops with Google Maps links)",
+            "Journey Details (distance_miles, duration_minutes)",
+            "Vehicle & Pricing (id, name, price with currency)",
+            "Passenger & Luggage Details (count, all luggage types, seats)",
+            "Special Requirements (specialRequests)",
+            "Additional Stops (legacy format)",
+            "Payment Methods (cashOnArrival, cardOnArrival)",
+            "Return Booking Information (returnType, returnDate, waitDuration)",
+            "Service Duration (hours for hourly bookings)",
+            "Travel Information (flight/train details)",
+            "Booking Timeline (status history)",
+            "System Metadata (flags and indicators)"
+          ],
+          googleMapsIntegration: {
+            pickup: "Clickable Google Maps link for pickup location",
+            dropoff: "Clickable Google Maps link for dropoff location",
+            additionalStops: "Clickable Google Maps links for all additional stops",
+            note: "Links open in new tab with exact coordinates and zoom level 15"
+          },
+          coordinates: {
+            format: "{ lat: number, lng: number }",
+            availability: "Available for pickup, dropoff, and additional stops",
+            googleMapsFormat: "https://www.google.com/maps?q=lat,lng&t=m&z=15"
+          }
         },
       },
     } as ApiResponse<any>);
@@ -806,39 +934,75 @@ router.get(
         } as ApiResponse<never>);
       }
       
+      // Helper function to generate Google Maps links
+      const generateGoogleMapsLink = (coordinates: { lat: number; lng: number } | null, address: string) => {
+        if (!coordinates) return null;
+        return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}&t=m&z=15`;
+      };
+
       const enhancedBooking = {
-        id: bookingDoc.id,
-        // ⚠️ IMPORTANT: Use referenceNumber for display, NOT Firebase ID
-        referenceNumber: bookingData.referenceNumber || "N/A",
-        firebaseId: bookingDoc.id, // Keep Firebase ID for API operations
+        // =====================================================
+        // 1. CORE BOOKING INFORMATION
+        // =====================================================
+          id: bookingDoc.id,
+        firebaseId: bookingDoc.id, // Firebase document ID for API operations
+        referenceNumber: bookingData.referenceNumber || "N/A", // Business reference (XEQ_XXX)
+        userId: bookingData.userId || "N/A",
+        status: bookingData.status || "pending",
+        bookingType: bookingData.bookingType || "one-way",
+        pickupDate: bookingData.pickupDate || "N/A",
+        pickupTime: bookingData.pickupTime || "N/A",
+        createdAt: bookingData.createdAt || "N/A",
+        updatedAt: bookingData.updatedAt || "N/A",
+        waitingTime: bookingData.waitingTime || 0,
         
-        // Customer Information
+        // =====================================================
+        // 2. CUSTOMER INFORMATION
+        // =====================================================
         customer: {
           fullName: bookingData.customer?.fullName || "N/A",
           email: bookingData.customer?.email || "N/A",
           phoneNumber: bookingData.customer?.phoneNumber || "N/A",
         },
         
-        // Booking Details
-        bookingType: bookingData.bookingType || "one-way",
-        status: bookingData.status || "pending",
-        pickupDate: bookingData.pickupDate || "N/A",
-        pickupTime: bookingData.pickupTime || "N/A",
-        
-        // Location Information (with safe access)
+        // =====================================================
+        // 3. LOCATION INFORMATION WITH GOOGLE MAPS LINKS
+        // =====================================================
         locations: {
           pickup: {
             address: bookingData.locations?.pickup?.address || "Pickup location not specified",
             coordinates: bookingData.locations?.pickup?.coordinates || null,
+            googleMapsLink: generateGoogleMapsLink(
+              bookingData.locations?.pickup?.coordinates || null,
+              bookingData.locations?.pickup?.address || ""
+            ),
           },
           dropoff: {
             address: bookingData.locations?.dropoff?.address || "Dropoff location not specified",
             coordinates: bookingData.locations?.dropoff?.coordinates || null,
+            googleMapsLink: generateGoogleMapsLink(
+              bookingData.locations?.dropoff?.coordinates || null,
+              bookingData.locations?.dropoff?.address || ""
+            ),
           },
-          additionalStops: bookingData.locations?.additionalStops || [],
+          additionalStops: (bookingData.locations?.additionalStops || []).map((stop: any) => ({
+            address: stop.address || "Stop location not specified",
+            coordinates: stop.coordinates || null,
+            googleMapsLink: generateGoogleMapsLink(stop.coordinates || null, stop.address || ""),
+          })),
         },
         
-        // Vehicle Information
+        // =====================================================
+        // 4. JOURNEY DETAILS
+        // =====================================================
+        journey: {
+          distance_miles: bookingData.journey?.distance_miles || 0,
+          duration_minutes: bookingData.journey?.duration_minutes || 0,
+        },
+        
+        // =====================================================
+        // 5. VEHICLE & PRICING INFORMATION
+        // =====================================================
         vehicle: {
           id: bookingData.vehicle?.id || "N/A",
           name: bookingData.vehicle?.name || "Vehicle not specified",
@@ -848,43 +1012,92 @@ router.get(
           },
         },
         
-        // Journey Information
-        journey: {
-          distance_miles: bookingData.journey?.distance_miles || 0,
-          duration_minutes: bookingData.journey?.duration_minutes || 0,
+        // Legacy price field for backward compatibility
+        price: {
+          amount: bookingData.price?.amount || bookingData.vehicle?.price?.amount || 0,
+          currency: bookingData.price?.currency || bookingData.vehicle?.price?.currency || "GBP",
         },
         
-        // Special Booking Types
-        hours: bookingData.hours || null, // For hourly bookings
-        returnType: bookingData.returnType || null, // For return bookings
-        returnDate: bookingData.returnDate || null,
-        returnTime: bookingData.returnTime || null,
-        waitDuration: bookingData.waitDuration || null, // For wait-and-return bookings
+        // =====================================================
+        // 6. PASSENGER & LUGGAGE DETAILS
+        // =====================================================
+        passengers: {
+          count: bookingData.passengers?.count || 0,
+          checkedLuggage: bookingData.passengers?.checkedLuggage || 0,
+          handLuggage: bookingData.passengers?.handLuggage || 0,
+          mediumLuggage: bookingData.passengers?.mediumLuggage || 0,
+          babySeat: bookingData.passengers?.babySeat || 0,
+          childSeat: bookingData.passengers?.childSeat || 0,
+          boosterSeat: bookingData.passengers?.boosterSeat || 0,
+          wheelchair: bookingData.passengers?.wheelchair || 0,
+        },
         
-        // Payment Methods
+        // =====================================================
+        // 7. SPECIAL REQUIREMENTS
+        // =====================================================
+        specialRequests: bookingData.specialRequests || "",
+        
+        // =====================================================
+        // 8. ADDITIONAL STOPS (LEGACY FORMAT)
+        // =====================================================
+        additionalStops: bookingData.additionalStops || [],
+        
+        // =====================================================
+        // 9. PAYMENT METHODS
+        // =====================================================
         paymentMethods: bookingData.paymentMethods || null,
         
-        // Additional Information
-        passengers: bookingData.passengers || {},
-        specialRequests: bookingData.specialRequests || "",
-        additionalStops: bookingData.additionalStops || [],
-        waitingTime: bookingData.waitingTime || 0,
+        // =====================================================
+        // 10. RETURN BOOKING INFORMATION
+        // =====================================================
+        returnType: bookingData.returnType || null,
+        returnDate: bookingData.returnDate || null,
+        returnTime: bookingData.returnTime || null,
+        waitDuration: bookingData.waitDuration || null,
+        returnDiscount: bookingData.returnDiscount || 0,
         
-        // Metadata
-        userId: bookingData.userId || "N/A",
-        createdAt: bookingData.createdAt || "N/A",
-        updatedAt: bookingData.updatedAt || "N/A",
+        // =====================================================
+        // 11. SERVICE DURATION (HOURLY BOOKINGS)
+        // =====================================================
+        hours: bookingData.hours || null,
         
-        // Timeline
-        timeline:
-          timeline.length > 0
-            ? timeline
-            : [
-                {
-                  status: bookingData.status || "pending",
-                  timestamp: bookingData.createdAt,
-                },
-              ],
+        // =====================================================
+        // 12. TRAVEL INFORMATION
+        // =====================================================
+        travelInformation: bookingData.travelInformation || null,
+        
+        // =====================================================
+        // 13. BOOKING TIMELINE (STATUS HISTORY)
+        // =====================================================
+        timeline: timeline.length > 0 ? timeline : [
+          {
+            status: "created",
+            timestamp: bookingData.createdAt || "N/A",
+            updatedBy: "system",
+            description: "Booking created"
+          },
+          ...(bookingData.status !== "pending" ? [{
+            status: bookingData.status,
+            timestamp: bookingData.updatedAt || "N/A",
+            updatedBy: "system",
+            description: `Booking ${bookingData.status}`
+          }] : [])
+        ],
+        
+        // =====================================================
+        // 14. SYSTEM METADATA
+        // =====================================================
+        metadata: {
+          documentId: bookingDoc.id,
+          referenceNumber: bookingData.referenceNumber || "N/A",
+          bookingType: bookingData.bookingType || "one-way",
+          hasCoordinates: !!(bookingData.locations?.pickup?.coordinates),
+          hasDropoff: !!(bookingData.locations?.dropoff?.address),
+          hasPaymentMethod: !!(bookingData.paymentMethods),
+          isReturnBooking: bookingData.bookingType === "return",
+          isHourlyBooking: bookingData.bookingType === "hourly",
+          waitAndReturn: bookingData.returnType === "wait-and-return",
+        }
       };
 
       // Return enhanced booking with timeline
