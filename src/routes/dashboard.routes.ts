@@ -6,8 +6,15 @@ import { Query, DocumentData } from "firebase-admin/firestore";
 import { auth } from "../config/firebase";
 import { z } from "zod";
 import { AuthService } from "../services/auth.service";
+import { vehicleTypes } from "../config/vehicleTypes";
 
 const router = Router();
+
+// Helper function to get hourly rate for a vehicle
+function getHourlyRateForVehicle(vehicleId: string): number {
+  const vehicleType = vehicleTypes[vehicleId];
+  return vehicleType?.waitingRatePerHour || 0;
+}
 
 // =====================================================
 // Dashboard Auth Routes
@@ -81,7 +88,7 @@ router.post(
       } as ApiResponse<any>);
 
     } catch (error) {
-      console.error("Hardcoded admin login error:", error);
+      console.error("Admin login error:", error);
       res.status(500).json({
         success: false,
         error: {
@@ -439,9 +446,7 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
     const status = req.query.status as string;
     const vehicleType = req.query.vehicleType as string;
     const bookingType = req.query.bookingType as string; // Filter by booking type
-    const returnType = req.query.returnType as string; // Filter by return type (wait-and-return, later-date)
     const paymentMethod = req.query.paymentMethod as string; // Filter by payment method (cashOnArrival, cardOnArrival)
-    const waitDuration = req.query.waitDuration as string; // Filter by wait duration range
     const page = parseInt((req.query.page as string) || "1");
     const limit = parseInt((req.query.limit as string) || "20");
     const sort = (req.query.sort as string) || "pickupDate";
@@ -465,9 +470,6 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
     }
     if (bookingType) {
       query = query.where("bookingType", "==", bookingType);
-    }
-    if (returnType) {
-      query = query.where("returnType", "==", returnType);
     }
 
     // Get total count for pagination
@@ -606,10 +608,8 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
         // =====================================================
         // 10. RETURN BOOKING INFORMATION
         // =====================================================
-        returnType: bookingData.returnType || null,
         returnDate: bookingData.returnDate || null,
         returnTime: bookingData.returnTime || null,
-        waitDuration: bookingData.waitDuration || null,
         returnDiscount: bookingData.returnDiscount || 0,
         
         // =====================================================
@@ -652,7 +652,6 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
           hasPaymentMethod: !!(bookingData.paymentMethods),
           isReturnBooking: bookingData.bookingType === "return",
           isHourlyBooking: bookingData.bookingType === "hourly",
-          waitAndReturn: bookingData.returnType === "wait-and-return",
         }
       };
       
@@ -671,13 +670,6 @@ router.get("/bookings", async (req: AuthenticatedRequest, res: Response) => {
       });
     }
     
-    if (waitDuration) {
-      const [minDuration, maxDuration] = waitDuration.split("-").map(Number);
-      filteredBookings = filteredBookings.filter(booking => {
-        if (!booking.waitDuration) return false;
-        return booking.waitDuration >= minDuration && booking.waitDuration <= maxDuration;
-      });
-    }
 
     // Apply pagination to filtered results
     const filteredTotal = filteredBookings.length;
@@ -836,10 +828,8 @@ router.get(
           
           // Special Booking Types
           hours: booking.hours || null, // For hourly bookings
-          returnType: booking.returnType || null, // For return bookings
           returnDate: booking.returnDate || null,
           returnTime: booking.returnTime || null,
-          waitDuration: booking.waitDuration || null, // For wait-and-return bookings
           
           // Payment Methods
           paymentMethods: booking.paymentMethods || null,
@@ -1050,10 +1040,8 @@ router.get(
         // =====================================================
         // 10. RETURN BOOKING INFORMATION
         // =====================================================
-        returnType: bookingData.returnType || null,
         returnDate: bookingData.returnDate || null,
         returnTime: bookingData.returnTime || null,
-        waitDuration: bookingData.waitDuration || null,
         returnDiscount: bookingData.returnDiscount || 0,
         
         // =====================================================
@@ -1096,7 +1084,6 @@ router.get(
           hasPaymentMethod: !!(bookingData.paymentMethods),
           isReturnBooking: bookingData.bookingType === "return",
           isHourlyBooking: bookingData.bookingType === "hourly",
-          waitAndReturn: bookingData.returnType === "wait-and-return",
         }
       };
 
@@ -1202,6 +1189,10 @@ router.get(
               amount: bookingData.vehicle?.price?.amount || 0,
               currency: bookingData.vehicle?.price?.currency || "GBP",
             },
+            // Add hourly rate for hourly bookings
+            ...(bookingData.bookingType === "hourly" && {
+              hourlyRate: getHourlyRateForVehicle(bookingData.vehicle?.id || "N/A")
+            }),
           },
           
           // Journey Information
@@ -1212,7 +1203,7 @@ router.get(
           
           // Special Booking Types
           hours: bookingData.hours || null, // For hourly bookings
-          returnType: bookingData.returnType || null, // For return bookings
+ // For return bookings
           returnDate: bookingData.returnDate || null,
           returnTime: bookingData.returnTime || null,
           
@@ -1919,9 +1910,7 @@ router.get("/filters/options", async (req: AuthenticatedRequest, res: Response) 
     
     const filterOptions = {
       bookingTypes: new Set<string>(),
-      returnTypes: new Set<string>(),
       paymentMethods: new Set<string>(),
-      waitDurationRanges: new Set<string>(),
       vehicleTypes: new Set<string>(),
       statuses: new Set<string>(),
     };
@@ -1934,11 +1923,6 @@ router.get("/filters/options", async (req: AuthenticatedRequest, res: Response) 
         filterOptions.bookingTypes.add(booking.bookingType);
       }
       
-      // Collect return types
-      if (booking.returnType) {
-        filterOptions.returnTypes.add(booking.returnType);
-      }
-      
       // Collect payment methods
       if (booking.paymentMethods) {
         if (booking.paymentMethods.cashOnArrival) {
@@ -1947,17 +1931,6 @@ router.get("/filters/options", async (req: AuthenticatedRequest, res: Response) 
         if (booking.paymentMethods.cardOnArrival) {
           filterOptions.paymentMethods.add("cardOnArrival");
         }
-      }
-      
-      // Collect wait duration ranges
-      if (booking.waitDuration !== undefined && booking.waitDuration !== null) {
-        const duration = booking.waitDuration;
-        if (duration <= 2) filterOptions.waitDurationRanges.add("0-2");
-        else if (duration <= 4) filterOptions.waitDurationRanges.add("3-4");
-        else if (duration <= 6) filterOptions.waitDurationRanges.add("5-6");
-        else if (duration <= 8) filterOptions.waitDurationRanges.add("7-8");
-        else if (duration <= 10) filterOptions.waitDurationRanges.add("9-10");
-        else filterOptions.waitDurationRanges.add("11-12");
       }
       
       // Collect vehicle types
@@ -1975,9 +1948,7 @@ router.get("/filters/options", async (req: AuthenticatedRequest, res: Response) 
       success: true,
       data: {
         bookingTypes: Array.from(filterOptions.bookingTypes).sort(),
-        returnTypes: Array.from(filterOptions.returnTypes).sort(),
         paymentMethods: Array.from(filterOptions.paymentMethods).sort(),
-        waitDurationRanges: Array.from(filterOptions.waitDurationRanges).sort(),
         vehicleTypes: Array.from(filterOptions.vehicleTypes).sort(),
         statuses: Array.from(filterOptions.statuses).sort(),
         // Filter definitions
@@ -1987,22 +1958,10 @@ router.get("/filters/options", async (req: AuthenticatedRequest, res: Response) 
             "hourly": "Continuous service for specified hours (3-12 hours)",
             "return": "Round-trip journey with smart reverse route"
           },
-          returnTypes: {
-            "wait-and-return": "Driver waits at destination and returns (up to 12 hours)",
-            "later-date": "Scheduled return on different date/time"
-          },
           paymentMethods: {
             "cashOnArrival": "Customer pays with cash when driver arrives",
             "cardOnArrival": "Customer pays with card when driver arrives"
           },
-          waitDurationRanges: {
-            "0-2": "0 to 2 hours wait time",
-            "3-4": "3 to 4 hours wait time",
-            "5-6": "5 to 6 hours wait time",
-            "7-8": "7 to 8 hours wait time",
-            "9-10": "9 to 10 hours wait time",
-            "11-12": "11 to 12 hours wait time"
-          }
         }
       }
     } as ApiResponse<any>);
@@ -2161,20 +2120,6 @@ router.get(
       // Initialize wait timer statistics
       const waitStats = {
         totalReturnBookings: 0,
-        waitAndReturnBookings: 0,
-        laterDateBookings: 0,
-        withWaitDuration: 0,
-        withoutWaitDuration: 0,
-        waitDurationDistribution: {
-          "0-2": 0,
-          "3-4": 0,
-          "5-6": 0,
-          "7-8": 0,
-          "9-10": 0,
-          "11-12": 0,
-        },
-        averageWaitDuration: 0,
-        totalWaitDuration: 0,
         byBookingType: {
           waitAndReturn: {
             withTimer: 0,
@@ -2190,70 +2135,15 @@ router.get(
         
         if (booking.bookingType === "return") {
           waitStats.totalReturnBookings++;
-          
-          if (booking.returnType === "wait-and-return") {
-            waitStats.waitAndReturnBookings++;
-            
-            if (booking.waitDuration !== undefined && booking.waitDuration !== null) {
-              waitStats.withWaitDuration++;
-              waitStats.totalWaitDuration += booking.waitDuration;
-              waitStats.byBookingType.waitAndReturn.withTimer++;
-              
-              // Categorize wait duration
-              if (booking.waitDuration <= 2) {
-                waitStats.waitDurationDistribution["0-2"]++;
-              } else if (booking.waitDuration <= 4) {
-                waitStats.waitDurationDistribution["3-4"]++;
-              } else if (booking.waitDuration <= 6) {
-                waitStats.waitDurationDistribution["5-6"]++;
-              } else if (booking.waitDuration <= 8) {
-                waitStats.waitDurationDistribution["7-8"]++;
-              } else if (booking.waitDuration <= 10) {
-                waitStats.waitDurationDistribution["9-10"]++;
-              } else {
-                waitStats.waitDurationDistribution["11-12"]++;
-              }
-            } else {
-              waitStats.withoutWaitDuration++;
-              waitStats.byBookingType.waitAndReturn.withoutTimer++;
-            }
-          } else if (booking.returnType === "later-date") {
-            waitStats.laterDateBookings++;
-          }
         }
       });
 
-      // Calculate averages
-      if (waitStats.withWaitDuration > 0) {
-        waitStats.averageWaitDuration = parseFloat((waitStats.totalWaitDuration / waitStats.withWaitDuration).toFixed(1));
-      }
-      
-      if (waitStats.byBookingType.waitAndReturn.withTimer > 0) {
-        waitStats.byBookingType.waitAndReturn.averageDuration = parseFloat(
-          (waitStats.totalWaitDuration / waitStats.byBookingType.waitAndReturn.withTimer).toFixed(1)
-        );
-      }
 
-      // Calculate percentages
-      const percentages = {
-        waitAndReturn: waitStats.totalReturnBookings > 0 ? Math.round((waitStats.waitAndReturnBookings / waitStats.totalReturnBookings) * 100) : 0,
-        laterDate: waitStats.totalReturnBookings > 0 ? Math.round((waitStats.laterDateBookings / waitStats.totalReturnBookings) * 100) : 0,
-        withTimer: waitStats.waitAndReturnBookings > 0 ? Math.round((waitStats.withWaitDuration / waitStats.waitAndReturnBookings) * 100) : 0,
-        withoutTimer: waitStats.waitAndReturnBookings > 0 ? Math.round((waitStats.withoutWaitDuration / waitStats.waitAndReturnBookings) * 100) : 0,
-      };
 
       return res.json({
         success: true,
         data: {
           ...waitStats,
-          percentages,
-          // Wait Timer Definitions
-          waitTimerDefinitions: {
-            waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
-            laterDate: "Scheduled return on different date/time (no wait timer)",
-            withTimer: "Customer specified exact wait duration",
-            withoutTimer: "Customer did not specify wait duration (up to 12 hours default)",
-          },
         },
       } as ApiResponse<any>);
     } catch (error) {

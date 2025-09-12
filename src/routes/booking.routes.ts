@@ -23,8 +23,15 @@ import { Query } from "firebase-admin/firestore";
 import { bookingLimiter } from "../middleware/rateLimiter";
 import { FareCalculationService } from "../services/fare.service";
 import { EmailService } from "../services/email.service";
+import { vehicleTypes } from "../config/vehicleTypes";
 
 const router = Router();
+
+// Helper function to get hourly rate for a vehicle
+function getHourlyRateForVehicle(vehicleId: string): number {
+  const vehicleType = vehicleTypes[vehicleId];
+  return vehicleType?.waitingRatePerHour || 0;
+}
 
 // Generate sequential reference number
 async function generateReferenceNumber(): Promise<string> {
@@ -70,7 +77,6 @@ router.post(
         } as ApiResponse<never>);
       }
 
-      console.log(`📅 Creating booking for user: ${req.user.uid}`);
 
       // Get or use customer information
       let bookingData: EnhancedBookingCreateRequest;
@@ -138,7 +144,6 @@ router.post(
         passengers: bookingData.booking.passengers,
         bookingType: bookingData.booking.bookingType || "one-way",
         hours: bookingData.booking.hours,
-        returnType: bookingData.booking.returnType,
         returnDate: bookingData.booking.returnDate,
         returnTime: bookingData.booking.returnTime,
       };
@@ -186,6 +191,10 @@ router.post(
           id: bookingData.booking.vehicle.id,
           name: bookingData.booking.vehicle.name,
           price: verifiedFare.price,
+          // Add hourly rate for hourly bookings
+          ...(bookingData.booking.bookingType === "hourly" && {
+            hourlyRate: getHourlyRateForVehicle(bookingData.booking.vehicle.id)
+          }),
         },
         price: verifiedFare.price,
         additionalStops: bookingData.booking.locations.additionalStops?.map(stop => stop.address) || [],
@@ -205,9 +214,6 @@ router.post(
       // Add optional fields only if they have values (to avoid undefined in Firestore)
       if (bookingData.booking.hours !== undefined) {
         permanentBooking.hours = bookingData.booking.hours;
-      }
-      if (bookingData.booking.returnType !== undefined) {
-        permanentBooking.returnType = bookingData.booking.returnType;
       }
       if (bookingData.booking.returnDate !== undefined) {
         permanentBooking.returnDate = bookingData.booking.returnDate;
@@ -244,7 +250,6 @@ router.post(
         .add(permanentBooking);
 
               const destination = permanentBooking.bookingType === "hourly" ? "Hourly booking" : permanentBooking.locations?.dropoff?.address || "Dropoff not specified";
-        console.log(`📅 Booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | Type: ${permanentBooking.bookingType} | From: ${permanentBooking.locations?.pickup?.address || "Pickup not specified"} | To: ${destination} | Vehicle: ${permanentBooking.vehicle?.name || "Vehicle not specified"} | Price: £${permanentBooking.vehicle?.price?.amount || 0}`);
 
       // Send booking confirmation email (non-blocking)
       EmailService.sendBookingConfirmationEmail(
@@ -284,7 +289,6 @@ router.post(
           status: "pending",
           bookingType: permanentBooking.bookingType,
           ...(permanentBooking.hours !== undefined && { hours: permanentBooking.hours }),
-          ...(permanentBooking.returnType !== undefined && { returnType: permanentBooking.returnType }),
         },
       };
 
@@ -331,7 +335,6 @@ router.get(
       // Execute query
       const snapshot = await query.get();
 
-      console.log(`📋 Found ${snapshot.size} bookings for user ${req.user.uid}`);
 
       // Map results to comprehensive booking array for user
       const bookings: any[] = [];
@@ -349,7 +352,6 @@ router.get(
           
           // Skip bookings with completely missing critical data
           if (!booking.pickupDate || !booking.pickupTime) {
-            console.warn(`Skipping booking ${doc.id} - missing pickup date/time`);
             return;
           }
           
@@ -393,6 +395,10 @@ router.get(
                 amount: vehiclePrice,
                 currency: booking.vehicle?.price?.currency || "GBP",
               },
+              // Add hourly rate for hourly bookings
+              ...(booking.bookingType === "hourly" && {
+                hourlyRate: getHourlyRateForVehicle(booking.vehicle?.id || "N/A")
+              }),
             },
             
             // Journey information
@@ -403,7 +409,6 @@ router.get(
             
             // Special booking type fields
             hours: booking.hours || null, // For hourly bookings
-            returnType: booking.returnType || null, // For return bookings
             returnDate: booking.returnDate || null,
             returnTime: booking.returnTime || null,
             
@@ -435,12 +440,10 @@ router.get(
           bookings.push(comprehensiveBooking);
         } catch (bookingError) {
           console.error(`Error processing booking ${doc.id}:`, bookingError);
-          console.error(`Booking data:`, doc.data());
           // Continue with other bookings instead of failing completely
         }
       });
 
-      console.log(`✅ Successfully processed ${bookings.length} bookings out of ${snapshot.size} total`);
 
       // Sort manually in memory instead of in the query
       bookings.sort((a, b) => {
@@ -533,7 +536,6 @@ router.get(
       // Execute query
       const snapshot = await query.get();
 
-      console.log(`📊 Generating statistics for ${snapshot.size} bookings for user ${req.user.uid}`);
 
       // Initialize statistics
       const stats = {
@@ -765,7 +767,6 @@ router.get(
         
         // Special booking type fields
         hours: booking.hours || null, // For hourly bookings
-        returnType: booking.returnType || null, // For return bookings
         returnDate: booking.returnDate || null,
         returnTime: booking.returnTime || null,
         
@@ -862,7 +863,6 @@ router.get(
       // Execute query
       const snapshot = await query.get();
 
-      console.log(`📋 Found ${snapshot.size} ${bookingType} bookings for user ${req.user.uid}`);
 
       // Map results to comprehensive booking array for user
       const bookings: any[] = [];
@@ -880,7 +880,6 @@ router.get(
           
           // Skip bookings with completely missing critical data
           if (!booking.pickupDate || !booking.pickupTime) {
-            console.warn(`Skipping booking ${doc.id} - missing pickup date/time`);
             return;
           }
           
@@ -924,6 +923,10 @@ router.get(
                 amount: vehiclePrice,
                 currency: booking.vehicle?.price?.currency || "GBP",
               },
+              // Add hourly rate for hourly bookings
+              ...(booking.bookingType === "hourly" && {
+                hourlyRate: getHourlyRateForVehicle(booking.vehicle?.id || "N/A")
+              }),
             },
             
             // Journey information
@@ -934,7 +937,6 @@ router.get(
             
             // Special booking type fields
             hours: booking.hours || null, // For hourly bookings
-            returnType: booking.returnType || null, // For return bookings
             returnDate: booking.returnDate || null,
             returnTime: booking.returnTime || null,
             
@@ -966,12 +968,10 @@ router.get(
           bookings.push(comprehensiveBooking);
         } catch (bookingError) {
           console.error(`Error processing booking ${doc.id}:`, bookingError);
-          console.error(`Booking data:`, doc.data());
           // Continue with other bookings instead of failing completely
         }
       });
 
-      console.log(`✅ Successfully processed ${bookings.length} ${bookingType} bookings out of ${snapshot.size} total`);
 
       // Sort manually in memory instead of in the query
       bookings.sort((a, b) => {
@@ -1252,7 +1252,6 @@ router.post(
         passengers: bookingData.booking.passengers,
         bookingType: bookingData.booking.bookingType || "one-way",
         hours: bookingData.booking.hours,
-        returnType: bookingData.booking.returnType,
         returnDate: bookingData.booking.returnDate,
         returnTime: bookingData.booking.returnTime,
       };
@@ -1298,6 +1297,10 @@ router.post(
           id: bookingData.booking.vehicle.id,
           name: bookingData.booking.vehicle.name,
           price: verifiedFare.price,
+          // Add hourly rate for hourly bookings
+          ...(bookingData.booking.bookingType === "hourly" && {
+            hourlyRate: getHourlyRateForVehicle(bookingData.booking.vehicle.id)
+          }),
         },
         journey: {
           distance_miles: verifiedFare.distance_miles,

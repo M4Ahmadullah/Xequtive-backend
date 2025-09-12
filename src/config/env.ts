@@ -114,20 +114,3 @@ export const env = {
   },
 };
 
-// Print the loaded environment configuration except for sensitive data
-console.log("Environment configuration loaded:", {
-  server: env.server,
-  firebase: {
-    projectId: env.firebase.projectId,
-    // Omit private keys and sensitive data
-  },
-  security: {
-    allowedOrigins: env.security.allowedOrigins,
-    // Omit secrets
-  },
-  email: {
-    senderAddress: env.email.senderAddress,
-    frontendUrl: env.email.frontendUrl,
-    // Omit API key
-  },
-});

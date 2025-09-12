@@ -103,10 +103,8 @@ export interface EnhancedFareEstimateRequest {
   passengers?: BookingPassengersData;
   bookingType?: "one-way" | "hourly" | "return";
   hours?: number; // Required for hourly bookings (3-12 hours)
-  returnType?: "wait-and-return" | "later-date"; // Required for return bookings
   returnDate?: string; // Required for later-date returns (YYYY-MM-DD)
   returnTime?: string; // Required for later-date returns (HH:MM)
-  waitDuration?: number; // Wait duration in hours for wait-and-return bookings (max 12 hours)
 
   pickupLocation?: Coordinates;
   dropoffLocation?: Coordinates;
@@ -279,7 +277,6 @@ export interface EnhancedBookingData {
   specialRequests?: string;
   bookingType?: "one-way" | "hourly" | "return";
   hours?: number;
-  returnType?: "wait-and-return" | "later-date";
   returnDate?: string;
   returnTime?: string;
   paymentMethods?: {
@@ -374,7 +371,6 @@ export interface PermanentBookingData {
   status: "pending" | "confirmed" | "completed" | "cancelled";
   bookingType: 'one-way' | 'hourly' | 'return';
   hours?: number;
-  returnType?: 'wait-and-return' | 'later-date';
   returnDate?: string;
   returnTime?: string;
   returnDiscount?: number;
@@ -607,7 +603,6 @@ export interface EnhancedBookingRequest {
   specialInstructions?: string;
   bookingType: 'one-way' | 'hourly' | 'return';
   hours?: number;
-  returnType?: 'wait-and-return' | 'later-date';
   returnDate?: string;
   returnTime?: string;
   returnDiscount?: number;
@@ -626,7 +621,6 @@ export interface HourlyBookingRequest {
   customerEmail: string;
   customerPhone: string;
   specialInstructions?: string;
-  returnType?: 'wait-and-return' | 'later-date';
   returnDate?: string;
   returnTime?: string;
   returnDiscount?: number;
@@ -654,7 +648,6 @@ export interface HourlyBookingData {
   waitingTime: number;
   specialRequests?: string;
   status: "pending" | "confirmed" | "completed" | "cancelled";
-  returnType?: 'wait-and-return' | 'later-date';
   returnDate?: string;
   returnTime?: string;
   returnDiscount?: number;

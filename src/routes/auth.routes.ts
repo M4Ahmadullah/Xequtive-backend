@@ -220,7 +220,6 @@ router.post("/signin", authLimiter, async (req: Request, res: Response) => {
     // Add explicit Set-Cookie header logging
     const setCookieHeaders = res.getHeaders()['set-cookie'];
 
-    console.log(`✅ User signed in: ${email} (${authResult.uid})`);
 
     // Return user data (cookies-only approach)
     return res.json({
@@ -322,7 +321,6 @@ router.post("/signup", authLimiter, async (req: Request, res: Response) => {
     // Add explicit Set-Cookie header logging
     const setCookieHeaders = res.getHeaders()['set-cookie'];
     
-    console.log(`🆕 User signed up: ${email} (${userData.uid})`);
 
              // Return user data (cookies-only approach)
     return res.status(201).json({
@@ -382,21 +380,6 @@ router.post("/signout", async (req: Request, res: Response) => {
 router.get("/debug-cookies", async (req: Request, res: Response) => {
   const requestId = Math.random().toString(36).substring(7);
   
-  console.log(`🐛 [${requestId}] Cookie debug request`, {
-    timestamp: new Date().toISOString(),
-    origin: req.get('Origin'),
-    host: req.get('Host'),
-    userAgent: req.get('User-Agent'),
-    secFetchSite: req.get('Sec-Fetch-Site'),
-    secFetchMode: req.get('Sec-Fetch-Mode'),
-    secFetchDest: req.get('Sec-Fetch-Dest'),
-    rawCookieHeader: req.headers.cookie,
-    parsedCookies: req.cookies,
-    cookieNames: req.cookies ? Object.keys(req.cookies) : [],
-    hasToken: !!req.cookies?.token,
-    allHeaders: Object.keys(req.headers),
-    responseHeaders: res.getHeaders(),
-  });
   
   // Set multiple test cookies with different configurations
   const testValue = "test-value-" + Date.now();
@@ -585,7 +568,6 @@ router.get("/me", sessionCheckLimiter, async (req: Request, res: Response) => {
       //   processingTime: Date.now() - startTime,
       // });
 
-      console.log(`👤 Auth/me: ${responseData.displayName || 'Unknown'} (${responseData.email})`);
       
       return res.json({
         success: true,
@@ -861,8 +843,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
   
   try {
     const { code, state: encodedState } = req.query;
-    console.log("🔑 Authorization code:", code ? "Present" : "Missing");
-    console.log("🏷️ State parameter:", encodedState ? "Present" : "Missing");
 
     if (!code || !encodedState) {
       console.error("❌ Missing required parameters (code or state)");
@@ -881,9 +861,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
 
     // Exchange the code for tokens
     // console.log("✅ Step 1: Exchanging authorization code for access token");
-    console.log("🔗 Google OAuth client ID:", env.googleOAuth.clientId ? "Present" : "Missing");
-    console.log("🔗 Google OAuth client secret:", env.googleOAuth.clientSecret ? "Present" : "Missing");
-    console.log("🔗 Callback URL:", env.googleOAuth.callbackUrl);
     
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -899,14 +876,7 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       }),
     });
 
-    console.log("📡 Token response status:", tokenResponse.status);
     const tokenData = await tokenResponse.json();
-    console.log("📡 Token response data:", {
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      error: tokenData.error,
-      errorDescription: tokenData.error_description
-    });
 
     if (!tokenData.access_token) {
       console.error("❌ Failed to get access token from Google");
@@ -925,14 +895,7 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       }
     );
 
-    console.log("📡 User info response status:", userInfoResponse.status);
     const googleUser = await userInfoResponse.json();
-    console.log("👤 Google user data:", {
-      email: googleUser.email,
-      name: googleUser.name,
-      picture: !!googleUser.picture,
-      verified_email: googleUser.verified_email
-    });
 
     if (!googleUser.email) {
       console.error("❌ No email received from Google user info");
@@ -944,9 +907,7 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     let firebaseUser;
     try {
       // Check if user exists by email
-      console.log("🔍 Checking if user exists in Firebase:", googleUser.email);
       firebaseUser = await auth.getUserByEmail(googleUser.email);
-      console.log("👤 Existing Firebase user found:", firebaseUser.uid);
     } catch (error) {
       // User doesn't exist, create a new one
       firebaseUser = await auth.createUser({
@@ -954,10 +915,7 @@ router.get("/google/callback", async (req: Request, res: Response) => {
         displayName: googleUser.name,
         photoURL: googleUser.picture,
       });
-      console.log(`🆕 OAuth user created: ${googleUser.email} (${firebaseUser.uid})`);
-
       // Set custom claims for regular user
-      console.log("🏷️ Setting custom claims for new user");
       await auth.setCustomUserClaims(firebaseUser.uid, { role: "user" });
     }
 
@@ -965,15 +923,11 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     // console.log("✅ Step 4: Managing Firestore user document");
     const userDoc = firestore.collection("users").doc(firebaseUser.uid);
     const userSnapshot = await userDoc.get();
-    console.log("📄 User document exists:", userSnapshot.exists);
-
     // Check if profile data needs to be completed (e.g., phone number)
     const profileComplete = userSnapshot.exists && userSnapshot.data()?.phone;
-    console.log("✅ Profile complete:", profileComplete);
 
     if (!userSnapshot.exists) {
       // Create new user document
-      console.log("➕ Creating new Firestore user document");
       await userDoc.set({
         email: firebaseUser.email,
         fullName: googleUser.name,
@@ -983,7 +937,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
         authProvider: "google",
         createdAt: new Date().toISOString(),
       });
-      console.log("📄 User document created successfully");
     }
 
     // Generate a temporary code for the frontend
@@ -992,19 +945,11 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       firebaseUser.uid,
       firebaseUser.email || ""
     );
-    console.log("🎫 Temporary code generated:", tempCode);
-
     // Redirect to frontend with temp code
     const finalRedirectUrl = `${redirectUrl}?code=${tempCode}`;
-    console.log("🎯 Final redirect URL:", finalRedirectUrl);
-    console.log("🎉 OAuth callback successful, redirecting to frontend");
     res.redirect(finalRedirectUrl);
   } catch (error) {
-    console.error("💥 OAuth callback error - Full details:");
-    console.error("Error name:", error instanceof Error ? error.name : "Unknown");
-    console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
-    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
-    console.error("Error object:", error);
+    console.error("OAuth callback error:", error);
 
     // Extract the redirect URL from state or use default
     const redirectUrl = req.query.state
@@ -1012,7 +957,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
       : "/";
 
     // Redirect to frontend with error
-    console.log("❌ Redirecting to frontend with error");
     res.redirect(`${redirectUrl}?error=auth_failed`);
   }
 });

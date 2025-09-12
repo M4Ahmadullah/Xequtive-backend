@@ -45,19 +45,11 @@ export class MapboxDistanceService {
     waypoints: string[] = []
   ): Promise<{ distance: number; duration: number }> {
     try {
-      // console.log('🗺️ Using Mapbox Directions API for shortest route calculation (not real-time traffic)');
-      // console.log('🗺️ Origin:', origin);
-      // console.log('🗺️ Destination:', destination);
-      // console.log('🗺️ Waypoints:', waypoints);
-      // console.log('🗺️ Mapbox token available:', !!env.mapbox.token);
-      // console.log('🗺️ Mapbox token starts with:', env.mapbox.token?.substring(0, 10) + '...');
       
       // Convert coordinates to Mapbox format (longitude,latitude)
       const originCoords = this.convertToMapboxFormat(origin);
       const destCoords = this.convertToMapboxFormat(destination);
       
-      // console.log('🗺️ Origin coords (Mapbox format):', originCoords);
-      // console.log('🗺️ Destination coords (Mapbox format):', destCoords);
       
       // Validate that coordinates are not too similar
       const [originLng, originLat] = originCoords.split(',').map(Number);
@@ -66,7 +58,6 @@ export class MapboxDistanceService {
       const latDiff = Math.abs(originLat - destLat);
       const lngDiff = Math.abs(originLng - destLng);
       
-      // console.log('🗺️ Coordinate differences - Lat:', latDiff, 'Lng:', lngDiff);
       
       // Check if coordinates are too close (less than 0.001 degrees difference)
       if (latDiff < 0.001 && lngDiff < 0.001) {
@@ -84,12 +75,9 @@ export class MapboxDistanceService {
       // ✅ FIXED: Use working Mapbox API format with alternatives for shortest route
       const url = `${this.DIRECTIONS_URL}/${coordinates}?access_token=${env.mapbox.token}&alternatives=true&geometries=geojson`;
       
-      // console.log('🗺️ Mapbox Directions API URL (without token):', url.replace(env.mapbox.token, 'TOKEN_HIDDEN'));
       
       const response = await axios.get<MapboxResponse>(url);
       
-      // console.log('🗺️ Mapbox API response status:', response.status);
-      // console.log('🗺️ Mapbox API response code:', response.data.code);
       
       if (response.data.code !== 'Ok') {
         console.error('❌ Mapbox Directions API error:', response.data);
@@ -100,11 +88,9 @@ export class MapboxDistanceService {
       let shortestRoute = response.data.routes[0];
       let shortestDistance = shortestRoute.distance;
       
-      // console.log('🗺️ Available routes:', response.data.routes.length);
       
       for (let i = 0; i < response.data.routes.length; i++) {
         const route = response.data.routes[i];
-        // console.log(`🗺️ Route ${i + 1}: ${(route.distance * this.METERS_TO_MILES).toFixed(2)} miles, ${(route.duration / 60).toFixed(0)} minutes`);
         
         if (route.distance < shortestDistance) {
           shortestDistance = route.distance;
@@ -123,7 +109,6 @@ export class MapboxDistanceService {
       // Convert duration from seconds to minutes
       const durationInMinutes = shortestRoute.duration * this.SECONDS_TO_MINUTES;
 
-      // console.log(`✅ Shortest route: ${distanceInMiles.toFixed(2)} miles, Duration: ${durationInMinutes.toFixed(0)} minutes`);
 
       return {
         distance: distanceInMiles,

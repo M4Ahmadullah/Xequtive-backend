@@ -57,10 +57,8 @@ export const enhancedFareEstimateSchema = z.object({
   }),
   bookingType: z.enum(["one-way", "hourly", "return"]).default("one-way"),
   hours: z.number().int().min(3).max(12).optional(), // Required for hourly bookings
-  returnType: z.enum(["wait-and-return", "later-date"]).optional(), // Required for return bookings
-  returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for later-date returns
-  returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for later-date returns
-  waitDuration: z.number().int().min(0).max(12).optional(), // Wait duration in hours for wait-and-return bookings (max 12 hours)
+  returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for return bookings
+  returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for return bookings
 }).refine((data) => {
   // Conditional validation based on booking type
   if (data.bookingType === "hourly") {
@@ -70,19 +68,9 @@ export const enhancedFareEstimateSchema = z.object({
     }
     return true;
   } else if (data.bookingType === "return") {
-    // Return bookings need dropoff location AND returnType
-    if (!data.locations.dropoff || !data.returnType) {
+    // Return bookings need dropoff location, return date, and return time
+    if (!data.locations.dropoff || !data.returnDate || !data.returnTime) {
       return false;
-    }
-    // For later-date returns, need return date and time
-    if (data.returnType === "later-date" && (!data.returnDate || !data.returnTime)) {
-      return false;
-    }
-    // For wait-and-return, validate wait duration (max 12 hours)
-    if (data.returnType === "wait-and-return" && data.waitDuration !== undefined) {
-      if (data.waitDuration < 0 || data.waitDuration > 12) {
-        return false;
-      }
     }
     // Return bookings should not have stops (will use smart reverse route)
     if (data.locations.stops && data.locations.stops.length > 0) {
@@ -184,8 +172,6 @@ export const enhancedBookingCreateSchema = z.object({
         .string()
         .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
     }),
-    // Wait duration for wait-and-return bookings (max 12 hours)
-    waitDuration: z.number().min(0).max(12).optional(),
     passengers: z.object({
       count: z.number().int().min(1).max(16),
       checkedLuggage: z.number().int().min(0).max(8),
@@ -203,9 +189,8 @@ export const enhancedBookingCreateSchema = z.object({
     specialRequests: z.string().optional(),
     bookingType: z.enum(["one-way", "hourly", "return"]).default("one-way"),
     hours: z.number().int().min(3).max(12).optional(), // Required for hourly bookings
-    returnType: z.enum(["wait-and-return", "later-date"]).optional(), // Required for return bookings
-    returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for later-date returns
-    returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for later-date returns
+    returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for return bookings
+    returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for return bookings
     paymentMethods: z.object({
       cashOnArrival: z.boolean().default(false),
       cardOnArrival: z.boolean().default(false),
@@ -235,12 +220,8 @@ export const enhancedBookingCreateSchema = z.object({
     }
     return true;
   } else if (data.booking.bookingType === "return") {
-    // Return bookings need dropoff location AND returnType
-    if (!data.booking.locations.dropoff || !data.booking.returnType) {
-      return false;
-    }
-    // For later-date returns, need return date and time
-    if (data.booking.returnType === "later-date" && (!data.booking.returnDate || !data.booking.returnTime)) {
+    // Return bookings need dropoff location, return date, and return time
+    if (!data.booking.locations.dropoff || !data.booking.returnDate || !data.booking.returnTime) {
       return false;
     }
     // Return bookings should not have additional stops (will use smart reverse route)

@@ -29,7 +29,6 @@ const allowedOrigins = process.env
     return [origin];
   });
 
-console.log("CORS enabled for origins:", allowedOrigins);
 
 // Enhanced CORS configuration for cross-origin cookies
 app.use(
@@ -45,8 +44,7 @@ app.use(
         // console.log(`✅ CORS allowed for origin: ${origin}`);
         callback(null, true);
       } else {
-        console.warn(`❌ CORS blocked request from origin: ${origin}`);
-        console.warn(`📋 Allowed origins:`, allowedOrigins);
+        console.warn(`CORS blocked request from origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -68,9 +66,6 @@ app.use(
 
 // Handle preflight requests explicitly with enhanced logging
 app.options("*", (req, res) => {
-  // console.log(`🔄 Preflight request from: ${req.get('Origin')}`);
-  // console.log(`🔄 Requested method: ${req.get('Access-Control-Request-Method')}`);
-  // console.log(`🔄 Requested headers: ${req.get('Access-Control-Request-Headers')}`);
   
   cors({
     origin: true,
@@ -113,7 +108,6 @@ app.use((req, res, next) => {
     res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.header('Pragma', 'no-cache');
     
-    // console.log(`🔧 Enhanced CORS headers set for origin: ${origin}`);
   }
   
   next();
@@ -157,18 +151,13 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'production'} mode`);
-  console.log(`🔍 Environment PORT: ${process.env.PORT}`);
-  console.log(`🔍 Parsed PORT: ${PORT}`);
-  console.log(`📍 Health check available at http://0.0.0.0:${PORT}/`);
-  console.log(`🏥 API health check at http://0.0.0.0:${PORT}/api/ping`);
+  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'production'} mode`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
   server.close(() => {
-    console.log('Process terminated');
     process.exit(0);
   });
 });
@@ -176,7 +165,6 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully');
   server.close(() => {
-    console.log('Process terminated');
     process.exit(0);
   });
 });

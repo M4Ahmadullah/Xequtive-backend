@@ -20,7 +20,6 @@ if (!admin.apps.length) {
     credential: admin.credential.cert(serviceAccount),
   });
 
-  console.log("Firebase Admin SDK initialized");
     } else {
       console.warn("⚠️  Firebase credentials missing. Firebase features will be disabled.");
       // Initialize with minimal configuration for basic functionality

@@ -330,12 +330,10 @@ export class EnhancedFareService {
           bookingType: request.bookingType || "one-way",
           hours: request.hours || 0,
           returnDiscount: returnDiscount,
-          returnType: request.returnType,
-          waitDuration: request.waitDuration || 0,
         });
 
         // Return vehicle option with calculated price
-        vehicleOptions.push({
+        const vehicleOption: any = {
           id: vehicleType.id,
           name: vehicleType.name,
           description: vehicleType.description,
@@ -343,7 +341,14 @@ export class EnhancedFareService {
           imageUrl: vehicleType.imageUrl || "",
           eta: Math.floor(Math.random() * 10) + 5, // Random ETA between 5-15 minutes
           price: priceInfo,
-        });
+        };
+
+        // Add hourly rate for hourly bookings
+        if (request.bookingType === "hourly" && request.hours && request.hours > 0) {
+          vehicleOption.hourlyRate = vehicleType.waitingRatePerHour;
+        }
+
+        vehicleOptions.push(vehicleOption);
       }
 
       // Sort vehicle options by price (ascending)
@@ -387,8 +392,6 @@ export class EnhancedFareService {
     bookingType = "one-way",
     hours = 0,
     returnDiscount = 0.0,
-    returnType,
-    waitDuration = 0,
   }: {
     vehicleType: VehicleType;
     distance: number;
@@ -404,8 +407,6 @@ export class EnhancedFareService {
     bookingType?: string;
     hours?: number;
     returnDiscount?: number;
-    returnType?: 'wait-and-return' | 'later-date';
-    waitDuration?: number;
   }): VehiclePriceInfo {
 
 
@@ -429,8 +430,8 @@ export class EnhancedFareService {
       totalFare = baseFare;
     }
 
-    // Time surcharge
-    const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
+    // Time surcharge - REMOVED (only keeping airport fees)
+    const timeSurcharge = 0; // No time surcharge applied
     totalFare += timeSurcharge;
 
     // Airport fees
@@ -453,40 +454,10 @@ export class EnhancedFareService {
     }
     totalFare += airportFee;
 
-    // Special zone fees
+    // Special zone fees - REMOVED (only keeping airport fees)
     let specialZoneFees = 0;
-    if (passesThroughCCZ && isZoneActive("CONGESTION_CHARGE", requestDate)) {
-      const congestionCharge = SPECIAL_ZONES.CONGESTION_CHARGE.fee;
-      specialZoneFees += congestionCharge;
-      messages.push(`Congestion charge: £${congestionCharge.toFixed(2)}`);
-    }
-    if (hasDartfordCrossing) {
-      const dartfordCharge = SPECIAL_ZONES.DARTFORD_CROSSING.fee;
-      specialZoneFees += dartfordCharge;
-      messages.push(`Dartford crossing: £${dartfordCharge.toFixed(2)}`);
-    }
-    
-    // Check for Blackwell & Silverstone Tunnel
-    if (hasBlackwellSilverstoneTunnel) {
-      let tunnelFee = 1.5; // Default off-peak rate
-      let feeDescription = "Blackwell & Silverstone Tunnel (off-peak)";
-      
-      // Check if it's peak time (6-10AM or 4-7PM on weekdays)
-      const day = requestDate.getDay();
-      const hour = requestDate.getHours();
-      const isWeekday = day >= 1 && day <= 5; // Monday to Friday
-      const isMorningPeak = hour >= 6 && hour < 10;
-      const isAfternoonPeak = hour >= 16 && hour < 19;
-      
-      if (isWeekday && (isMorningPeak || isAfternoonPeak)) {
-        tunnelFee = 4.0; // Peak rate
-        feeDescription = "Blackwell & Silverstone Tunnel (peak)";
-      }
-      
-      specialZoneFees += tunnelFee;
-      messages.push(`${feeDescription}: £${tunnelFee.toFixed(2)}`);
-    }
-    
+    // All special zone charges removed except airport fees
+    // This includes: congestion charge, dartford crossing, tunnel fees
     totalFare += specialZoneFees;
 
     // Handle different booking types
@@ -506,39 +477,14 @@ export class EnhancedFareService {
       // For return bookings, double the distance (no discount)
       totalFare = totalFare * 2;
       
-      // Add return booking messages based on return type
-      if (returnType === 'wait-and-return') {
-        messages.push("Return journey: Driver waits at destination and returns");
-        messages.push("Return route: Smart reverse of outbound journey");
-        
-        // Add wait duration message if provided
-        if (waitDuration && waitDuration > 0) {
-          messages.push(`Driver wait time: ${waitDuration} hours`);
-        } else {
-          messages.push("Driver wait time: Up to 12 hours (within same day)");
-        }
-      } else if (returnType === 'later-date') {
-        messages.push("Return journey: Scheduled return on different date/time");
-        messages.push("Return route: Smart reverse of outbound journey");
-      }
+      // Add return booking messages
+      messages.push("Return journey: Scheduled return on specified date/time");
+      messages.push("Return route: Smart reverse of outbound journey");
       
       messages.push("Return journey: Distance doubled (outbound + reverse route)");
     }
 
-    // Add time surcharge message if applicable
-    if (timeSurcharge > 0) {
-      const day = requestDate.getDay();
-      const hours = requestDate.getHours();
-      const isWeekend = day === 5 || day === 6 || day === 0; // Friday, Saturday, Sunday
-      const timeType = isWeekend ? 'Weekend' : 'Weekday';
-      let period = 'Non-peak';
-      if (hours >= 6 && hours < 15) {
-        period = 'Peak medium';
-      } else if (hours >= 15) {
-        period = 'Peak high';
-      }
-      messages.push(`${timeType} ${period.toLowerCase()} surcharge: £${timeSurcharge.toFixed(2)}`);
-    }
+    // Time surcharge messages - REMOVED (no time surcharge applied)
 
     // Add additional stops message if applicable
     if (additionalStops > 0) {
@@ -550,37 +496,11 @@ export class EnhancedFareService {
       }
     }
 
-    // Calculate equipment charges
+    // Equipment charges - REMOVED (only keeping airport fees)
     let equipmentFees = 0;
-    if (passengers) {
-      if (passengers.babySeat > 0) {
-        const babySeatFee = passengers.babySeat * EQUIPMENT_FEES.BABY_SEAT;
-        equipmentFees += babySeatFee;
-        messages.push(`Baby seat (${passengers.babySeat}): £${babySeatFee.toFixed(2)}`);
-      }
-      
-      if (passengers.childSeat > 0) {
-        const childSeatFee = passengers.childSeat * EQUIPMENT_FEES.CHILD_SEAT;
-        equipmentFees += childSeatFee;
-        messages.push(`Child seat (${passengers.childSeat}): £${childSeatFee.toFixed(2)}`);
-      }
-      
-      if (passengers.boosterSeat > 0) {
-        const boosterSeatFee = passengers.boosterSeat * EQUIPMENT_FEES.BOOSTER_SEAT;
-        equipmentFees += boosterSeatFee;
-        messages.push(`Booster seat (${passengers.boosterSeat}): £${boosterSeatFee.toFixed(2)}`);
-      }
-      
-      if (passengers.wheelchair > 0) {
-        const wheelchairFee = passengers.wheelchair * EQUIPMENT_FEES.WHEELCHAIR;
-        equipmentFees += wheelchairFee;
-        messages.push(`Wheelchair (${passengers.wheelchair}): £${wheelchairFee.toFixed(2)}`);
-      }
-    }
-    
-    if (equipmentFees > 0) {
-      totalFare += equipmentFees;
-    }
+    // All equipment charges removed except airport fees
+    // This includes: baby seats, child seats, booster seats, wheelchairs
+    totalFare += equipmentFees;
 
     // Round down to nearest whole number (e.g., 14.1 becomes 14, 14.9 becomes 14)
     const roundedFare = Math.floor(totalFare);
