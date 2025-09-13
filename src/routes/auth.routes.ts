@@ -840,7 +840,6 @@ router.get("/google/login", async (req: Request, res: Response) => {
 
 // Google OAuth Callback (from Google)
 router.get("/google/callback", async (req: Request, res: Response) => {
-  
   try {
     const { code, state: encodedState } = req.query;
 
@@ -850,12 +849,9 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     }
 
     const state = decodeURIComponent(encodedState as string);
-    console.log("🔓 Decoded state:", state);
 
     // Extract redirect URL from state
     const [stateToken, redirectUrl] = state.split("|");
-    console.log("🎯 Redirect URL:", redirectUrl);
-    console.log("🎲 State token:", stateToken);
 
     // In a production app, validate the state token against stored value
 
@@ -879,13 +875,11 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      console.error("❌ Failed to get access token from Google");
-      console.error("❌ Token response:", tokenData);
+      console.error("❌ Failed to get access token from Google:", tokenData);
       return res.redirect(`${redirectUrl}?error=token_exchange_failed`);
     }
 
     // Get user info using the access token
-    // console.log("✅ Step 2: Getting user info from Google");
     const userInfoResponse = await fetch(
       "https://www.googleapis.com/oauth2/v3/userinfo",
       {
@@ -903,7 +897,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     }
 
     // Create or get the user in Firebase
-    // console.log("✅ Step 3: Creating or getting Firebase user");
     let firebaseUser;
     try {
       // Check if user exists by email
@@ -920,7 +913,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     }
 
     // Create or update user document in Firestore
-    // console.log("✅ Step 4: Managing Firestore user document");
     const userDoc = firestore.collection("users").doc(firebaseUser.uid);
     const userSnapshot = await userDoc.get();
     // Check if profile data needs to be completed (e.g., phone number)
@@ -940,7 +932,6 @@ router.get("/google/callback", async (req: Request, res: Response) => {
     }
 
     // Generate a temporary code for the frontend
-    // console.log("✅ Step 5: Generating temporary code for frontend");
     const tempCode = await AuthService.storeTemporaryCode(
       firebaseUser.uid,
       firebaseUser.email || ""
@@ -963,15 +954,10 @@ router.get("/google/callback", async (req: Request, res: Response) => {
 
 // Frontend Code Exchange Endpoint
 router.post("/google/callback", async (req: Request, res: Response) => {
-  console.log("🔍 POST /api/auth/google/callback - Starting request processing");
-  console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
-  
   try {
     // Validate request
-    // console.log("✅ Step 1: Validating request schema");
     try {
       googleCallbackSchema.parse(req.body);
-      console.log("✅ Schema validation passed");
     } catch (error) {
       console.error("❌ Schema validation failed:", error);
       if (error instanceof z.ZodError) {
@@ -988,12 +974,9 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     }
 
     const { code } = req.body;
-    console.log("🔑 Temporary code received:", code);
 
     // Validate the temporary code
-    // console.log("✅ Step 2: Validating temporary code");
     const userData = await AuthService.validateTemporaryCode(code);
-    console.log("👤 User data from temp code:", userData);
 
     if (!userData) {
       console.error("❌ Invalid or expired temporary code");
@@ -1006,31 +989,17 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     }
 
     // Get user data
-    // console.log("✅ Step 3: Getting user record from Firebase");
     const userRecord = await auth.getUser(userData.uid);
-    console.log("👤 Firebase user record:", {
-      uid: userRecord.uid,
-      email: userRecord.email,
-      displayName: userRecord.displayName
-    });
 
-    // console.log("✅ Step 4: Getting user profile from Firestore");
+    // Get user profile from Firestore
     const userDoc = await firestore.collection("users").doc(userData.uid).get();
     const userProfile = userDoc.data();
-    console.log("📄 User profile data:", userProfile);
 
     // Create a custom token with extended expiration
-    // console.log("✅ Step 5: Creating custom token");
     const customToken = await auth.createCustomToken(userRecord.uid, {
       role: userProfile?.role || "user",
       expiresIn: 432000, // 5 days in seconds
     });
-    console.log("🎫 Custom token created successfully (length:", customToken.length, ")");
-
-    // Exchange custom token for ID token
-    // console.log("✅ Step 6: Exchanging custom token for ID token");
-    console.log("🔗 Firebase API Key available:", !!env.firebase.apiKey);
-    console.log("🔗 API URL:", `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey?.substring(0, 10)}...`);
     
     const idTokenResponse = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${env.firebase.apiKey}`,
@@ -1045,17 +1014,10 @@ router.post("/google/callback", async (req: Request, res: Response) => {
       }
     );
 
-    console.log("📡 ID token response status:", idTokenResponse.status);
     const tokenData = await idTokenResponse.json();
-    console.log("📡 ID token response data:", {
-      hasIdToken: !!tokenData.idToken,
-      hasRefreshToken: !!tokenData.refreshToken,
-      error: tokenData.error
-    });
 
     if (!tokenData.idToken) {
-      console.error("❌ Failed to get ID token from Firebase");
-      console.error("❌ Token response:", tokenData);
+      console.error("❌ Failed to get ID token from Firebase:", tokenData);
       return res.status(500).json({
         success: false,
         error: {
@@ -1066,7 +1028,6 @@ router.post("/google/callback", async (req: Request, res: Response) => {
     }
 
     // Set cookie with the ID token
-    // console.log("✅ Step 7: Setting authentication cookie");
     const isProduction = process.env.NODE_ENV === "production";
     const requestOrigin = req.get('Origin');
     const isCrossOrigin = requestOrigin && !requestOrigin.includes('localhost:5555');
@@ -1079,15 +1040,8 @@ router.post("/google/callback", async (req: Request, res: Response) => {
       path: "/", // Ensure cookie is available for all paths
     };
     
-    console.log("🍪 Google OAuth - Cookie options:", cookieOptions);
-    console.log("🌍 Environment:", process.env.NODE_ENV);
-    console.log("🔗 Request origin:", req.get('origin'));
-    console.log("🔗 Request host:", req.get('host'));
-    console.log("🔗 Request referer:", req.get('referer'));
-    console.log("🔗 Is cross-origin:", isCrossOrigin);
     res.cookie("token", tokenData.idToken, cookieOptions);
 
-    // console.log("✅ Step 8: Preparing response data");
     const responseData = {
       uid: userRecord.uid,
       email: userRecord.email,
@@ -1097,20 +1051,16 @@ router.post("/google/callback", async (req: Request, res: Response) => {
       profileComplete: !!userProfile?.profileComplete,
       authProvider: userProfile?.authProvider || "google",
     };
-    console.log("📤 Response data:", responseData);
 
-    // Return user data
-          console.log(`🎉 Auth: ${userProfile?.fullName || userRecord.displayName || 'Unknown'} (${userRecord.email})`);
+    // Single success log
+    console.log(`✅ User logged in: ${userProfile?.fullName || userRecord.displayName || 'Unknown'} (${userRecord.email})`);
+    
     return res.json({
       success: true,
       data: responseData,
     });
   } catch (error) {
-    console.error("💥 Code exchange error - Full details:");
-    console.error("Error name:", error instanceof Error ? error.name : "Unknown");
-    console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
-    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
-    console.error("Error object:", error);
+    console.error("❌ Code exchange error:", error instanceof Error ? error.message : "Unknown error");
 
     return res.status(500).json({
       success: false,

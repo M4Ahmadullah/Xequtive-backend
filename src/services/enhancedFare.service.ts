@@ -299,8 +299,8 @@ export class EnhancedFareService {
       } else if (bookingType === "hourly") {
         // For hourly bookings, we'll use the same pricing structure but calculate based on hours
         const hours = request.hours || 3;
-        if (hours < 3 || hours > 12) {
-          throw new Error("Hourly bookings must be between 3 and 12 hours");
+        if (hours < 3 || hours > 24) {
+          throw new Error("Hourly bookings must be between 3 and 24 hours");
         }
         // Hourly rate will be calculated per vehicle type
       }

@@ -1281,12 +1281,12 @@ router.get(
           },
           // Booking Type Definitions
           bookingTypeDefinitions: {
-            events: "Hourly bookings (3-12 hours) - driver stays with you throughout",
+            events: "Hourly bookings (3-24 hours) - driver stays with you throughout",
             taxi: "One-way and return journeys - point-to-point transportation",
             hourly: "Continuous service for specified hours, no dropoff required",
             oneWay: "Single journey from pickup to dropoff location",
             return: "Round-trip journey with smart reverse route (no discount)",
-            waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+            waitAndReturn: "Driver waits at destination and returns (up to 24 hours)",
             laterDate: "Scheduled return on different date/time",
           },
         },
@@ -1459,7 +1459,7 @@ router.get(
             hourly: "Continuous service for specified hours, no dropoff required",
             "one-way": "Single journey from pickup to dropoff location",
             return: "Round-trip journey with smart reverse route (no discount)",
-            waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+            waitAndReturn: "Driver waits at destination and returns (up to 24 hours)",
             laterDate: "Scheduled return on different date/time",
           },
         },
@@ -1955,7 +1955,7 @@ router.get("/filters/options", async (req: AuthenticatedRequest, res: Response) 
         filterDefinitions: {
           bookingTypes: {
             "one-way": "Single journey from pickup to dropoff location",
-            "hourly": "Continuous service for specified hours (3-12 hours)",
+            "hourly": "Continuous service for specified hours (3-24 hours)",
             "return": "Round-trip journey with smart reverse route"
           },
           paymentMethods: {

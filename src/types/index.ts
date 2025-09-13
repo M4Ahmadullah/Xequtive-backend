@@ -102,7 +102,7 @@ export interface EnhancedFareEstimateRequest {
   datetime?: BookingDateTimeData;
   passengers?: BookingPassengersData;
   bookingType?: "one-way" | "hourly" | "return";
-  hours?: number; // Required for hourly bookings (3-12 hours)
+  hours?: number; // Required for hourly bookings (3-24 hours)
   returnDate?: string; // Required for later-date returns (YYYY-MM-DD)
   returnTime?: string; // Required for later-date returns (HH:MM)
 
@@ -613,7 +613,7 @@ export interface HourlyBookingRequest {
   dropoffLocation: string;
   pickupDate: string;
   pickupTime: string;
-  hours: number; // 3-12 hours
+  hours: number; // 3-24 hours
   vehicleTypeId: string;
   additionalStops?: string[];
   waitingTime?: number;

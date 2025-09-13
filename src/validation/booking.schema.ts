@@ -56,14 +56,14 @@ export const enhancedFareEstimateSchema = z.object({
     wheelchair: z.number().int().min(0).max(2),
   }),
   bookingType: z.enum(["one-way", "hourly", "return"]).default("one-way"),
-  hours: z.number().int().min(3).max(12).optional(), // Required for hourly bookings
+  hours: z.number().int().min(3).max(24).optional(), // Required for hourly bookings
   returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for return bookings
   returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for return bookings
 }).refine((data) => {
   // Conditional validation based on booking type
   if (data.bookingType === "hourly") {
     // Hourly bookings don't need dropoff location but need hours
-    if (data.hours === undefined || data.hours < 3 || data.hours > 12) {
+    if (data.hours === undefined || data.hours < 3 || data.hours > 24) {
       return false;
     }
     return true;
@@ -188,7 +188,7 @@ export const enhancedBookingCreateSchema = z.object({
     }),
     specialRequests: z.string().optional(),
     bookingType: z.enum(["one-way", "hourly", "return"]).default("one-way"),
-    hours: z.number().int().min(3).max(12).optional(), // Required for hourly bookings
+    hours: z.number().int().min(3).max(24).optional(), // Required for hourly bookings
     returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid return date format (YYYY-MM-DD)").optional(), // Required for return bookings
     returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid return time format (HH:mm)").optional(), // Required for return bookings
     paymentMethods: z.object({
@@ -215,7 +215,7 @@ export const enhancedBookingCreateSchema = z.object({
   // Conditional validation based on booking type
   if (data.booking.bookingType === "hourly") {
     // Hourly bookings don't need dropoff location but need hours
-    if (data.booking.hours === undefined || data.booking.hours < 3 || data.booking.hours > 12) {
+    if (data.booking.hours === undefined || data.booking.hours < 3 || data.booking.hours > 24) {
       return false;
     }
     return true;
