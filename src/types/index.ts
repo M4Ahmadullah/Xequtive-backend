@@ -654,3 +654,35 @@ export interface HourlyBookingData {
   createdAt: string;
   updatedAt: string;
 }
+
+// Contact Form Types
+export interface ContactMessageData {
+  id: string;
+  userId?: string; // NULL for anonymous users
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  message: string;
+  agreeToTerms: boolean;
+  status: "new" | "in_progress" | "resolved";
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactMessageRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  message: string;
+  agreeToTerms: boolean;
+}
+
+export interface ContactMessageResponse {
+  success: boolean;
+  message: string;
+  messageId?: string;
+  error?: string;
+}

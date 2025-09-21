@@ -474,7 +474,7 @@ router.get(
             bookingTypeDefinitions: {
               hourly: "Continuous service for specified hours, no dropoff required",
               "one-way": "Single journey from pickup to dropoff location",
-              return: "Round-trip journey with 10% discount, uses smart reverse route",
+              return: "Round-trip journey with smart reverse route",
             },
           },
         } as ApiResponse<any>);
@@ -495,7 +495,7 @@ router.get(
           bookingTypeDefinitions: {
             hourly: "Continuous service for specified hours, no dropoff required",
             "one-way": "Single journey from pickup to dropoff location",
-            return: "Round-trip journey with 10% discount, uses smart reverse route",
+            return: "Round-trip journey with smart reverse route",
           },
         },
       } as ApiResponse<any>);
@@ -655,7 +655,7 @@ router.get(
           bookingTypeDefinitions: {
             hourly: "Continuous service for specified hours, no dropoff required",
             "one-way": "Single journey from pickup to dropoff location",
-            return: "Round-trip journey with 10% discount, uses smart reverse route",
+            return: "Round-trip journey with smart reverse route",
           },
         },
       } as ApiResponse<any>);
@@ -808,7 +808,7 @@ router.get(
         bookingTypeDefinitions: {
           hourly: "Continuous service for specified hours, no dropoff required",
           "one-way": "Single journey from pickup to dropoff location",
-          return: "Round-trip journey with 10% discount, uses smart reverse route",
+          return: "Round-trip journey with smart reverse route",
         },
       } as ApiResponse<any>);
     } catch (error) {
@@ -997,7 +997,7 @@ router.get(
           bookingTypeDefinitions: {
             hourly: "Continuous service for specified hours, no dropoff required",
             "one-way": "Single journey from pickup to dropoff location",
-            return: "Round-trip journey with 10% discount, uses smart reverse route",
+            return: "Round-trip journey with smart reverse route",
           },
         },
       } as ApiResponse<any>);

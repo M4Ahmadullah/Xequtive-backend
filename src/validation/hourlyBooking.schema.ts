@@ -85,7 +85,6 @@ const hourlyDetailsSchema = z.object({
 });
 
 // Return booking details validation
-// All return bookings receive a 10% discount on the total fare
 const returnDetailsSchema = z.object({
   // Outbound journey
   outboundPickup: locationSchema,

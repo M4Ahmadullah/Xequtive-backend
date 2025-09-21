@@ -844,6 +844,93 @@ Provides user analytics data with retention and engagement metrics.
 }
 ```
 
+#### Payment Methods Analytics
+
+Provides analytics on payment method usage and preferences.
+
+**Endpoint:** `GET /api/dashboard/analytics/payment-methods`
+
+**Query Parameters:**
+
+- `startDate` (optional): Start date (YYYY-MM-DD)
+- `endDate` (optional): End date (YYYY-MM-DD)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 25,
+    "withPaymentMethods": 20,
+    "withoutPaymentMethods": 5,
+    "byMethod": {
+      "cashOnArrival": 12,
+      "cardOnArrival": 8
+    },
+    "byBookingType": {
+      "hourly": {
+        "cashOnArrival": 5,
+        "cardOnArrival": 3
+      },
+      "one-way": {
+        "cashOnArrival": 4,
+        "cardOnArrival": 3
+      },
+      "return": {
+        "cashOnArrival": 3,
+        "cardOnArrival": 2
+      }
+    },
+    "preferenceRate": {
+      "cashOnArrival": 60.0,
+      "cardOnArrival": 40.0
+    }
+  }
+}
+```
+
+#### Wait Timer Analytics
+
+Provides analytics on wait times for return bookings.
+
+**Endpoint:** `GET /api/dashboard/analytics/wait-timers`
+
+**Query Parameters:**
+
+- `startDate` (optional): Start date (YYYY-MM-DD)
+- `endDate` (optional): End date (YYYY-MM-DD)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalReturnBookings": 15,
+    "withWaitTimers": 10,
+    "withoutWaitTimers": 5,
+    "averageWaitTime": 45.5,
+    "waitTimeDistribution": {
+      "0-30min": 4,
+      "30-60min": 3,
+      "60-120min": 2,
+      "120min+": 1
+    },
+    "byVehicleType": {
+      "Standard Saloon": {
+        "averageWaitTime": 40.0,
+        "count": 6
+      },
+      "Executive Saloon": {
+        "averageWaitTime": 55.0,
+        "count": 4
+      }
+    }
+  }
+}
+```
+
 #### Traffic Analytics
 
 Provides website traffic analytics data with visitor insights.
@@ -1001,7 +1088,6 @@ Retrieves a comprehensive list of all bookings with enhanced filtering options a
           "duration_minutes": 35
         },
         "hours": null,
-        "returnType": null,
         "returnDate": null,
         "returnTime": null,
         "passengers": {
@@ -1017,6 +1103,10 @@ Retrieves a comprehensive list of all bookings with enhanced filtering options a
         "specialRequests": "Please call when arriving",
         "additionalStops": [],
         "waitingTime": 0,
+        "paymentMethods": {
+          "cashOnArrival": true,
+          "cardOnArrival": false
+        },
         "userId": "user123",
         "createdAt": "2025-05-10T10:30:00.000Z",
         "updatedAt": "2025-05-10T11:15:00.000Z"
@@ -1041,6 +1131,8 @@ Retrieves a comprehensive list of all bookings with enhanced filtering options a
 - ✅ **Complete Booking Details**: All booking information with safe data access
 - ✅ **Reference Number Handling**: Clear distinction between display and API usage
 - ✅ **Booking Type Filtering**: Filter by hourly, one-way, or return bookings
+- ✅ **Payment Method Filtering**: Filter by cash or card payment preferences
+- ✅ **Wait Timer Filtering**: Filter return bookings by wait duration
 - ✅ **Safe Data Access**: Prevents crashes from missing or malformed data
 - ✅ **Comprehensive Information**: Includes all booking fields and metadata
 
@@ -1083,7 +1175,6 @@ Retrieves comprehensive booking data formatted for calendar view with enhanced i
         "vehicleType": "Standard Saloon",
         "vehicleId": "standard-saloon",
         "hours": null,
-        "returnType": null,
         "returnDate": null,
         "returnTime": null,
         "distance_miles": 15.2,
@@ -1093,7 +1184,11 @@ Retrieves comprehensive booking data formatted for calendar view with enhanced i
           "currency": "GBP"
         },
         "additionalStops": [],
-        "specialRequests": "Please call when arriving"
+        "specialRequests": "Please call when arriving",
+        "paymentMethods": {
+          "cashOnArrival": true,
+          "cardOnArrival": false
+        }
       }
     ],
     "referenceNumberGuide": {
@@ -1188,12 +1283,16 @@ Retrieves comprehensive details of a specific booking including timeline, with e
       "boosterSeat": 0,
       "wheelchair": 0
     },
-    "specialRequests": "Please call when arriving",
-    "additionalStops": [],
-    "waitingTime": 0,
-    "userId": "user123",
-    "createdAt": "2025-05-10T10:30:00.000Z",
-    "updatedAt": "2025-05-10T11:15:00.000Z",
+        "specialRequests": "Please call when arriving",
+        "additionalStops": [],
+        "waitingTime": 0,
+        "paymentMethods": {
+          "cashOnArrival": true,
+          "cardOnArrival": false
+        },
+        "userId": "user123",
+        "createdAt": "2025-05-10T10:30:00.000Z",
+        "updatedAt": "2025-05-10T11:15:00.000Z",
     "timeline": [
       {
         "status": "pending",
@@ -1310,7 +1409,6 @@ Updates a booking's status and other editable fields.
             "duration_minutes": 240
           },
           "hours": 4,
-          "returnType": null,
           "returnDate": null,
           "returnTime": null,
           "passengers": {},
@@ -1412,6 +1510,53 @@ Updates a booking's status and other editable fields.
 - ✅ **Reference Number Handling**: Clear distinction between display and API usage
 - ✅ **Booking Type Definitions**: Clear explanations of each booking type
 - ✅ **Combined Statistics**: Total overview and individual category counts
+
+#### Get Filter Options
+
+**NEW**: Retrieves available filter options and their definitions for the dashboard.
+
+**Endpoint:** `GET /api/dashboard/filters/options`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingTypes": ["hourly", "one-way", "return"],
+    "paymentMethods": ["cashOnArrival", "cardOnArrival"],
+    "vehicleTypes": ["saloon", "estate", "mpv-6", "mpv-8", "executive", "executive-mpv", "vip-saloon", "vip-suv"],
+    "statuses": ["pending", "confirmed", "completed", "cancelled"],
+    "definitions": {
+      "bookingTypes": {
+        "hourly": "Continuous service for specified hours (3-24 hours)",
+        "one-way": "Single journey from pickup to dropoff location",
+        "return": "Round-trip journey with smart reverse route"
+      },
+      "paymentMethods": {
+        "cashOnArrival": "Customer pays with cash when driver arrives",
+        "cardOnArrival": "Customer pays with card when driver arrives"
+      },
+      "vehicleTypes": {
+        "saloon": "Standard Saloon - 4 passengers",
+        "estate": "Estate - 4 passengers",
+        "mpv-6": "MPV-6 Seater - 6 passengers",
+        "mpv-8": "MPV-8 Seater - 8 passengers",
+        "executive": "Executive Saloon - 3 passengers",
+        "executive-mpv": "Executive MPV-8 - 6 passengers",
+        "vip-saloon": "VIP-Saloon - 3 passengers",
+        "vip-suv": "VIP-SUV/MPV - 6 passengers"
+      },
+      "statuses": {
+        "pending": "Awaiting confirmation",
+        "confirmed": "Confirmed and scheduled",
+        "completed": "Journey completed",
+        "cancelled": "Booking cancelled"
+      }
+    }
+  }
+}
+```
 
 #### Get Booking Statistics
 
@@ -1855,10 +2000,10 @@ Each vehicle type has a slab-based pricing structure with updated rates:
 **MPV-6 Seater:**
 - 0-4 miles: £7.00/mile
 - 4.1-10 miles: £6.80/mile
-- 10.1-15 miles: £5.40/mile
+- 10.1-15 miles: £5.80/mile
 - 15.1-20 miles: £4.50/mile
-- 20.1-30 miles: £3.40/mile
-- 30.1-40 miles: £3.00/mile
+- 20.1-30 miles: £3.80/mile
+- 30.1-40 miles: £3.20/mile
 - 41.1-50 miles: £2.90/mile
 - 51.1-60 miles: £2.85/mile
 - 61.1-80 miles: £2.80/mile
@@ -1983,9 +2128,10 @@ The system applies dynamic surcharges based on time of day and day of week:
 
 The system supports a separate booking type for Executive Cars with different pricing structures:
 
-**Hourly Booking Rates (3-12 hours):**
+**Hourly Booking Rates (3-24 hours):**
 - **3-6 Hours**: Premium rates for shorter durations
-- **6-12 Hours**: Standard rates for longer durations
+- **6-12 Hours**: Standard rates for medium durations
+- **12-24 Hours**: Extended rates for longer durations
 
 **Vehicle Hourly Rates:**
 - **Saloon**: £30.00 (3-6h), £25.00 (6-12h)
@@ -1999,8 +2145,8 @@ The system supports a separate booking type for Executive Cars with different pr
 
 **Booking Types:**
 - **One-Way**: Point-to-point transportation
-- **Hourly**: Event-based hourly bookings (3-12 hours)
-- **Return**: Wait-and-return or later-date return journeys with 10% discount
+- **Hourly**: Event-based hourly bookings (3-24 hours)
+- **Return**: Return journeys with 10% discount
 
 ### System Settings
 

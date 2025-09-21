@@ -63,3 +63,19 @@ export const sessionCheckLimiter = rateLimit({
     },
   },
 });
+
+// Contact form rate limiter - 5 messages per hour per IP
+export const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // limit each IP to 5 contact messages per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      message: "Too many contact messages sent. Please try again later.",
+      code: "CONTACT_RATE_LIMIT_EXCEEDED",
+      details: "You have exceeded the rate limit for contact form submissions. Please wait before sending another message.",
+    },
+  },
+});

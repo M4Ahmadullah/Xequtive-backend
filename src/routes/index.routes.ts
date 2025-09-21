@@ -4,6 +4,7 @@ import bookingRoutes from "./booking.routes";
 import fareRoutes from "./fare.routes";
 import dashboardRoutes from "./dashboard.routes";
 import hourlyBookingRoutes from "./hourlyBooking.routes";
+import contactRoutes from "./contact.routes";
 import { verifyToken } from "../middleware/authMiddleware";
 import { AuthenticatedRequest, ApiResponse } from "../types";
 import { EmailService } from "../services/email.service";
@@ -210,5 +211,8 @@ router.use("/hourly-bookings", hourlyBookingRoutes);
 
 // Dashboard routes (admin only)
 router.use("/dashboard", dashboardRoutes);
+
+// Contact routes
+router.use("/contact", contactRoutes);
 
 export default router;

@@ -409,25 +409,38 @@ export class EnhancedFareService {
     returnDiscount?: number;
   }): VehiclePriceInfo {
 
+    console.log(`🚗 Enhanced Fare Calculation for ${vehicleType.name}:`);
+    console.log(`   Distance: ${distance.toFixed(1)} miles`);
+    console.log(`   Duration: ${duration} minutes`);
+    console.log(`   Booking Type: ${bookingType}`);
+    console.log(`   Additional Stops: ${additionalStops}`);
+    console.log(`   Hours: ${hours}`);
+    console.log(`   ${'='.repeat(50)}`);
+
 
     // Array to collect messages for this vehicle type
     const messages: string[] = [];
 
     // Calculate distance charge using slab-based system
     const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
+    console.log(`   📏 Distance Charge: £${distanceCharge.toFixed(2)} (${distance.toFixed(1)} miles)`);
 
     // Calculate additional stops charge
     const stopCharge = additionalStops * vehicleType.additionalStopFee;
+    console.log(`   🛑 Stop Charge: £${stopCharge.toFixed(2)} (${additionalStops} stops)`);
 
     // Calculate base fare (distance + stops)
     const baseFare = distanceCharge + stopCharge;
+    console.log(`   💰 Base Fare: £${baseFare.toFixed(2)} (distance + stops)`);
 
     // Apply minimum fare rule - IMPORTANT: Only use minimum fare if base fare is less than minimum
     let totalFare;
     if (baseFare < vehicleType.minimumFare) {
       totalFare = vehicleType.minimumFare;
+      console.log(`   ⬆️  Minimum Fare Applied: £${vehicleType.minimumFare.toFixed(2)} (was £${baseFare.toFixed(2)})`);
     } else {
       totalFare = baseFare;
+      console.log(`   ✅ Base Fare Used: £${totalFare.toFixed(2)}`);
     }
 
     // Time surcharge - REMOVED (only keeping airport fees)
@@ -440,6 +453,7 @@ export class EnhancedFareService {
       const airport = AIRPORTS[airports.pickupAirport as keyof typeof AIRPORTS];
       if (airport) {
         airportFee += airport.fees.pickup;
+        console.log(`   ✈️  Airport Pickup Fee: £${airport.fees.pickup.toFixed(2)} (${airport.name})`);
         messages.push(`Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
       }
     }
@@ -449,10 +463,12 @@ export class EnhancedFareService {
       const airport = AIRPORTS[airports.dropoffAirport as keyof typeof AIRPORTS];
       if (airport) {
         airportFee += airport.fees.dropoff;
+        console.log(`   ✈️  Airport Dropoff Fee: £${airport.fees.dropoff.toFixed(2)} (${airport.name})`);
         messages.push(`Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
       }
     }
     totalFare += airportFee;
+    console.log(`   ✈️  Total Airport Fees: £${airportFee.toFixed(2)}`);
 
     // Special zone fees - REMOVED (only keeping airport fees)
     let specialZoneFees = 0;
@@ -474,13 +490,14 @@ export class EnhancedFareService {
       // Reset distance charge for hourly bookings
       finalDistanceCharge = 0;
     } else if (bookingType === "return") {
-      // For return bookings, double the distance (no discount)
-      totalFare = totalFare * 2;
+      // For return bookings, double only the distance charge (not total fare)
+      const returnDistanceCharge = distanceCharge;
+      totalFare += returnDistanceCharge;
+      console.log(`   🔄 Return Distance Charge: £${returnDistanceCharge.toFixed(2)} (doubled)`);
       
       // Add return booking messages
       messages.push("Return journey: Scheduled return on specified date/time");
       messages.push("Return route: Smart reverse of outbound journey");
-      
       messages.push("Return journey: Distance doubled (outbound + reverse route)");
     }
 
@@ -502,8 +519,16 @@ export class EnhancedFareService {
     // This includes: baby seats, child seats, booster seats, wheelchairs
     totalFare += equipmentFees;
 
-    // Round down to nearest whole number (e.g., 14.1 becomes 14, 14.9 becomes 14)
-    const roundedFare = Math.floor(totalFare);
+    console.log(`   💵 Total Fare Before Rounding: £${totalFare.toFixed(2)}`);
+    
+    // Round to nearest £5 for easier cash payments
+    // 90.1 - 92.00 <= £90
+    // 92.01 - 94.99 = £95
+    const roundedFare = this.roundToNearestFive(totalFare);
+    console.log(`   💰 Final Fare (rounded to nearest £5): £${roundedFare.toFixed(2)}`);
+    console.log(`   📊 Rounding: £${totalFare.toFixed(2)} → £${roundedFare.toFixed(2)}`);
+    console.log(`   ${'='.repeat(50)}`);
+    console.log(''); // Empty line for better separation
 
     return {
       amount: roundedFare,
@@ -612,6 +637,19 @@ export class EnhancedFareService {
     const timePeriod = timeSurcharges[timeCategory][period as keyof typeof timeSurcharges.weekdays];
     
     return timePeriod?.surcharges[mappedVehicleType] || 0;
+  }
+
+  /**
+   * Round fare to nearest £5 for easier cash payments
+   * 90.1 - 92.00 <= £90
+   * 92.01 - 94.99 = £95
+   */
+  private static roundToNearestFive(amount: number): number {
+    // Round to nearest 5
+    const rounded = Math.round(amount / 5) * 5;
+    
+    // Ensure minimum fare is respected
+    return Math.max(rounded, 5); // Minimum £5 fare
   }
 
   /**

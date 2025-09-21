@@ -3241,6 +3241,120 @@ router.put("/settings", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+// Get contact messages (admin only)
+router.get("/contact-messages", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Get query parameters
+    const { status, limit = "50", offset = "0" } = req.query;
+    
+    let query = firestore.collection("contact_messages").orderBy("createdAt", "desc");
+    
+    // Filter by status if provided
+    if (status && typeof status === "string" && ["new", "in_progress", "resolved"].includes(status)) {
+      query = query.where("status", "==", status);
+    }
+    
+    // Apply pagination
+    const limitNum = parseInt(limit as string, 10);
+    const offsetNum = parseInt(offset as string, 10);
+    
+    if (offsetNum > 0) {
+      const offsetSnapshot = await firestore.collection("contact_messages")
+        .orderBy("createdAt", "desc")
+        .limit(offsetNum)
+        .get();
+      
+      const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
+      query = query.startAfter(lastDoc);
+    }
+    
+    const snapshot = await query.limit(limitNum).get();
+    
+    const messages = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Get total count for pagination
+    const totalSnapshot = await firestore.collection("contact_messages").get();
+    const total = totalSnapshot.size;
+
+    return res.json({
+      success: true,
+      data: {
+        messages,
+        pagination: {
+          total,
+          limit: limitNum,
+          offset: offsetNum,
+          hasMore: offsetNum + limitNum < total
+        }
+      }
+    } as ApiResponse<any>);
+
+  } catch (error) {
+    console.error("Error fetching contact messages:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to fetch contact messages",
+        code: "contact/fetch-error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
+// Update contact message status (admin only)
+router.put("/contact-messages/:id", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body;
+
+    // Validate status
+    if (status && !["new", "in_progress", "resolved"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Invalid status. Must be 'new', 'in_progress', or 'resolved'",
+          code: "contact/invalid-status",
+        },
+      } as ApiResponse<never>);
+    }
+
+    // Prepare update data
+    const updateData: any = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (status) updateData.status = status;
+    if (notes) updateData.notes = notes;
+
+    // Update the contact message
+    await firestore.collection("contact_messages").doc(id).update(updateData);
+
+    return res.json({
+      success: true,
+      data: {
+        id,
+        message: "Contact message updated successfully",
+        updatedFields: Object.keys(updateData).filter(key => key !== "updatedAt")
+      }
+    } as ApiResponse<any>);
+
+  } catch (error) {
+    console.error("Error updating contact message:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to update contact message",
+        code: "contact/update-error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
 // Get system logs
 router.get("/logs", async (req: AuthenticatedRequest, res: Response) => {
   try {
