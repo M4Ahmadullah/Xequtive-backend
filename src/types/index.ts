@@ -686,3 +686,74 @@ export interface ContactMessageResponse {
   messageId?: string;
   error?: string;
 }
+
+// Admin booking update interfaces
+export interface AdminBookingUpdateRequest {
+  bookingType?: "one-way" | "return" | "hourly";
+  status?: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  locations?: {
+    pickup?: {
+      address?: string;
+      coordinates?: Coordinates;
+    };
+    dropoff?: {
+      address?: string;
+      coordinates?: Coordinates;
+    };
+  };
+  pickupDate?: string;
+  pickupTime?: string;
+  returnDate?: string;
+  returnTime?: string;
+  vehicleType?: "saloon" | "executive-saloon" | "executive-mpv" | "luxury-vehicle" | "mpv-6" | "mpv-8";
+  pricing?: {
+    baseFare?: number;
+    distanceCharge?: number;
+    timeCharge?: number;
+    airportFee?: number;
+    waitingCharge?: number;
+    totalFare?: number;
+    hourlyRate?: number;
+  };
+  distance?: {
+    miles?: number;
+    kilometers?: number;
+    duration?: number; // in minutes
+  };
+  hours?: number;
+  passengers?: number;
+  luggage?: number;
+  specialRequests?: string;
+  notes?: string;
+  paymentMethod?: "cash" | "card" | "corporate";
+  paymentStatus?: "pending" | "paid" | "failed" | "refunded";
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  flightNumber?: string;
+  terminal?: string;
+  adminOverride?: {
+    pricingOverridden?: boolean;
+    distanceOverridden?: boolean;
+    timeOverridden?: boolean;
+    reason?: string;
+  };
+}
+
+export interface AdminBookingUpdateResponse {
+  success: boolean;
+  data?: {
+    id: string;
+    message: string;
+    updatedFields: string[];
+    booking: EnhancedBookingData | PermanentBookingData;
+  };
+  error?: {
+    message: string;
+    code: string;
+    details?: string;
+  };
+}

@@ -107,20 +107,3 @@ exports.env = {
         token: validatedEnv.MAPBOX_TOKEN || "missing",
     },
 };
-// Print the loaded environment configuration except for sensitive data
-console.log("Environment configuration loaded:", {
-    server: exports.env.server,
-    firebase: {
-        projectId: exports.env.firebase.projectId,
-        // Omit private keys and sensitive data
-    },
-    security: {
-        allowedOrigins: exports.env.security.allowedOrigins,
-        // Omit secrets
-    },
-    email: {
-        senderAddress: exports.env.email.senderAddress,
-        frontendUrl: exports.env.email.frontendUrl,
-        // Omit API key
-    },
-});

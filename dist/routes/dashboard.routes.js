@@ -38,7 +38,14 @@ const authMiddleware_1 = require("../middleware/authMiddleware");
 const firebase_1 = require("../config/firebase");
 const firebase_2 = require("../config/firebase");
 const auth_service_1 = require("../services/auth.service");
+const vehicleTypes_1 = require("../config/vehicleTypes");
+const adminBooking_schema_1 = require("../validation/adminBooking.schema");
 const router = (0, express_1.Router)();
+// Helper function to get hourly rate for a vehicle
+function getHourlyRateForVehicle(vehicleId) {
+    const vehicleType = vehicleTypes_1.vehicleTypes[vehicleId];
+    return vehicleType?.waitingRatePerHour || 0;
+}
 // =====================================================
 // Dashboard Auth Routes
 // =====================================================
@@ -101,7 +108,7 @@ router.post("/auth/hardcoded-login", async (req, res) => {
         });
     }
     catch (error) {
-        console.error("Hardcoded admin login error:", error);
+        console.error("Admin login error:", error);
         res.status(500).json({
             success: false,
             error: {
@@ -412,9 +419,7 @@ router.get("/bookings", async (req, res) => {
         const status = req.query.status;
         const vehicleType = req.query.vehicleType;
         const bookingType = req.query.bookingType; // Filter by booking type
-        const returnType = req.query.returnType; // Filter by return type (wait-and-return, later-date)
         const paymentMethod = req.query.paymentMethod; // Filter by payment method (cashOnArrival, cardOnArrival)
-        const waitDuration = req.query.waitDuration; // Filter by wait duration range
         const page = parseInt(req.query.page || "1");
         const limit = parseInt(req.query.limit || "20");
         const sort = req.query.sort || "pickupDate";
@@ -436,9 +441,6 @@ router.get("/bookings", async (req, res) => {
         }
         if (bookingType) {
             query = query.where("bookingType", "==", bookingType);
-        }
-        if (returnType) {
-            query = query.where("returnType", "==", returnType);
         }
         // Get total count for pagination
         const countSnapshot = await query.get();
@@ -555,10 +557,8 @@ router.get("/bookings", async (req, res) => {
                 // =====================================================
                 // 10. RETURN BOOKING INFORMATION
                 // =====================================================
-                returnType: bookingData.returnType || null,
                 returnDate: bookingData.returnDate || null,
                 returnTime: bookingData.returnTime || null,
-                waitDuration: bookingData.waitDuration || null,
                 returnDiscount: bookingData.returnDiscount || 0,
                 // =====================================================
                 // 11. SERVICE DURATION (HOURLY BOOKINGS)
@@ -597,7 +597,6 @@ router.get("/bookings", async (req, res) => {
                     hasPaymentMethod: !!(bookingData.paymentMethods),
                     isReturnBooking: bookingData.bookingType === "return",
                     isHourlyBooking: bookingData.bookingType === "hourly",
-                    waitAndReturn: bookingData.returnType === "wait-and-return",
                 }
             };
             bookings.push(enhancedBooking);
@@ -613,14 +612,6 @@ router.get("/bookings", async (req, res) => {
                 if (paymentMethod === "cardOnArrival")
                     return booking.paymentMethods.cardOnArrival === true;
                 return false;
-            });
-        }
-        if (waitDuration) {
-            const [minDuration, maxDuration] = waitDuration.split("-").map(Number);
-            filteredBookings = filteredBookings.filter(booking => {
-                if (!booking.waitDuration)
-                    return false;
-                return booking.waitDuration >= minDuration && booking.waitDuration <= maxDuration;
             });
         }
         // Apply pagination to filtered results
@@ -759,10 +750,8 @@ router.get("/bookings/calendar", async (req, res) => {
                 vehicleId: booking.vehicle?.id || "N/A",
                 // Special Booking Types
                 hours: booking.hours || null, // For hourly bookings
-                returnType: booking.returnType || null, // For return bookings
                 returnDate: booking.returnDate || null,
                 returnTime: booking.returnTime || null,
-                waitDuration: booking.waitDuration || null, // For wait-and-return bookings
                 // Payment Methods
                 paymentMethods: booking.paymentMethods || null,
                 // Journey Information
@@ -942,10 +931,8 @@ router.get("/bookings/:id", async (req, res) => {
             // =====================================================
             // 10. RETURN BOOKING INFORMATION
             // =====================================================
-            returnType: bookingData.returnType || null,
             returnDate: bookingData.returnDate || null,
             returnTime: bookingData.returnTime || null,
-            waitDuration: bookingData.waitDuration || null,
             returnDiscount: bookingData.returnDiscount || 0,
             // =====================================================
             // 11. SERVICE DURATION (HOURLY BOOKINGS)
@@ -984,7 +971,6 @@ router.get("/bookings/:id", async (req, res) => {
                 hasPaymentMethod: !!(bookingData.paymentMethods),
                 isReturnBooking: bookingData.bookingType === "return",
                 isHourlyBooking: bookingData.bookingType === "hourly",
-                waitAndReturn: bookingData.returnType === "wait-and-return",
             }
         };
         // Return enhanced booking with timeline
@@ -1076,6 +1062,10 @@ router.get("/bookings/separated", async (req, res) => {
                         amount: bookingData.vehicle?.price?.amount || 0,
                         currency: bookingData.vehicle?.price?.currency || "GBP",
                     },
+                    // Add hourly rate for hourly bookings
+                    ...(bookingData.bookingType === "hourly" && {
+                        hourlyRate: getHourlyRateForVehicle(bookingData.vehicle?.id || "N/A")
+                    }),
                 },
                 // Journey Information
                 journey: {
@@ -1084,7 +1074,7 @@ router.get("/bookings/separated", async (req, res) => {
                 },
                 // Special Booking Types
                 hours: bookingData.hours || null, // For hourly bookings
-                returnType: bookingData.returnType || null, // For return bookings
+                // For return bookings
                 returnDate: bookingData.returnDate || null,
                 returnTime: bookingData.returnTime || null,
                 // Additional Information
@@ -1155,12 +1145,12 @@ router.get("/bookings/separated", async (req, res) => {
                 },
                 // Booking Type Definitions
                 bookingTypeDefinitions: {
-                    events: "Hourly bookings (3-12 hours) - driver stays with you throughout",
+                    events: "Hourly bookings (3-24 hours) - driver stays with you throughout",
                     taxi: "One-way and return journeys - point-to-point transportation",
                     hourly: "Continuous service for specified hours, no dropoff required",
                     oneWay: "Single journey from pickup to dropoff location",
                     return: "Round-trip journey with smart reverse route (no discount)",
-                    waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+                    waitAndReturn: "Driver waits at destination and returns (up to 24 hours)",
                     laterDate: "Scheduled return on different date/time",
                 },
             },
@@ -1317,7 +1307,7 @@ router.get("/bookings/statistics", async (req, res) => {
                     hourly: "Continuous service for specified hours, no dropoff required",
                     "one-way": "Single journey from pickup to dropoff location",
                     return: "Round-trip journey with smart reverse route (no discount)",
-                    waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
+                    waitAndReturn: "Driver waits at destination and returns (up to 24 hours)",
                     laterDate: "Scheduled return on different date/time",
                 },
             },
@@ -1335,8 +1325,8 @@ router.get("/bookings/statistics", async (req, res) => {
         });
     }
 });
-// Update booking
-router.put("/bookings/:id", async (req, res) => {
+// Update booking (basic update)
+router.put("/bookings/:id/basic", async (req, res) => {
     try {
         const bookingId = req.params.id;
         const updateData = req.body;
@@ -1705,9 +1695,7 @@ router.get("/filters/options", async (req, res) => {
         const snapshot = await firebase_1.firestore.collection("bookings").get();
         const filterOptions = {
             bookingTypes: new Set(),
-            returnTypes: new Set(),
             paymentMethods: new Set(),
-            waitDurationRanges: new Set(),
             vehicleTypes: new Set(),
             statuses: new Set(),
         };
@@ -1717,10 +1705,6 @@ router.get("/filters/options", async (req, res) => {
             if (booking.bookingType) {
                 filterOptions.bookingTypes.add(booking.bookingType);
             }
-            // Collect return types
-            if (booking.returnType) {
-                filterOptions.returnTypes.add(booking.returnType);
-            }
             // Collect payment methods
             if (booking.paymentMethods) {
                 if (booking.paymentMethods.cashOnArrival) {
@@ -1729,22 +1713,6 @@ router.get("/filters/options", async (req, res) => {
                 if (booking.paymentMethods.cardOnArrival) {
                     filterOptions.paymentMethods.add("cardOnArrival");
                 }
-            }
-            // Collect wait duration ranges
-            if (booking.waitDuration !== undefined && booking.waitDuration !== null) {
-                const duration = booking.waitDuration;
-                if (duration <= 2)
-                    filterOptions.waitDurationRanges.add("0-2");
-                else if (duration <= 4)
-                    filterOptions.waitDurationRanges.add("3-4");
-                else if (duration <= 6)
-                    filterOptions.waitDurationRanges.add("5-6");
-                else if (duration <= 8)
-                    filterOptions.waitDurationRanges.add("7-8");
-                else if (duration <= 10)
-                    filterOptions.waitDurationRanges.add("9-10");
-                else
-                    filterOptions.waitDurationRanges.add("11-12");
             }
             // Collect vehicle types
             if (booking.vehicle?.id) {
@@ -1759,34 +1727,20 @@ router.get("/filters/options", async (req, res) => {
             success: true,
             data: {
                 bookingTypes: Array.from(filterOptions.bookingTypes).sort(),
-                returnTypes: Array.from(filterOptions.returnTypes).sort(),
                 paymentMethods: Array.from(filterOptions.paymentMethods).sort(),
-                waitDurationRanges: Array.from(filterOptions.waitDurationRanges).sort(),
                 vehicleTypes: Array.from(filterOptions.vehicleTypes).sort(),
                 statuses: Array.from(filterOptions.statuses).sort(),
                 // Filter definitions
                 filterDefinitions: {
                     bookingTypes: {
                         "one-way": "Single journey from pickup to dropoff location",
-                        "hourly": "Continuous service for specified hours (3-12 hours)",
+                        "hourly": "Continuous service for specified hours (3-24 hours)",
                         "return": "Round-trip journey with smart reverse route"
-                    },
-                    returnTypes: {
-                        "wait-and-return": "Driver waits at destination and returns (up to 12 hours)",
-                        "later-date": "Scheduled return on different date/time"
                     },
                     paymentMethods: {
                         "cashOnArrival": "Customer pays with cash when driver arrives",
                         "cardOnArrival": "Customer pays with card when driver arrives"
                     },
-                    waitDurationRanges: {
-                        "0-2": "0 to 2 hours wait time",
-                        "3-4": "3 to 4 hours wait time",
-                        "5-6": "5 to 6 hours wait time",
-                        "7-8": "7 to 8 hours wait time",
-                        "9-10": "9 to 10 hours wait time",
-                        "11-12": "11 to 12 hours wait time"
-                    }
                 }
             }
         });
@@ -1926,20 +1880,6 @@ router.get("/analytics/wait-timers", async (req, res) => {
         // Initialize wait timer statistics
         const waitStats = {
             totalReturnBookings: 0,
-            waitAndReturnBookings: 0,
-            laterDateBookings: 0,
-            withWaitDuration: 0,
-            withoutWaitDuration: 0,
-            waitDurationDistribution: {
-                "0-2": 0,
-                "3-4": 0,
-                "5-6": 0,
-                "7-8": 0,
-                "9-10": 0,
-                "11-12": 0,
-            },
-            averageWaitDuration: 0,
-            totalWaitDuration: 0,
             byBookingType: {
                 waitAndReturn: {
                     withTimer: 0,
@@ -1953,68 +1893,12 @@ router.get("/analytics/wait-timers", async (req, res) => {
             const booking = doc.data();
             if (booking.bookingType === "return") {
                 waitStats.totalReturnBookings++;
-                if (booking.returnType === "wait-and-return") {
-                    waitStats.waitAndReturnBookings++;
-                    if (booking.waitDuration !== undefined && booking.waitDuration !== null) {
-                        waitStats.withWaitDuration++;
-                        waitStats.totalWaitDuration += booking.waitDuration;
-                        waitStats.byBookingType.waitAndReturn.withTimer++;
-                        // Categorize wait duration
-                        if (booking.waitDuration <= 2) {
-                            waitStats.waitDurationDistribution["0-2"]++;
-                        }
-                        else if (booking.waitDuration <= 4) {
-                            waitStats.waitDurationDistribution["3-4"]++;
-                        }
-                        else if (booking.waitDuration <= 6) {
-                            waitStats.waitDurationDistribution["5-6"]++;
-                        }
-                        else if (booking.waitDuration <= 8) {
-                            waitStats.waitDurationDistribution["7-8"]++;
-                        }
-                        else if (booking.waitDuration <= 10) {
-                            waitStats.waitDurationDistribution["9-10"]++;
-                        }
-                        else {
-                            waitStats.waitDurationDistribution["11-12"]++;
-                        }
-                    }
-                    else {
-                        waitStats.withoutWaitDuration++;
-                        waitStats.byBookingType.waitAndReturn.withoutTimer++;
-                    }
-                }
-                else if (booking.returnType === "later-date") {
-                    waitStats.laterDateBookings++;
-                }
             }
         });
-        // Calculate averages
-        if (waitStats.withWaitDuration > 0) {
-            waitStats.averageWaitDuration = parseFloat((waitStats.totalWaitDuration / waitStats.withWaitDuration).toFixed(1));
-        }
-        if (waitStats.byBookingType.waitAndReturn.withTimer > 0) {
-            waitStats.byBookingType.waitAndReturn.averageDuration = parseFloat((waitStats.totalWaitDuration / waitStats.byBookingType.waitAndReturn.withTimer).toFixed(1));
-        }
-        // Calculate percentages
-        const percentages = {
-            waitAndReturn: waitStats.totalReturnBookings > 0 ? Math.round((waitStats.waitAndReturnBookings / waitStats.totalReturnBookings) * 100) : 0,
-            laterDate: waitStats.totalReturnBookings > 0 ? Math.round((waitStats.laterDateBookings / waitStats.totalReturnBookings) * 100) : 0,
-            withTimer: waitStats.waitAndReturnBookings > 0 ? Math.round((waitStats.withWaitDuration / waitStats.waitAndReturnBookings) * 100) : 0,
-            withoutTimer: waitStats.waitAndReturnBookings > 0 ? Math.round((waitStats.withoutWaitDuration / waitStats.waitAndReturnBookings) * 100) : 0,
-        };
         return res.json({
             success: true,
             data: {
                 ...waitStats,
-                percentages,
-                // Wait Timer Definitions
-                waitTimerDefinitions: {
-                    waitAndReturn: "Driver waits at destination and returns (up to 12 hours)",
-                    laterDate: "Scheduled return on different date/time (no wait timer)",
-                    withTimer: "Customer specified exact wait duration",
-                    withoutTimer: "Customer did not specify wait duration (up to 12 hours default)",
-                },
             },
         });
     }
@@ -2955,6 +2839,106 @@ router.put("/settings", async (req, res) => {
         });
     }
 });
+// Get contact messages (admin only)
+router.get("/contact-messages", async (req, res) => {
+    try {
+        // Get query parameters
+        const { status, limit = "50", offset = "0" } = req.query;
+        let query = firebase_1.firestore.collection("contact_messages").orderBy("createdAt", "desc");
+        // Filter by status if provided
+        if (status && typeof status === "string" && ["new", "in_progress", "resolved"].includes(status)) {
+            query = query.where("status", "==", status);
+        }
+        // Apply pagination
+        const limitNum = parseInt(limit, 10);
+        const offsetNum = parseInt(offset, 10);
+        if (offsetNum > 0) {
+            const offsetSnapshot = await firebase_1.firestore.collection("contact_messages")
+                .orderBy("createdAt", "desc")
+                .limit(offsetNum)
+                .get();
+            const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
+            query = query.startAfter(lastDoc);
+        }
+        const snapshot = await query.limit(limitNum).get();
+        const messages = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        // Get total count for pagination
+        const totalSnapshot = await firebase_1.firestore.collection("contact_messages").get();
+        const total = totalSnapshot.size;
+        return res.json({
+            success: true,
+            data: {
+                messages,
+                pagination: {
+                    total,
+                    limit: limitNum,
+                    offset: offsetNum,
+                    hasMore: offsetNum + limitNum < total
+                }
+            }
+        });
+    }
+    catch (error) {
+        console.error("Error fetching contact messages:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to fetch contact messages",
+                code: "contact/fetch-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// Update contact message status (admin only)
+router.put("/contact-messages/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, notes } = req.body;
+        // Validate status
+        if (status && !["new", "in_progress", "resolved"].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Invalid status. Must be 'new', 'in_progress', or 'resolved'",
+                    code: "contact/invalid-status",
+                },
+            });
+        }
+        // Prepare update data
+        const updateData = {
+            updatedAt: new Date().toISOString(),
+        };
+        if (status)
+            updateData.status = status;
+        if (notes)
+            updateData.notes = notes;
+        // Update the contact message
+        await firebase_1.firestore.collection("contact_messages").doc(id).update(updateData);
+        return res.json({
+            success: true,
+            data: {
+                id,
+                message: "Contact message updated successfully",
+                updatedFields: Object.keys(updateData).filter(key => key !== "updatedAt")
+            }
+        });
+    }
+    catch (error) {
+        console.error("Error updating contact message:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to update contact message",
+                code: "contact/update-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
 // Get system logs
 router.get("/logs", async (req, res) => {
     try {
@@ -3013,6 +2997,276 @@ router.get("/logs", async (req, res) => {
             error: {
                 code: "SERVER_ERROR",
                 message: "Failed to fetch system logs",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+/**
+ * @route PUT /api/dashboard/bookings/:id
+ * @desc Update booking details (admin only)
+ * @access Admin
+ * @param {string} id - Booking ID
+ * @body {AdminBookingUpdateRequest} - Booking update data
+ * @returns {AdminBookingUpdateResponse} - Updated booking information
+ */
+router.put("/bookings/:id", async (req, res) => {
+    try {
+        // Check if user is admin
+        if (!req.user?.role || req.user.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                error: {
+                    message: "Admin access required",
+                    code: "dashboard/admin-required",
+                },
+            });
+        }
+        const { id } = req.params;
+        const updateData = req.body;
+        // Validate the update data
+        const validationResult = adminBooking_schema_1.adminBookingUpdateSchema.safeParse(updateData);
+        if (!validationResult.success) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    message: "Invalid booking update data",
+                    code: "dashboard/invalid-data",
+                    details: validationResult.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', '),
+                },
+            });
+        }
+        const validatedData = validationResult.data;
+        // Check if booking exists
+        const bookingDoc = await firebase_1.firestore.collection("bookings").doc(id).get();
+        if (!bookingDoc.exists) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: "Booking not found",
+                    code: "dashboard/booking-not-found",
+                },
+            });
+        }
+        const existingBooking = bookingDoc.data();
+        // Prepare update object with only provided fields
+        const updateFields = {
+            updatedAt: new Date().toISOString(),
+        };
+        // Track which fields are being updated
+        const updatedFields = [];
+        // Update basic booking information
+        if (validatedData.bookingType !== undefined) {
+            updateFields.bookingType = validatedData.bookingType;
+            updatedFields.push("bookingType");
+        }
+        if (validatedData.status !== undefined) {
+            updateFields.status = validatedData.status;
+            updatedFields.push("status");
+        }
+        // Update customer information (except email)
+        if (validatedData.firstName !== undefined) {
+            updateFields["customer.fullName"] = `${validatedData.firstName} ${validatedData.lastName || existingBooking.customer?.fullName?.split(' ')[1] || ''}`.trim();
+            updatedFields.push("customer.fullName");
+        }
+        if (validatedData.lastName !== undefined) {
+            updateFields["customer.fullName"] = `${validatedData.firstName || existingBooking.customer?.fullName?.split(' ')[0] || ''} ${validatedData.lastName}`.trim();
+            updatedFields.push("customer.fullName");
+        }
+        if (validatedData.phone !== undefined) {
+            updateFields["customer.phoneNumber"] = validatedData.phone;
+            updatedFields.push("customer.phoneNumber");
+        }
+        // Update location information
+        if (validatedData.locations) {
+            if (validatedData.locations.pickup) {
+                updateFields["locations.pickup"] = {
+                    ...existingBooking.locations?.pickup,
+                    ...validatedData.locations.pickup,
+                };
+                updatedFields.push("locations.pickup");
+            }
+            if (validatedData.locations.dropoff) {
+                updateFields["locations.dropoff"] = {
+                    ...existingBooking.locations?.dropoff,
+                    ...validatedData.locations.dropoff,
+                };
+                updatedFields.push("locations.dropoff");
+            }
+            if (validatedData.locations.additionalStops !== undefined) {
+                updateFields["locations.additionalStops"] = validatedData.locations.additionalStops;
+                updatedFields.push("locations.additionalStops");
+            }
+        }
+        // Update date and time information
+        if (validatedData.pickupDate !== undefined) {
+            updateFields.pickupDate = validatedData.pickupDate;
+            updatedFields.push("pickupDate");
+        }
+        if (validatedData.pickupTime !== undefined) {
+            updateFields.pickupTime = validatedData.pickupTime;
+            updatedFields.push("pickupTime");
+        }
+        if (validatedData.returnDate !== undefined) {
+            updateFields.returnDate = validatedData.returnDate;
+            updatedFields.push("returnDate");
+        }
+        if (validatedData.returnTime !== undefined) {
+            updateFields.returnTime = validatedData.returnTime;
+            updatedFields.push("returnTime");
+        }
+        // Update vehicle information
+        if (validatedData.vehicleType !== undefined) {
+            updateFields["vehicle.id"] = validatedData.vehicleType;
+            // Update vehicle name based on type
+            const vehicleType = vehicleTypes_1.vehicleTypes[validatedData.vehicleType];
+            if (vehicleType) {
+                updateFields["vehicle.name"] = vehicleType.name;
+            }
+            updatedFields.push("vehicle.id", "vehicle.name");
+        }
+        // Update pricing information (admin override)
+        if (validatedData.pricing) {
+            const currentPricing = existingBooking.vehicle?.price || {};
+            updateFields["vehicle.price"] = {
+                ...currentPricing,
+                ...validatedData.pricing,
+            };
+            updatedFields.push("vehicle.price");
+        }
+        // Update distance information (admin override)
+        if (validatedData.distance) {
+            const currentDistance = existingBooking.journey || {};
+            updateFields.journey = {
+                ...currentDistance,
+                ...validatedData.distance,
+            };
+            updatedFields.push("journey");
+        }
+        // Update hourly booking specific fields
+        if (validatedData.hours !== undefined) {
+            updateFields.hours = validatedData.hours;
+            updatedFields.push("hours");
+        }
+        // Update additional information
+        if (validatedData.passengers !== undefined) {
+            updateFields.passengers = validatedData.passengers;
+            updatedFields.push("passengers");
+        }
+        if (validatedData.luggage !== undefined) {
+            updateFields.luggage = validatedData.luggage;
+            updatedFields.push("luggage");
+        }
+        if (validatedData.specialRequests !== undefined) {
+            updateFields.specialRequests = validatedData.specialRequests;
+            updatedFields.push("specialRequests");
+        }
+        if (validatedData.notes !== undefined) {
+            updateFields.notes = validatedData.notes;
+            updatedFields.push("notes");
+        }
+        // Update payment information
+        if (validatedData.paymentMethod !== undefined) {
+            updateFields.paymentMethod = validatedData.paymentMethod;
+            updatedFields.push("paymentMethod");
+        }
+        if (validatedData.paymentStatus !== undefined) {
+            updateFields.paymentStatus = validatedData.paymentStatus;
+            updatedFields.push("paymentStatus");
+        }
+        // Update driver assignment
+        if (validatedData.driverId !== undefined) {
+            updateFields.driverId = validatedData.driverId;
+            updatedFields.push("driverId");
+        }
+        if (validatedData.driverName !== undefined) {
+            updateFields.driverName = validatedData.driverName;
+            updatedFields.push("driverName");
+        }
+        if (validatedData.driverPhone !== undefined) {
+            updateFields.driverPhone = validatedData.driverPhone;
+            updatedFields.push("driverPhone");
+        }
+        // Update flight information
+        if (validatedData.flightNumber !== undefined) {
+            updateFields.flightNumber = validatedData.flightNumber;
+            updatedFields.push("flightNumber");
+        }
+        if (validatedData.terminal !== undefined) {
+            updateFields.terminal = validatedData.terminal;
+            updatedFields.push("terminal");
+        }
+        // Update travel information
+        if (validatedData.travelInformation !== undefined) {
+            const currentTravelInfo = existingBooking.travelInformation || {};
+            updateFields.travelInformation = {
+                ...currentTravelInfo,
+                ...validatedData.travelInformation,
+            };
+            updatedFields.push("travelInformation");
+        }
+        // Update payment methods
+        if (validatedData.paymentMethods !== undefined) {
+            const currentPaymentMethods = existingBooking.paymentMethods || {};
+            updateFields.paymentMethods = {
+                ...currentPaymentMethods,
+                ...validatedData.paymentMethods,
+            };
+            updatedFields.push("paymentMethods");
+        }
+        // Update additional booking details
+        if (validatedData.waitingTime !== undefined) {
+            updateFields.waitingTime = validatedData.waitingTime;
+            updatedFields.push("waitingTime");
+        }
+        if (validatedData.numVehicles !== undefined) {
+            updateFields.numVehicles = validatedData.numVehicles;
+            updatedFields.push("numVehicles");
+        }
+        // Update admin override information
+        if (validatedData.adminOverride) {
+            const currentAdminOverride = existingBooking.adminOverride || {};
+            updateFields.adminOverride = {
+                ...currentAdminOverride,
+                ...validatedData.adminOverride,
+                lastUpdatedBy: req.user.uid,
+                lastUpdatedAt: new Date().toISOString(),
+            };
+            updatedFields.push("adminOverride");
+        }
+        // Add admin update log
+        const adminLog = {
+            action: "booking_updated",
+            adminId: req.user.uid,
+            adminEmail: req.user.email,
+            timestamp: new Date().toISOString(),
+            updatedFields: updatedFields,
+            reason: validatedData.adminOverride?.reason || "Admin update",
+        };
+        updateFields.adminLogs = [...(existingBooking.adminLogs || []), adminLog];
+        // Update the booking in Firestore
+        await firebase_1.firestore.collection("bookings").doc(id).update(updateFields);
+        // Get the updated booking
+        const updatedBookingDoc = await firebase_1.firestore.collection("bookings").doc(id).get();
+        const updatedBooking = updatedBookingDoc.data();
+        console.log(`✅ Admin ${req.user.email} updated booking ${id}. Fields updated: ${updatedFields.join(', ')}`);
+        return res.json({
+            success: true,
+            data: {
+                id,
+                message: "Booking updated successfully",
+                updatedFields,
+                booking: updatedBooking,
+            },
+        });
+    }
+    catch (error) {
+        console.error("❌ Failed to update booking:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to update booking",
+                code: "dashboard/update-error",
                 details: error instanceof Error ? error.message : "Unknown error",
             },
         });

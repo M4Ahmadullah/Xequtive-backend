@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sessionCheckLimiter = exports.bookingLimiter = exports.authLimiter = exports.apiLimiter = void 0;
+exports.contactLimiter = exports.sessionCheckLimiter = exports.bookingLimiter = exports.authLimiter = exports.apiLimiter = void 0;
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 // Basic rate limiter for API endpoints
 exports.apiLimiter = (0, express_rate_limit_1.default)({
@@ -62,6 +62,21 @@ exports.sessionCheckLimiter = (0, express_rate_limit_1.default)({
             message: "Too many session check requests. Please implement frontend caching.",
             code: "SESSION_RATE_LIMIT_EXCEEDED",
             details: "You are checking user session too frequently. Please cache the user session on the frontend and only refresh when necessary (e.g., on page reload, after login/logout, or every 30+ minutes).",
+        },
+    },
+});
+// Contact form rate limiter - 5 messages per hour per IP
+exports.contactLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // limit each IP to 5 contact messages per hour
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        error: {
+            message: "Too many contact messages sent. Please try again later.",
+            code: "CONTACT_RATE_LIMIT_EXCEEDED",
+            details: "You have exceeded the rate limit for contact form submissions. Please wait before sending another message.",
         },
     },
 });

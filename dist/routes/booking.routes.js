@@ -8,7 +8,13 @@ const booking_schema_1 = require("../validation/booking.schema");
 const enhancedFare_service_1 = require("../services/enhancedFare.service");
 const rateLimiter_1 = require("../middleware/rateLimiter");
 const email_service_1 = require("../services/email.service");
+const vehicleTypes_1 = require("../config/vehicleTypes");
 const router = (0, express_1.Router)();
+// Helper function to get hourly rate for a vehicle
+function getHourlyRateForVehicle(vehicleId) {
+    const vehicleType = vehicleTypes_1.vehicleTypes[vehicleId];
+    return vehicleType?.waitingRatePerHour || 0;
+}
 // Generate sequential reference number
 async function generateReferenceNumber() {
     try {
@@ -46,7 +52,6 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 },
             });
         }
-        console.log(`📅 Creating booking for user: ${req.user.uid}`);
         // Get or use customer information
         let bookingData;
         try {
@@ -106,7 +111,6 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
             passengers: bookingData.booking.passengers,
             bookingType: bookingData.booking.bookingType || "one-way",
             hours: bookingData.booking.hours,
-            returnType: bookingData.booking.returnType,
             returnDate: bookingData.booking.returnDate,
             returnTime: bookingData.booking.returnTime,
         };
@@ -147,6 +151,10 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 id: bookingData.booking.vehicle.id,
                 name: bookingData.booking.vehicle.name,
                 price: verifiedFare.price,
+                // Add hourly rate for hourly bookings
+                ...(bookingData.booking.bookingType === "hourly" && {
+                    hourlyRate: getHourlyRateForVehicle(bookingData.booking.vehicle.id)
+                }),
             },
             price: verifiedFare.price,
             additionalStops: bookingData.booking.locations.additionalStops?.map(stop => stop.address) || [],
@@ -165,9 +173,6 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
         // Add optional fields only if they have values (to avoid undefined in Firestore)
         if (bookingData.booking.hours !== undefined) {
             permanentBooking.hours = bookingData.booking.hours;
-        }
-        if (bookingData.booking.returnType !== undefined) {
-            permanentBooking.returnType = bookingData.booking.returnType;
         }
         if (bookingData.booking.returnDate !== undefined) {
             permanentBooking.returnDate = bookingData.booking.returnDate;
@@ -198,7 +203,6 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
             .collection("bookings")
             .add(permanentBooking);
         const destination = permanentBooking.bookingType === "hourly" ? "Hourly booking" : permanentBooking.locations?.dropoff?.address || "Dropoff not specified";
-        console.log(`📅 Booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | Type: ${permanentBooking.bookingType} | From: ${permanentBooking.locations?.pickup?.address || "Pickup not specified"} | To: ${destination} | Vehicle: ${permanentBooking.vehicle?.name || "Vehicle not specified"} | Price: £${permanentBooking.vehicle?.price?.amount || 0}`);
         // Send booking confirmation email (non-blocking)
         email_service_1.EmailService.sendBookingConfirmationEmail(permanentBooking.customer.email, {
             id: bookingDoc.id,
@@ -233,7 +237,6 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
                 status: "pending",
                 bookingType: permanentBooking.bookingType,
                 ...(permanentBooking.hours !== undefined && { hours: permanentBooking.hours }),
-                ...(permanentBooking.returnType !== undefined && { returnType: permanentBooking.returnType }),
             },
         };
         // Return the confirmation response
@@ -272,7 +275,6 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
             .limit(100); // Limit to most recent 100 bookings
         // Execute query
         const snapshot = await query.get();
-        console.log(`📋 Found ${snapshot.size} bookings for user ${req.user.uid}`);
         // Map results to comprehensive booking array for user
         const bookings = [];
         snapshot.forEach((doc) => {
@@ -287,7 +289,6 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
                 const createdAt = booking.createdAt || new Date().toISOString();
                 // Skip bookings with completely missing critical data
                 if (!booking.pickupDate || !booking.pickupTime) {
-                    console.warn(`Skipping booking ${doc.id} - missing pickup date/time`);
                     return;
                 }
                 // Create comprehensive booking object with all relevant data
@@ -326,6 +327,10 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
                             amount: vehiclePrice,
                             currency: booking.vehicle?.price?.currency || "GBP",
                         },
+                        // Add hourly rate for hourly bookings
+                        ...(booking.bookingType === "hourly" && {
+                            hourlyRate: getHourlyRateForVehicle(booking.vehicle?.id || "N/A")
+                        }),
                     },
                     // Journey information
                     journey: {
@@ -334,7 +339,6 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
                     },
                     // Special booking type fields
                     hours: booking.hours || null, // For hourly bookings
-                    returnType: booking.returnType || null, // For return bookings
                     returnDate: booking.returnDate || null,
                     returnTime: booking.returnTime || null,
                     // Passenger and luggage information
@@ -362,11 +366,9 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
             }
             catch (bookingError) {
                 console.error(`Error processing booking ${doc.id}:`, bookingError);
-                console.error(`Booking data:`, doc.data());
                 // Continue with other bookings instead of failing completely
             }
         });
-        console.log(`✅ Successfully processed ${bookings.length} bookings out of ${snapshot.size} total`);
         // Sort manually in memory instead of in the query
         bookings.sort((a, b) => {
             // Sort by creation date, newest first
@@ -391,7 +393,7 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
                     bookingTypeDefinitions: {
                         hourly: "Continuous service for specified hours, no dropoff required",
                         "one-way": "Single journey from pickup to dropoff location",
-                        return: "Round-trip journey with 10% discount, uses smart reverse route",
+                        return: "Round-trip journey with smart reverse route",
                     },
                 },
             });
@@ -411,7 +413,7 @@ router.get("/user", authMiddleware_1.verifyToken, async (req, res) => {
                 bookingTypeDefinitions: {
                     hourly: "Continuous service for specified hours, no dropoff required",
                     "one-way": "Single journey from pickup to dropoff location",
-                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                    return: "Round-trip journey with smart reverse route",
                 },
             },
         });
@@ -445,7 +447,6 @@ router.get("/user/statistics", authMiddleware_1.verifyToken, async (req, res) =>
             .limit(1000); // Higher limit for statistics
         // Execute query
         const snapshot = await query.get();
-        console.log(`📊 Generating statistics for ${snapshot.size} bookings for user ${req.user.uid}`);
         // Initialize statistics
         const stats = {
             total: 0,
@@ -557,7 +558,7 @@ router.get("/user/statistics", authMiddleware_1.verifyToken, async (req, res) =>
                 bookingTypeDefinitions: {
                     hourly: "Continuous service for specified hours, no dropoff required",
                     "one-way": "Single journey from pickup to dropoff location",
-                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                    return: "Round-trip journey with smart reverse route",
                 },
             },
         });
@@ -653,7 +654,6 @@ router.get("/:id", authMiddleware_1.verifyToken, async (req, res) => {
             },
             // Special booking type fields
             hours: booking.hours || null, // For hourly bookings
-            returnType: booking.returnType || null, // For return bookings
             returnDate: booking.returnDate || null,
             returnTime: booking.returnTime || null,
             // Passenger and luggage information
@@ -690,7 +690,7 @@ router.get("/:id", authMiddleware_1.verifyToken, async (req, res) => {
             bookingTypeDefinitions: {
                 hourly: "Continuous service for specified hours, no dropoff required",
                 "one-way": "Single journey from pickup to dropoff location",
-                return: "Round-trip journey with 10% discount, uses smart reverse route",
+                return: "Round-trip journey with smart reverse route",
             },
         });
     }
@@ -736,7 +736,6 @@ router.get("/user/type/:bookingType", authMiddleware_1.verifyToken, async (req, 
             .limit(100);
         // Execute query
         const snapshot = await query.get();
-        console.log(`📋 Found ${snapshot.size} ${bookingType} bookings for user ${req.user.uid}`);
         // Map results to comprehensive booking array for user
         const bookings = [];
         snapshot.forEach((doc) => {
@@ -751,7 +750,6 @@ router.get("/user/type/:bookingType", authMiddleware_1.verifyToken, async (req, 
                 const createdAt = booking.createdAt || new Date().toISOString();
                 // Skip bookings with completely missing critical data
                 if (!booking.pickupDate || !booking.pickupTime) {
-                    console.warn(`Skipping booking ${doc.id} - missing pickup date/time`);
                     return;
                 }
                 // Create comprehensive booking object with all relevant data
@@ -790,6 +788,10 @@ router.get("/user/type/:bookingType", authMiddleware_1.verifyToken, async (req, 
                             amount: vehiclePrice,
                             currency: booking.vehicle?.price?.currency || "GBP",
                         },
+                        // Add hourly rate for hourly bookings
+                        ...(booking.bookingType === "hourly" && {
+                            hourlyRate: getHourlyRateForVehicle(booking.vehicle?.id || "N/A")
+                        }),
                     },
                     // Journey information
                     journey: {
@@ -798,7 +800,6 @@ router.get("/user/type/:bookingType", authMiddleware_1.verifyToken, async (req, 
                     },
                     // Special booking type fields
                     hours: booking.hours || null, // For hourly bookings
-                    returnType: booking.returnType || null, // For return bookings
                     returnDate: booking.returnDate || null,
                     returnTime: booking.returnTime || null,
                     // Passenger and luggage information
@@ -826,11 +827,9 @@ router.get("/user/type/:bookingType", authMiddleware_1.verifyToken, async (req, 
             }
             catch (bookingError) {
                 console.error(`Error processing booking ${doc.id}:`, bookingError);
-                console.error(`Booking data:`, doc.data());
                 // Continue with other bookings instead of failing completely
             }
         });
-        console.log(`✅ Successfully processed ${bookings.length} ${bookingType} bookings out of ${snapshot.size} total`);
         // Sort manually in memory instead of in the query
         bookings.sort((a, b) => {
             // Sort by creation date, newest first
@@ -852,7 +851,7 @@ router.get("/user/type/:bookingType", authMiddleware_1.verifyToken, async (req, 
                 bookingTypeDefinitions: {
                     hourly: "Continuous service for specified hours, no dropoff required",
                     "one-way": "Single journey from pickup to dropoff location",
-                    return: "Round-trip journey with 10% discount, uses smart reverse route",
+                    return: "Round-trip journey with smart reverse route",
                 },
             },
         });
@@ -1070,7 +1069,6 @@ router.post("/update-booking/:id", authMiddleware_1.verifyToken, rateLimiter_1.b
             passengers: bookingData.booking.passengers,
             bookingType: bookingData.booking.bookingType || "one-way",
             hours: bookingData.booking.hours,
-            returnType: bookingData.booking.returnType,
             returnDate: bookingData.booking.returnDate,
             returnTime: bookingData.booking.returnTime,
         };
@@ -1109,6 +1107,10 @@ router.post("/update-booking/:id", authMiddleware_1.verifyToken, rateLimiter_1.b
                 id: bookingData.booking.vehicle.id,
                 name: bookingData.booking.vehicle.name,
                 price: verifiedFare.price,
+                // Add hourly rate for hourly bookings
+                ...(bookingData.booking.bookingType === "hourly" && {
+                    hourlyRate: getHourlyRateForVehicle(bookingData.booking.vehicle.id)
+                }),
             },
             journey: {
                 distance_miles: verifiedFare.distance_miles,

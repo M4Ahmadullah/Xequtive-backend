@@ -138,7 +138,6 @@ class AuthService {
             // We cannot directly authenticate with email/password using Firebase Admin SDK
             // For development/testing, we'll create a workaround by checking if user exists
             // and then generating a custom token
-            console.log('Attempting to authenticate user:', email);
             // Check if user exists in Firebase Auth
             const userRecord = await firebase_1.auth.getUserByEmail(email);
             // Fetch user profile from Firestore
@@ -151,7 +150,6 @@ class AuthService {
             const customToken = await firebase_1.auth.createCustomToken(userRecord.uid, {
                 role: userData?.role || "user",
             });
-            console.log('Login successful for user:', userRecord.uid);
             return {
                 uid: userRecord.uid,
                 email: userRecord.email,
@@ -247,7 +245,6 @@ class AuthService {
             catch (error) {
                 // User doesn't exist in our system yet, but may exist in Firebase Auth
                 // This would be rare but is handled for completeness
-                console.log("User not found in system, but might exist in Firebase Auth");
             }
             // Get user profile from Firestore if it exists
             const userDoc = await firebase_1.firestore

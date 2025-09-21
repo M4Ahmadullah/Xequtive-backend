@@ -60,8 +60,10 @@ exports.vehicleClassPricing = {
                     mileageRanges: [
                         { range: { min: 0, max: 4 }, rate: 6.95 },
                         { range: { min: 4.1, max: 10.9 }, rate: 6.45 },
-                        { range: { min: 11, max: 20 }, rate: 5.97 },
-                        { range: { min: 20.1, max: 40 }, rate: 4.35 },
+                        { range: { min: 11, max: 15 }, rate: 5.80 },
+                        { range: { min: 15.1, max: 20 }, rate: 4.50 },
+                        { range: { min: 20.1, max: 30 }, rate: 3.80 },
+                        { range: { min: 30.1, max: 40 }, rate: 3.20 },
                         { range: { min: 41, max: 60 }, rate: 3.39 },
                         { range: { min: 60.1, max: 80 }, rate: 3.55 },
                         { range: { min: 81, max: 99 }, rate: 3.23 },

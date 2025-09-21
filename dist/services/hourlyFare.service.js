@@ -333,15 +333,15 @@ class HourlyFareService {
         const executivePricing = EXECUTIVE_CARS_PRICING[vehicleType.id];
         let hourlyRate;
         if (executivePricing && executivePricing.hourlyRates) {
-            // Use tiered pricing: 3-6 hours vs 6-12 hours
+            // Use tiered pricing: 3-6 hours vs 6-24 hours
             if (hours >= 3 && hours <= 6) {
                 hourlyRate = executivePricing.hourlyRates['3-6'];
             }
-            else if (hours > 6 && hours <= 12) {
+            else if (hours > 6 && hours <= 24) {
                 hourlyRate = executivePricing.hourlyRates['6-12'];
             }
             else {
-                // Fallback for hours outside the 3-12 range
+                // Fallback for hours outside the 3-24 range
                 hourlyRate = executivePricing.hourlyRates['6-12'];
             }
         }
@@ -602,7 +602,7 @@ class HourlyFareService {
             messages.push('3-6 hour rate applied');
         }
         else if (hours > 6 && hours <= 12) {
-            messages.push('6-12 hour rate applied');
+            messages.push('6-24 hour rate applied');
         }
         if (timeSurcharge > 0) {
             messages.push(`Time surcharge: £${timeSurcharge.toFixed(2)}`);

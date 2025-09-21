@@ -222,8 +222,8 @@ class EnhancedFareService {
             else if (bookingType === "hourly") {
                 // For hourly bookings, we'll use the same pricing structure but calculate based on hours
                 const hours = request.hours || 3;
-                if (hours < 3 || hours > 12) {
-                    throw new Error("Hourly bookings must be between 3 and 12 hours");
+                if (hours < 3 || hours > 24) {
+                    throw new Error("Hourly bookings must be between 3 and 24 hours");
                 }
                 // Hourly rate will be calculated per vehicle type
             }
@@ -250,11 +250,9 @@ class EnhancedFareService {
                     bookingType: request.bookingType || "one-way",
                     hours: request.hours || 0,
                     returnDiscount: returnDiscount,
-                    returnType: request.returnType,
-                    waitDuration: request.waitDuration || 0,
                 });
                 // Return vehicle option with calculated price
-                vehicleOptions.push({
+                const vehicleOption = {
                     id: vehicleType.id,
                     name: vehicleType.name,
                     description: vehicleType.description,
@@ -262,7 +260,12 @@ class EnhancedFareService {
                     imageUrl: vehicleType.imageUrl || "",
                     eta: Math.floor(Math.random() * 10) + 5, // Random ETA between 5-15 minutes
                     price: priceInfo,
-                });
+                };
+                // Add hourly rate for hourly bookings
+                if (request.bookingType === "hourly" && request.hours && request.hours > 0) {
+                    vehicleOption.hourlyRate = vehicleType.waitingRatePerHour;
+                }
+                vehicleOptions.push(vehicleOption);
             }
             // Sort vehicle options by price (ascending)
             vehicleOptions.sort((a, b) => a.price.amount - b.price.amount);
@@ -289,25 +292,37 @@ class EnhancedFareService {
     /**
      * Calculate fare for a specific vehicle type with enhanced options
      */
-    static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, hasBlackwellSilverstoneTunnel, serviceZones, passengers, bookingType = "one-way", hours = 0, returnDiscount = 0.0, returnType, waitDuration = 0, }) {
+    static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, hasBlackwellSilverstoneTunnel, serviceZones, passengers, bookingType = "one-way", hours = 0, returnDiscount = 0.0, }) {
+        console.log(`🚗 Enhanced Fare Calculation for ${vehicleType.name}:`);
+        console.log(`   Distance: ${distance.toFixed(1)} miles`);
+        console.log(`   Duration: ${duration} minutes`);
+        console.log(`   Booking Type: ${bookingType}`);
+        console.log(`   Additional Stops: ${additionalStops}`);
+        console.log(`   Hours: ${hours}`);
+        console.log(`   ${'='.repeat(50)}`);
         // Array to collect messages for this vehicle type
         const messages = [];
         // Calculate distance charge using slab-based system
         const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
+        console.log(`   📏 Distance Charge: £${distanceCharge.toFixed(2)} (${distance.toFixed(1)} miles)`);
         // Calculate additional stops charge
         const stopCharge = additionalStops * vehicleType.additionalStopFee;
+        console.log(`   🛑 Stop Charge: £${stopCharge.toFixed(2)} (${additionalStops} stops)`);
         // Calculate base fare (distance + stops)
         const baseFare = distanceCharge + stopCharge;
+        console.log(`   💰 Base Fare: £${baseFare.toFixed(2)} (distance + stops)`);
         // Apply minimum fare rule - IMPORTANT: Only use minimum fare if base fare is less than minimum
         let totalFare;
         if (baseFare < vehicleType.minimumFare) {
             totalFare = vehicleType.minimumFare;
+            console.log(`   ⬆️  Minimum Fare Applied: £${vehicleType.minimumFare.toFixed(2)} (was £${baseFare.toFixed(2)})`);
         }
         else {
             totalFare = baseFare;
+            console.log(`   ✅ Base Fare Used: £${totalFare.toFixed(2)}`);
         }
-        // Time surcharge
-        const timeSurcharge = this.calculateTimeSurcharge(requestDate, vehicleType.id);
+        // Time surcharge - REMOVED (only keeping airport fees)
+        const timeSurcharge = 0; // No time surcharge applied
         totalFare += timeSurcharge;
         // Airport fees
         let airportFee = 0;
@@ -315,6 +330,7 @@ class EnhancedFareService {
             const airport = specialZones_1.AIRPORTS[airports.pickupAirport];
             if (airport) {
                 airportFee += airport.fees.pickup;
+                console.log(`   ✈️  Airport Pickup Fee: £${airport.fees.pickup.toFixed(2)} (${airport.name})`);
                 messages.push(`Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
             }
         }
@@ -323,39 +339,16 @@ class EnhancedFareService {
             const airport = specialZones_1.AIRPORTS[airports.dropoffAirport];
             if (airport) {
                 airportFee += airport.fees.dropoff;
+                console.log(`   ✈️  Airport Dropoff Fee: £${airport.fees.dropoff.toFixed(2)} (${airport.name})`);
                 messages.push(`Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
             }
         }
         totalFare += airportFee;
-        // Special zone fees
+        console.log(`   ✈️  Total Airport Fees: £${airportFee.toFixed(2)}`);
+        // Special zone fees - REMOVED (only keeping airport fees)
         let specialZoneFees = 0;
-        if (passesThroughCCZ && (0, specialZones_1.isZoneActive)("CONGESTION_CHARGE", requestDate)) {
-            const congestionCharge = specialZones_1.SPECIAL_ZONES.CONGESTION_CHARGE.fee;
-            specialZoneFees += congestionCharge;
-            messages.push(`Congestion charge: £${congestionCharge.toFixed(2)}`);
-        }
-        if (hasDartfordCrossing) {
-            const dartfordCharge = specialZones_1.SPECIAL_ZONES.DARTFORD_CROSSING.fee;
-            specialZoneFees += dartfordCharge;
-            messages.push(`Dartford crossing: £${dartfordCharge.toFixed(2)}`);
-        }
-        // Check for Blackwell & Silverstone Tunnel
-        if (hasBlackwellSilverstoneTunnel) {
-            let tunnelFee = 1.5; // Default off-peak rate
-            let feeDescription = "Blackwell & Silverstone Tunnel (off-peak)";
-            // Check if it's peak time (6-10AM or 4-7PM on weekdays)
-            const day = requestDate.getDay();
-            const hour = requestDate.getHours();
-            const isWeekday = day >= 1 && day <= 5; // Monday to Friday
-            const isMorningPeak = hour >= 6 && hour < 10;
-            const isAfternoonPeak = hour >= 16 && hour < 19;
-            if (isWeekday && (isMorningPeak || isAfternoonPeak)) {
-                tunnelFee = 4.0; // Peak rate
-                feeDescription = "Blackwell & Silverstone Tunnel (peak)";
-            }
-            specialZoneFees += tunnelFee;
-            messages.push(`${feeDescription}: £${tunnelFee.toFixed(2)}`);
-        }
+        // All special zone charges removed except airport fees
+        // This includes: congestion charge, dartford crossing, tunnel fees
         totalFare += specialZoneFees;
         // Handle different booking types
         let finalDistanceCharge = distanceCharge;
@@ -369,41 +362,16 @@ class EnhancedFareService {
             finalDistanceCharge = 0;
         }
         else if (bookingType === "return") {
-            // For return bookings, double the distance (no discount)
-            totalFare = totalFare * 2;
-            // Add return booking messages based on return type
-            if (returnType === 'wait-and-return') {
-                messages.push("Return journey: Driver waits at destination and returns");
-                messages.push("Return route: Smart reverse of outbound journey");
-                // Add wait duration message if provided
-                if (waitDuration && waitDuration > 0) {
-                    messages.push(`Driver wait time: ${waitDuration} hours`);
-                }
-                else {
-                    messages.push("Driver wait time: Up to 12 hours (within same day)");
-                }
-            }
-            else if (returnType === 'later-date') {
-                messages.push("Return journey: Scheduled return on different date/time");
-                messages.push("Return route: Smart reverse of outbound journey");
-            }
+            // For return bookings, double only the distance charge (not total fare)
+            const returnDistanceCharge = distanceCharge;
+            totalFare += returnDistanceCharge;
+            console.log(`   🔄 Return Distance Charge: £${returnDistanceCharge.toFixed(2)} (doubled)`);
+            // Add return booking messages
+            messages.push("Return journey: Scheduled return on specified date/time");
+            messages.push("Return route: Smart reverse of outbound journey");
             messages.push("Return journey: Distance doubled (outbound + reverse route)");
         }
-        // Add time surcharge message if applicable
-        if (timeSurcharge > 0) {
-            const day = requestDate.getDay();
-            const hours = requestDate.getHours();
-            const isWeekend = day === 5 || day === 6 || day === 0; // Friday, Saturday, Sunday
-            const timeType = isWeekend ? 'Weekend' : 'Weekday';
-            let period = 'Non-peak';
-            if (hours >= 6 && hours < 15) {
-                period = 'Peak medium';
-            }
-            else if (hours >= 15) {
-                period = 'Peak high';
-            }
-            messages.push(`${timeType} ${period.toLowerCase()} surcharge: £${timeSurcharge.toFixed(2)}`);
-        }
+        // Time surcharge messages - REMOVED (no time surcharge applied)
         // Add additional stops message if applicable
         if (additionalStops > 0) {
             if (bookingType === "return") {
@@ -414,35 +382,20 @@ class EnhancedFareService {
                 messages.push(`Additional stops (${additionalStops}): £${stopCharge.toFixed(2)}`);
             }
         }
-        // Calculate equipment charges
+        // Equipment charges - REMOVED (only keeping airport fees)
         let equipmentFees = 0;
-        if (passengers) {
-            if (passengers.babySeat > 0) {
-                const babySeatFee = passengers.babySeat * serviceArea_1.EQUIPMENT_FEES.BABY_SEAT;
-                equipmentFees += babySeatFee;
-                messages.push(`Baby seat (${passengers.babySeat}): £${babySeatFee.toFixed(2)}`);
-            }
-            if (passengers.childSeat > 0) {
-                const childSeatFee = passengers.childSeat * serviceArea_1.EQUIPMENT_FEES.CHILD_SEAT;
-                equipmentFees += childSeatFee;
-                messages.push(`Child seat (${passengers.childSeat}): £${childSeatFee.toFixed(2)}`);
-            }
-            if (passengers.boosterSeat > 0) {
-                const boosterSeatFee = passengers.boosterSeat * serviceArea_1.EQUIPMENT_FEES.BOOSTER_SEAT;
-                equipmentFees += boosterSeatFee;
-                messages.push(`Booster seat (${passengers.boosterSeat}): £${boosterSeatFee.toFixed(2)}`);
-            }
-            if (passengers.wheelchair > 0) {
-                const wheelchairFee = passengers.wheelchair * serviceArea_1.EQUIPMENT_FEES.WHEELCHAIR;
-                equipmentFees += wheelchairFee;
-                messages.push(`Wheelchair (${passengers.wheelchair}): £${wheelchairFee.toFixed(2)}`);
-            }
-        }
-        if (equipmentFees > 0) {
-            totalFare += equipmentFees;
-        }
-        // Round down to nearest whole number (e.g., 14.1 becomes 14, 14.9 becomes 14)
-        const roundedFare = Math.floor(totalFare);
+        // All equipment charges removed except airport fees
+        // This includes: baby seats, child seats, booster seats, wheelchairs
+        totalFare += equipmentFees;
+        console.log(`   💵 Total Fare Before Rounding: £${totalFare.toFixed(2)}`);
+        // Round to nearest £5 for easier cash payments
+        // 90.1 - 92.00 <= £90
+        // 92.01 - 94.99 = £95
+        const roundedFare = this.roundToNearestFive(totalFare);
+        console.log(`   💰 Final Fare (rounded to nearest £5): £${roundedFare.toFixed(2)}`);
+        console.log(`   📊 Rounding: £${totalFare.toFixed(2)} → £${roundedFare.toFixed(2)}`);
+        console.log(`   ${'='.repeat(50)}`);
+        console.log(''); // Empty line for better separation
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,
@@ -551,6 +504,17 @@ class EnhancedFareService {
         const timeCategory = isWeekend ? 'weekends' : 'weekdays';
         const timePeriod = timePricing_1.timeSurcharges[timeCategory][period];
         return timePeriod?.surcharges[mappedVehicleType] || 0;
+    }
+    /**
+     * Round fare to nearest £5 for easier cash payments
+     * 90.1 - 92.00 <= £90
+     * 92.01 - 94.99 = £95
+     */
+    static roundToNearestFive(amount) {
+        // Round to nearest 5
+        const rounded = Math.round(amount / 5) * 5;
+        // Ensure minimum fare is respected
+        return Math.max(rounded, 5); // Minimum £5 fare
     }
     /**
      * Get hourly rate for a vehicle type based on hours

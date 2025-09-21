@@ -28,6 +28,7 @@ The Xequtive Dashboard is a comprehensive admin-only platform that provides comp
 - **Add Internal Notes**: Operational notes for drivers and customer service
 - **Pricing Adjustments**: Modify fares, apply discounts, add charges
 - **Special Requests**: Add, modify, or remove special requirements
+- **🆕 Admin Booking Edit**: Comprehensive booking modification with audit trail
 
 **🔄 COMPLETE STATUS WORKFLOW CONTROL:**
 - **Pending → Confirmed**: Review and approve new booking requests
@@ -592,6 +593,20 @@ async function fetchWithAuth(endpoint, options = {}) {
 
 All endpoints require authentication using the Authorization header with a valid token from an admin user.
 
+### 🆕 Admin Booking Edit
+
+**Endpoint:** `PUT /api/dashboard/bookings/:id`
+
+**Description:** Comprehensive booking modification with admin override capabilities.
+
+**Features:**
+- Update any booking field except customer email
+- Admin pricing and distance overrides
+- Complete audit trail
+- Flexible field updates
+
+**Documentation:** [ADMIN_BOOKING_EDIT_FEATURE.md](./ADMIN_BOOKING_EDIT_FEATURE.md)
+
 ### Analytics Endpoints
 
 #### Overview Analytics
@@ -1011,6 +1026,39 @@ Provides website traffic analytics data with visitor insights.
 ```
 
 ### Bookings Management
+
+#### 🆕 Admin Booking Edit (Comprehensive)
+
+**Endpoint:** `PUT /api/dashboard/bookings/:id`
+
+**Description:** Comprehensive booking modification with admin override capabilities and audit trail.
+
+**Key Features:**
+- ✅ Update any booking field except customer email (protected)
+- ✅ Admin pricing and distance overrides with reason tracking
+- ✅ Complete audit trail with admin information and timestamps
+- ✅ Flexible field updates (single or multiple fields in one request)
+- ✅ Comprehensive validation and error handling
+- ✅ Security: Admin-only access with authentication required
+
+**Documentation:** See [ADMIN_BOOKING_EDIT_FEATURE.md](./ADMIN_BOOKING_EDIT_FEATURE.md) for complete implementation guide, examples, and best practices.
+
+**Quick Example:**
+```json
+PUT /api/dashboard/bookings/{bookingId}
+{
+  "status": "confirmed",
+  "vehicleType": "executive-saloon",
+  "pricing": {
+    "amount": 150.00,
+    "currency": "GBP"
+  },
+  "adminOverride": {
+    "pricingOverridden": true,
+    "reason": "Customer requested premium service upgrade"
+  }
+}
+```
 
 #### Get All Bookings (Enhanced)
 

@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { AuthenticatedRequest, ApiResponse } from "../types";
+import { AuthenticatedRequest, ApiResponse, AdminBookingUpdateResponse, EnhancedBookingData, PermanentBookingData } from "../types";
 import { verifyToken, isAdmin, verifyDashboardToken } from "../middleware/authMiddleware";
 import { firestore } from "../config/firebase";
 import { Query, DocumentData } from "firebase-admin/firestore";
@@ -7,6 +7,7 @@ import { auth } from "../config/firebase";
 import { z } from "zod";
 import { AuthService } from "../services/auth.service";
 import { vehicleTypes } from "../config/vehicleTypes";
+import { adminBookingUpdateSchema } from "../validation/adminBooking.schema";
 
 const router = Router();
 
@@ -1478,9 +1479,9 @@ router.get(
   }
 );
 
-// Update booking
+// Update booking (basic update)
 router.put(
-  "/bookings/:id",
+  "/bookings/:id/basic",
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const bookingId = req.params.id;
@@ -3422,6 +3423,323 @@ router.get("/logs", async (req: AuthenticatedRequest, res: Response) => {
       error: {
         code: "SERVER_ERROR",
         message: "Failed to fetch system logs",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+    } as ApiResponse<never>);
+  }
+});
+
+/**
+ * @route PUT /api/dashboard/bookings/:id
+ * @desc Update booking details (admin only)
+ * @access Admin
+ * @param {string} id - Booking ID
+ * @body {AdminBookingUpdateRequest} - Booking update data
+ * @returns {AdminBookingUpdateResponse} - Updated booking information
+ */
+router.put("/bookings/:id", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.role || req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          message: "Admin access required",
+          code: "dashboard/admin-required",
+        },
+      } as ApiResponse<never>);
+    }
+
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Validate the update data
+    const validationResult = adminBookingUpdateSchema.safeParse(updateData);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: "Invalid booking update data",
+          code: "dashboard/invalid-data",
+          details: validationResult.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', '),
+        },
+      } as ApiResponse<never>);
+    }
+
+    const validatedData = validationResult.data;
+
+    // Check if booking exists
+    const bookingDoc = await firestore.collection("bookings").doc(id).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: "Booking not found",
+          code: "dashboard/booking-not-found",
+        },
+      } as ApiResponse<never>);
+    }
+
+    const existingBooking = bookingDoc.data() as any;
+    
+    // Prepare update object with only provided fields
+    const updateFields: any = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Track which fields are being updated
+    const updatedFields: string[] = [];
+
+    // Update basic booking information
+    if (validatedData.bookingType !== undefined) {
+      updateFields.bookingType = validatedData.bookingType;
+      updatedFields.push("bookingType");
+    }
+
+    if (validatedData.status !== undefined) {
+      updateFields.status = validatedData.status;
+      updatedFields.push("status");
+    }
+
+    // Update customer information (except email)
+    if (validatedData.firstName !== undefined) {
+      updateFields["customer.fullName"] = `${validatedData.firstName} ${validatedData.lastName || existingBooking.customer?.fullName?.split(' ')[1] || ''}`.trim();
+      updatedFields.push("customer.fullName");
+    }
+
+    if (validatedData.lastName !== undefined) {
+      updateFields["customer.fullName"] = `${validatedData.firstName || existingBooking.customer?.fullName?.split(' ')[0] || ''} ${validatedData.lastName}`.trim();
+      updatedFields.push("customer.fullName");
+    }
+
+    if (validatedData.phone !== undefined) {
+      updateFields["customer.phoneNumber"] = validatedData.phone;
+      updatedFields.push("customer.phoneNumber");
+    }
+
+    // Update location information
+    if (validatedData.locations) {
+      if (validatedData.locations.pickup) {
+        updateFields["locations.pickup"] = {
+          ...existingBooking.locations?.pickup,
+          ...validatedData.locations.pickup,
+        };
+        updatedFields.push("locations.pickup");
+      }
+
+      if (validatedData.locations.dropoff) {
+        updateFields["locations.dropoff"] = {
+          ...existingBooking.locations?.dropoff,
+          ...validatedData.locations.dropoff,
+        };
+        updatedFields.push("locations.dropoff");
+      }
+
+      if (validatedData.locations.additionalStops !== undefined) {
+        updateFields["locations.additionalStops"] = validatedData.locations.additionalStops;
+        updatedFields.push("locations.additionalStops");
+      }
+    }
+
+    // Update date and time information
+    if (validatedData.pickupDate !== undefined) {
+      updateFields.pickupDate = validatedData.pickupDate;
+      updatedFields.push("pickupDate");
+    }
+
+    if (validatedData.pickupTime !== undefined) {
+      updateFields.pickupTime = validatedData.pickupTime;
+      updatedFields.push("pickupTime");
+    }
+
+    if (validatedData.returnDate !== undefined) {
+      updateFields.returnDate = validatedData.returnDate;
+      updatedFields.push("returnDate");
+    }
+
+    if (validatedData.returnTime !== undefined) {
+      updateFields.returnTime = validatedData.returnTime;
+      updatedFields.push("returnTime");
+    }
+
+    // Update vehicle information
+    if (validatedData.vehicleType !== undefined) {
+      updateFields["vehicle.id"] = validatedData.vehicleType;
+      // Update vehicle name based on type
+      const vehicleType = vehicleTypes[validatedData.vehicleType];
+      if (vehicleType) {
+        updateFields["vehicle.name"] = vehicleType.name;
+      }
+      updatedFields.push("vehicle.id", "vehicle.name");
+    }
+
+    // Update pricing information (admin override)
+    if (validatedData.pricing) {
+      const currentPricing = existingBooking.vehicle?.price || {};
+      updateFields["vehicle.price"] = {
+        ...currentPricing,
+        ...validatedData.pricing,
+      };
+      updatedFields.push("vehicle.price");
+    }
+
+    // Update distance information (admin override)
+    if (validatedData.distance) {
+      const currentDistance = existingBooking.journey || {};
+      updateFields.journey = {
+        ...currentDistance,
+        ...validatedData.distance,
+      };
+      updatedFields.push("journey");
+    }
+
+    // Update hourly booking specific fields
+    if (validatedData.hours !== undefined) {
+      updateFields.hours = validatedData.hours;
+      updatedFields.push("hours");
+    }
+
+    // Update additional information
+    if (validatedData.passengers !== undefined) {
+      updateFields.passengers = validatedData.passengers;
+      updatedFields.push("passengers");
+    }
+
+    if (validatedData.luggage !== undefined) {
+      updateFields.luggage = validatedData.luggage;
+      updatedFields.push("luggage");
+    }
+
+    if (validatedData.specialRequests !== undefined) {
+      updateFields.specialRequests = validatedData.specialRequests;
+      updatedFields.push("specialRequests");
+    }
+
+    if (validatedData.notes !== undefined) {
+      updateFields.notes = validatedData.notes;
+      updatedFields.push("notes");
+    }
+
+    // Update payment information
+    if (validatedData.paymentMethod !== undefined) {
+      updateFields.paymentMethod = validatedData.paymentMethod;
+      updatedFields.push("paymentMethod");
+    }
+
+    if (validatedData.paymentStatus !== undefined) {
+      updateFields.paymentStatus = validatedData.paymentStatus;
+      updatedFields.push("paymentStatus");
+    }
+
+    // Update driver assignment
+    if (validatedData.driverId !== undefined) {
+      updateFields.driverId = validatedData.driverId;
+      updatedFields.push("driverId");
+    }
+
+    if (validatedData.driverName !== undefined) {
+      updateFields.driverName = validatedData.driverName;
+      updatedFields.push("driverName");
+    }
+
+    if (validatedData.driverPhone !== undefined) {
+      updateFields.driverPhone = validatedData.driverPhone;
+      updatedFields.push("driverPhone");
+    }
+
+    // Update flight information
+    if (validatedData.flightNumber !== undefined) {
+      updateFields.flightNumber = validatedData.flightNumber;
+      updatedFields.push("flightNumber");
+    }
+
+    if (validatedData.terminal !== undefined) {
+      updateFields.terminal = validatedData.terminal;
+      updatedFields.push("terminal");
+    }
+
+    // Update travel information
+    if (validatedData.travelInformation !== undefined) {
+      const currentTravelInfo = existingBooking.travelInformation || {};
+      updateFields.travelInformation = {
+        ...currentTravelInfo,
+        ...validatedData.travelInformation,
+      };
+      updatedFields.push("travelInformation");
+    }
+
+    // Update payment methods
+    if (validatedData.paymentMethods !== undefined) {
+      const currentPaymentMethods = existingBooking.paymentMethods || {};
+      updateFields.paymentMethods = {
+        ...currentPaymentMethods,
+        ...validatedData.paymentMethods,
+      };
+      updatedFields.push("paymentMethods");
+    }
+
+    // Update additional booking details
+    if (validatedData.waitingTime !== undefined) {
+      updateFields.waitingTime = validatedData.waitingTime;
+      updatedFields.push("waitingTime");
+    }
+
+    if (validatedData.numVehicles !== undefined) {
+      updateFields.numVehicles = validatedData.numVehicles;
+      updatedFields.push("numVehicles");
+    }
+
+    // Update admin override information
+    if (validatedData.adminOverride) {
+      const currentAdminOverride = existingBooking.adminOverride || {};
+      updateFields.adminOverride = {
+        ...currentAdminOverride,
+        ...validatedData.adminOverride,
+        lastUpdatedBy: req.user.uid,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      updatedFields.push("adminOverride");
+    }
+
+    // Add admin update log
+    const adminLog = {
+      action: "booking_updated",
+      adminId: req.user.uid,
+      adminEmail: req.user.email,
+      timestamp: new Date().toISOString(),
+      updatedFields: updatedFields,
+      reason: validatedData.adminOverride?.reason || "Admin update",
+    };
+
+    updateFields.adminLogs = [...(existingBooking.adminLogs || []), adminLog];
+
+    // Update the booking in Firestore
+    await firestore.collection("bookings").doc(id).update(updateFields);
+
+    // Get the updated booking
+    const updatedBookingDoc = await firestore.collection("bookings").doc(id).get();
+    const updatedBooking = updatedBookingDoc.data() as any;
+
+    console.log(`✅ Admin ${req.user.email} updated booking ${id}. Fields updated: ${updatedFields.join(', ')}`);
+
+    return res.json({
+      success: true,
+      data: {
+        id,
+        message: "Booking updated successfully",
+        updatedFields,
+        booking: updatedBooking,
+      },
+    } as AdminBookingUpdateResponse);
+
+  } catch (error) {
+    console.error("❌ Failed to update booking:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to update booking",
+        code: "dashboard/update-error",
         details: error instanceof Error ? error.message : "Unknown error",
       },
     } as ApiResponse<never>);

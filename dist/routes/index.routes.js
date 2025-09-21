@@ -9,6 +9,7 @@ const booking_routes_1 = __importDefault(require("./booking.routes"));
 const fare_routes_1 = __importDefault(require("./fare.routes"));
 const dashboard_routes_1 = __importDefault(require("./dashboard.routes"));
 const hourlyBooking_routes_1 = __importDefault(require("./hourlyBooking.routes"));
+const contact_routes_1 = __importDefault(require("./contact.routes"));
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const email_service_1 = require("../services/email.service");
 const env_1 = require("../config/env");
@@ -61,7 +62,7 @@ router.get("/hourly-booking-health", (_req, res) => {
                 cancelBooking: "/api/hourly-bookings/:id/cancel",
             },
             features: [
-                "Hourly fare calculation (3-12 hours)",
+                "Hourly fare calculation (3-24 hours)",
                 "Multiple vehicle types support",
                 "Time-based surcharges",
                 "Equipment fees for extra passengers/luggage",
@@ -179,4 +180,6 @@ router.use("/fare-estimate", fare_routes_1.default);
 router.use("/hourly-bookings", hourlyBooking_routes_1.default);
 // Dashboard routes (admin only)
 router.use("/dashboard", dashboard_routes_1.default);
+// Contact routes
+router.use("/contact", contact_routes_1.default);
 exports.default = router;

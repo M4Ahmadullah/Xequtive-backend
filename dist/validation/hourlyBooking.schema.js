@@ -7,11 +7,11 @@
  *
  * Executive Cars supports three booking types:
  * 1. One-Way: Point-to-point journeys with Executive Cars pricing
- * 2. Hourly: 3-12 hours of continuous service with tiered pricing
+ * 2. Hourly: 3-24 hours of continuous service with tiered pricing
  * 3. Return: Round-trip journeys with 10% discount
  *
  * Key Features:
- * - Tiered hourly pricing (3-6 hours vs 6-12 hours)
+ * - Tiered hourly pricing (3-6 hours vs 6-24 hours)
  * - Return booking discount (10%)
  * - Time-based surcharges (weekday/weekend)
  * - Multiple vehicle support
@@ -69,16 +69,15 @@ const oneWayDetailsSchema = zod_1.z.object({
     additionalStops: zod_1.z.array(locationSchema).optional(),
 });
 // Hourly booking details validation
-// Supports tiered pricing: 3-6 hours (higher rates) vs 6-12 hours (lower rates)
+// Supports tiered pricing: 3-6 hours (higher rates) vs 6-24 hours (lower rates)
 // Hourly bookings don't need a dropoff location - driver stays with passenger
 const hourlyDetailsSchema = zod_1.z.object({
-    hours: zod_1.z.number().min(3, "Minimum 3 hours required").max(12, "Maximum 12 hours allowed"),
+    hours: zod_1.z.number().min(3, "Minimum 3 hours required").max(24, "Maximum 24 hours allowed"),
     pickupLocation: locationSchema,
     // No dropoff location needed for hourly bookings
     additionalStops: zod_1.z.array(locationSchema).optional(),
 });
 // Return booking details validation
-// All return bookings receive a 10% discount on the total fare
 const returnDetailsSchema = zod_1.z.object({
     // Outbound journey
     outboundPickup: locationSchema,
@@ -107,7 +106,7 @@ exports.fareEstimateSchema = zod_1.z.object({
     }).optional(),
     // Hourly specific
     hourlyDetails: zod_1.z.object({
-        hours: zod_1.z.number().min(3).max(12),
+        hours: zod_1.z.number().min(3).max(24),
         pickupLocation: coordinatesSchema,
         // No dropoff location needed for hourly bookings
         additionalStops: zod_1.z.array(coordinatesSchema).optional(),

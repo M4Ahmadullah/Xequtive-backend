@@ -459,6 +459,139 @@ class EmailService {
       </html>
     `;
     }
+    /**
+     * Send contact form notification to support team
+     */
+    static async sendContactNotification(contactData) {
+        try {
+            const supportEmail = process.env.SUPPORT_EMAIL || "support@xeqcars.com";
+            const subject = `New Contact Message from ${contactData.firstName} ${contactData.lastName} - ${contactData.id}`;
+            const html = this.getContactNotificationEmailTemplate(contactData);
+            const text = this.getContactNotificationTextTemplate(contactData);
+            return await this.sendEmail(supportEmail, subject, html, text);
+        }
+        catch (error) {
+            logger_1.default.error("Failed to send contact notification:", error);
+            return false;
+        }
+    }
+    static getContactNotificationEmailTemplate(contactData) {
+        const timestamp = new Date(contactData.createdAt).toLocaleString('en-GB', {
+            timeZone: 'Europe/London',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>New Contact Message</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+          </div>
+          
+          <h1 style="color: #2c3e50; font-size: 24px;">New Contact Message Received</h1>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%;">Message ID:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${contactData.id}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Name:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${contactData.firstName} ${contactData.lastName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Email:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                  <a href="mailto:${contactData.email}" style="color: #3498db;">${contactData.email}</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Phone:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                  <a href="tel:${contactData.phone}" style="color: #3498db;">${contactData.phone}</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Received:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${timestamp}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">User Status:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                  ${contactData.userId ? '✅ Logged in user' : '❌ Anonymous user'}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Status:</td>
+                <td style="padding: 8px 0;">
+                  <span style="background-color: #e74c3c; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px; text-transform: uppercase;">
+                    ${contactData.status}
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </div>
+          
+          <h2 style="color: #2c3e50; font-size: 18px; margin-top: 30px;">Message:</h2>
+          <div style="background-color: #ffffff; border: 1px solid #ddd; padding: 20px; border-radius: 5px; margin: 10px 0;">
+            <p style="margin: 0; white-space: pre-wrap;">${contactData.message}</p>
+          </div>
+          
+          <div style="background-color: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: #2c3e50;">
+              <strong>Action Required:</strong> Please respond to this inquiry within 24 hours.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${this.frontendUrl}/admin/contact/${contactData.id}" style="background-color: #e74c3c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">View in Admin Panel</a>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #7f8c8d; font-size: 14px; text-align: center;">
+            &copy; ${new Date().getFullYear()} Xequtive Ltd. All rights reserved.
+          </p>
+        </body>
+      </html>
+    `;
+    }
+    static getContactNotificationTextTemplate(contactData) {
+        const timestamp = new Date(contactData.createdAt).toLocaleString('en-GB', {
+            timeZone: 'Europe/London',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        return `
+New Contact Message Received
+
+Message ID: ${contactData.id}
+Name: ${contactData.firstName} ${contactData.lastName}
+Email: ${contactData.email}
+Phone: ${contactData.phone}
+Received: ${timestamp}
+User Status: ${contactData.userId ? 'Logged in user' : 'Anonymous user'}
+Status: ${contactData.status}
+
+Message:
+${contactData.message}
+
+Action Required: Please respond to this inquiry within 24 hours.
+
+View in Admin Panel: ${this.frontendUrl}/admin/contact/${contactData.id}
+    `.trim();
+    }
 }
 exports.EmailService = EmailService;
 EmailService.resend = null;
