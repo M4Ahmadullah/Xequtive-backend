@@ -146,6 +146,10 @@ export interface VehicleOption {
   eta: number;
   imageUrl: string;
   features?: string[];
+  hourlyRates?: {
+    "3-6": number;
+    "6-24": number;
+  };
 }
 
 export interface EnhancedFareEstimateResponse {

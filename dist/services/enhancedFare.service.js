@@ -261,9 +261,9 @@ class EnhancedFareService {
                     eta: Math.floor(Math.random() * 10) + 5, // Random ETA between 5-15 minutes
                     price: priceInfo,
                 };
-                // Add hourly rate for hourly bookings
+                // Add hourly rates for hourly bookings
                 if (request.bookingType === "hourly" && request.hours && request.hours > 0) {
-                    vehicleOption.hourlyRate = vehicleType.waitingRatePerHour;
+                    vehicleOption.hourlyRates = this.getHourlyRatesForVehicle(vehicleType.id);
                 }
                 vehicleOptions.push(vehicleOption);
             }
@@ -293,33 +293,21 @@ class EnhancedFareService {
      * Calculate fare for a specific vehicle type with enhanced options
      */
     static calculateVehicleOptionFare({ vehicleType, distance, duration, additionalStops, requestDate, airports, passesThroughCCZ, hasDartfordCrossing, hasBlackwellSilverstoneTunnel, serviceZones, passengers, bookingType = "one-way", hours = 0, returnDiscount = 0.0, }) {
-        console.log(`🚗 Enhanced Fare Calculation for ${vehicleType.name}:`);
-        console.log(`   Distance: ${distance.toFixed(1)} miles`);
-        console.log(`   Duration: ${duration} minutes`);
-        console.log(`   Booking Type: ${bookingType}`);
-        console.log(`   Additional Stops: ${additionalStops}`);
-        console.log(`   Hours: ${hours}`);
-        console.log(`   ${'='.repeat(50)}`);
         // Array to collect messages for this vehicle type
         const messages = [];
         // Calculate distance charge using slab-based system
         const distanceCharge = this.calculateSlabBasedDistanceFare(vehicleType, distance);
-        console.log(`   📏 Distance Charge: £${distanceCharge.toFixed(2)} (${distance.toFixed(1)} miles)`);
         // Calculate additional stops charge
         const stopCharge = additionalStops * vehicleType.additionalStopFee;
-        console.log(`   🛑 Stop Charge: £${stopCharge.toFixed(2)} (${additionalStops} stops)`);
         // Calculate base fare (distance + stops)
         const baseFare = distanceCharge + stopCharge;
-        console.log(`   💰 Base Fare: £${baseFare.toFixed(2)} (distance + stops)`);
         // Apply minimum fare rule - IMPORTANT: Only use minimum fare if base fare is less than minimum
         let totalFare;
         if (baseFare < vehicleType.minimumFare) {
             totalFare = vehicleType.minimumFare;
-            console.log(`   ⬆️  Minimum Fare Applied: £${vehicleType.minimumFare.toFixed(2)} (was £${baseFare.toFixed(2)})`);
         }
         else {
             totalFare = baseFare;
-            console.log(`   ✅ Base Fare Used: £${totalFare.toFixed(2)}`);
         }
         // Time surcharge - REMOVED (only keeping airport fees)
         const timeSurcharge = 0; // No time surcharge applied
@@ -330,7 +318,6 @@ class EnhancedFareService {
             const airport = specialZones_1.AIRPORTS[airports.pickupAirport];
             if (airport) {
                 airportFee += airport.fees.pickup;
-                console.log(`   ✈️  Airport Pickup Fee: £${airport.fees.pickup.toFixed(2)} (${airport.name})`);
                 messages.push(`Airport pickup fee (${airport.name}): £${airport.fees.pickup.toFixed(2)}`);
             }
         }
@@ -339,12 +326,10 @@ class EnhancedFareService {
             const airport = specialZones_1.AIRPORTS[airports.dropoffAirport];
             if (airport) {
                 airportFee += airport.fees.dropoff;
-                console.log(`   ✈️  Airport Dropoff Fee: £${airport.fees.dropoff.toFixed(2)} (${airport.name})`);
                 messages.push(`Airport dropoff fee (${airport.name}): £${airport.fees.dropoff.toFixed(2)}`);
             }
         }
         totalFare += airportFee;
-        console.log(`   ✈️  Total Airport Fees: £${airportFee.toFixed(2)}`);
         // Special zone fees - REMOVED (only keeping airport fees)
         let specialZoneFees = 0;
         // All special zone charges removed except airport fees
@@ -365,7 +350,6 @@ class EnhancedFareService {
             // For return bookings, double only the distance charge (not total fare)
             const returnDistanceCharge = distanceCharge;
             totalFare += returnDistanceCharge;
-            console.log(`   🔄 Return Distance Charge: £${returnDistanceCharge.toFixed(2)} (doubled)`);
             // Add return booking messages
             messages.push("Return journey: Scheduled return on specified date/time");
             messages.push("Return route: Smart reverse of outbound journey");
@@ -387,15 +371,10 @@ class EnhancedFareService {
         // All equipment charges removed except airport fees
         // This includes: baby seats, child seats, booster seats, wheelchairs
         totalFare += equipmentFees;
-        console.log(`   💵 Total Fare Before Rounding: £${totalFare.toFixed(2)}`);
         // Round to nearest £5 for easier cash payments
         // 90.1 - 92.00 <= £90
         // 92.01 - 94.99 = £95
         const roundedFare = this.roundToNearestFive(totalFare);
-        console.log(`   💰 Final Fare (rounded to nearest £5): £${roundedFare.toFixed(2)}`);
-        console.log(`   📊 Rounding: £${totalFare.toFixed(2)} → £${roundedFare.toFixed(2)}`);
-        console.log(`   ${'='.repeat(50)}`);
-        console.log(''); // Empty line for better separation
         return {
             amount: roundedFare,
             currency: this.DEFAULT_CURRENCY,
@@ -517,23 +496,27 @@ class EnhancedFareService {
         return Math.max(rounded, 5); // Minimum £5 fare
     }
     /**
-     * Get hourly rate for a vehicle type based on hours
+     * Get hourly rates for a vehicle type (both tiers)
+     */
+    static getHourlyRatesForVehicle(vehicleId) {
+        const hourlyRates = {
+            'saloon': { '3-6': 30.00, '6-24': 25.00 },
+            'estate': { '3-6': 35.00, '6-24': 30.00 },
+            'mpv-6': { '3-6': 35.00, '6-24': 35.00 },
+            'mpv-8': { '3-6': 40.00, '6-24': 35.00 },
+            'executive-saloon': { '3-6': 45.00, '6-24': 40.00 },
+            'executive-mpv': { '3-6': 55.00, '6-24': 50.00 },
+            'luxury-vehicle': { '3-6': 75.00, '6-24': 70.00 },
+            'vip-suv': { '3-6': 85.00, '6-24': 80.00 }
+        };
+        return hourlyRates[vehicleId] || { '3-6': 30.00, '6-24': 25.00 };
+    }
+    /**
+     * Get hourly rate for a vehicle type based on hours (for calculation)
      */
     static getHourlyRate(vehicleType, hours) {
-        // Use the same hourly rates as the Executive Cars system
-        const hourlyRates = {
-            'saloon': { '3-6': 30.00, '6-12': 25.00 },
-            'estate': { '3-6': 35.00, '6-12': 30.00 },
-            'mpv-6': { '3-6': 35.00, '6-12': 35.00 },
-            'mpv-8': { '3-6': 40.00, '6-12': 35.00 },
-            'executive-saloon': { '3-6': 45.00, '6-12': 40.00 },
-            'executive-mpv': { '3-6': 55.00, '6-12': 50.00 },
-            'vip-saloon': { '3-6': 75.00, '6-12': 70.00 },
-            'vip-suv': { '3-6': 85.00, '6-12': 80.00 }
-        };
-        const vehicleId = vehicleType.id;
-        const rateKey = hours <= 6 ? '3-6' : '6-12';
-        return hourlyRates[vehicleId]?.[rateKey] || 30.00;
+        const rates = this.getHourlyRatesForVehicle(vehicleType.id);
+        return hours <= 6 ? rates['3-6'] : rates['6-24'];
     }
 }
 exports.EnhancedFareService = EnhancedFareService;

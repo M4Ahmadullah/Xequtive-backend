@@ -343,9 +343,9 @@ export class EnhancedFareService {
           price: priceInfo,
         };
 
-        // Add hourly rate for hourly bookings
+        // Add hourly rates for hourly bookings
         if (request.bookingType === "hourly" && request.hours && request.hours > 0) {
-          vehicleOption.hourlyRate = vehicleType.waitingRatePerHour;
+          vehicleOption.hourlyRates = this.getHourlyRatesForVehicle(vehicleType.id);
         }
 
         vehicleOptions.push(vehicleOption);
@@ -631,24 +631,28 @@ export class EnhancedFareService {
   }
 
   /**
-   * Get hourly rate for a vehicle type based on hours
+   * Get hourly rates for a vehicle type (both tiers)
    */
-  private static getHourlyRate(vehicleType: VehicleType, hours: number): number {
-    // Use the same hourly rates as the Executive Cars system
+  private static getHourlyRatesForVehicle(vehicleId: string): { "3-6": number; "6-24": number } {
     const hourlyRates = {
-      'saloon': { '3-6': 30.00, '6-12': 25.00 },
-      'estate': { '3-6': 35.00, '6-12': 30.00 },
-      'mpv-6': { '3-6': 35.00, '6-12': 35.00 },
-      'mpv-8': { '3-6': 40.00, '6-12': 35.00 },
-      'executive-saloon': { '3-6': 45.00, '6-12': 40.00 },
-      'executive-mpv': { '3-6': 55.00, '6-12': 50.00 },
-      'vip-saloon': { '3-6': 75.00, '6-12': 70.00 },
-      'vip-suv': { '3-6': 85.00, '6-12': 80.00 }
+      'saloon': { '3-6': 30.00, '6-24': 25.00 },
+      'estate': { '3-6': 35.00, '6-24': 30.00 },
+      'mpv-6': { '3-6': 35.00, '6-24': 35.00 },
+      'mpv-8': { '3-6': 40.00, '6-24': 35.00 },
+      'executive-saloon': { '3-6': 45.00, '6-24': 40.00 },
+      'executive-mpv': { '3-6': 55.00, '6-24': 50.00 },
+      'luxury-vehicle': { '3-6': 75.00, '6-24': 70.00 },
+      'vip-suv': { '3-6': 85.00, '6-24': 80.00 }
     };
 
-    const vehicleId = vehicleType.id;
-    const rateKey = hours <= 6 ? '3-6' : '6-12';
-    
-    return hourlyRates[vehicleId as keyof typeof hourlyRates]?.[rateKey] || 30.00;
+    return hourlyRates[vehicleId as keyof typeof hourlyRates] || { '3-6': 30.00, '6-24': 25.00 };
+  }
+
+  /**
+   * Get hourly rate for a vehicle type based on hours (for calculation)
+   */
+  private static getHourlyRate(vehicleType: VehicleType, hours: number): number {
+    const rates = this.getHourlyRatesForVehicle(vehicleType.id);
+    return hours <= 6 ? rates['3-6'] : rates['6-24'];
   }
 }
