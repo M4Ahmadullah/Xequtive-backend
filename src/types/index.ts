@@ -666,6 +666,8 @@ export interface ContactMessageData {
   firstName: string;
   lastName: string;
   email: string;
+  inquiryType: "bookings" | "payments" | "business-account" | "lost-property" | "other";
+  otherInquiryType?: string;
   phone: string;
   message: string;
   agreeToTerms: boolean;
@@ -679,6 +681,8 @@ export interface ContactMessageRequest {
   firstName: string;
   lastName: string;
   email: string;
+  inquiryType: "bookings" | "payments" | "business-account" | "lost-property" | "other";
+  otherInquiryType?: string;
   phone: string;
   message: string;
   agreeToTerms: boolean;

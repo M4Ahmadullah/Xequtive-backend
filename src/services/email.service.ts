@@ -635,6 +635,15 @@ export class EmailService {
                 </td>
               </tr>
               <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Inquiry Type:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                  <span style="background-color: #3498db; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px; text-transform: uppercase;">
+                    ${this.formatInquiryType(contactData.inquiryType)}
+                  </span>
+                  ${contactData.otherInquiryType ? `<br><small style="color: #666; margin-top: 4px; display: block;">${contactData.otherInquiryType}</small>` : ''}
+                </td>
+              </tr>
+              <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Received:</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${timestamp}</td>
               </tr>
@@ -696,6 +705,7 @@ Message ID: ${contactData.id}
 Name: ${contactData.firstName} ${contactData.lastName}
 Email: ${contactData.email}
 Phone: ${contactData.phone}
+Inquiry Type: ${this.formatInquiryType(contactData.inquiryType)}${contactData.otherInquiryType ? ` (${contactData.otherInquiryType})` : ''}
 Received: ${timestamp}
 User Status: ${contactData.userId ? 'Logged in user' : 'Anonymous user'}
 Status: ${contactData.status}
@@ -707,5 +717,20 @@ Action Required: Please respond to this inquiry within 24 hours.
 
 View in Admin Panel: ${this.frontendUrl}/admin/contact/${contactData.id}
     `.trim();
+  }
+
+  /**
+   * Format inquiry type for display
+   */
+  private static formatInquiryType(inquiryType: string): string {
+    const typeMap: { [key: string]: string } = {
+      'bookings': 'Bookings',
+      'payments': 'Payments',
+      'business-account': 'Business Account',
+      'lost-property': 'Lost Property',
+      'other': 'Other'
+    };
+    
+    return typeMap[inquiryType] || inquiryType;
   }
 }

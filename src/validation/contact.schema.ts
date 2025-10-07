@@ -16,6 +16,14 @@ export const contactMessageSchema = z.object({
     .email("Invalid email format")
     .max(255, "Email must be less than 255 characters"),
   
+  inquiryType: z.enum(["bookings", "payments", "business-account", "lost-property", "other"], {
+    errorMap: () => ({ message: "Please select a valid inquiry type" })
+  }),
+  
+  otherInquiryType: z.string()
+    .max(100, "Other inquiry type must be less than 100 characters")
+    .optional(),
+  
   phone: z.string()
     .min(1, "Phone number is required")
     .max(50, "Phone number must be less than 50 characters")
@@ -30,6 +38,15 @@ export const contactMessageSchema = z.object({
     .refine((val) => val === true, {
       message: "You must agree to the terms and conditions"
     })
+}).refine((data) => {
+  // If inquiryType is "other", then otherInquiryType is required
+  if (data.inquiryType === "other" && (!data.otherInquiryType || data.otherInquiryType.trim() === "")) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please specify the inquiry type when selecting 'Other'",
+  path: ["otherInquiryType"]
 });
 
 // Export the type
