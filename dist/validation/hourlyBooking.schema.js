@@ -7,11 +7,11 @@
  *
  * Executive Cars supports three booking types:
  * 1. One-Way: Point-to-point journeys with Executive Cars pricing
- * 2. Hourly: 3-24 hours of continuous service with tiered pricing
+ * 2. Hourly: 3-8 hours of continuous service with tiered pricing
  * 3. Return: Round-trip journeys with 10% discount
  *
  * Key Features:
- * - Tiered hourly pricing (3-6 hours vs 6-24 hours)
+ * - Tiered hourly pricing (3-6 hours vs 6-8 hours)
  * - Return booking discount (10%)
  * - Time-based surcharges (weekday/weekend)
  * - Multiple vehicle support

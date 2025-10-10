@@ -9,7 +9,7 @@ import { ContactMessageData } from "../types";
 export class EmailService {
   private static resend: Resend | null = null;
   private static senderAddress =
-    process.env.EMAIL_SENDER_ADDRESS || "Xequtive <onboarding@resend.dev>";
+    process.env.EMAIL_SENDER_ADDRESS || "Xequtive <info@xeqcars.com>";
   private static resendApiKey = process.env.RESEND_API_KEY || "";
   private static frontendUrl = env.email.frontendUrl || "";
   private static logoUrl = env.email.logoUrl || "";
@@ -44,36 +44,36 @@ export class EmailService {
     try {
       // Skip sending if API key is not configured
       if (!this.resendApiKey) {
-        logger.info(`📧 Email skipped (no API key): ${to} - ${subject}`);
+        logger.error(`❌ RESEND_API_KEY not configured. Email not sent to: ${to} - ${subject}`);
         return false;
       }
 
-      // DEVELOPMENT MODE: Simulate email sending without actually sending
-      // This helps us test the email flow without hitting Resend's limitations
-      logger.info(`📧 Email sent: ${to} - ${subject}`);
+      logger.info(`📧 Attempting to send email to: ${to} - ${subject}`);
+      logger.info(`📧 Sender address: ${this.senderAddress}`);
+      logger.info(`📧 API Key configured: ${this.resendApiKey ? 'Yes' : 'No'}`);
 
-      // Return true to simulate success
-      return true;
-
-      // COMMENTED OUT FOR NOW - Uncomment this for production use
-      /*
       const resend = this.initializeResend();
       const { data, error } = await resend.emails.send({
         from: this.senderAddress,
-        to,
+        to: [to],
         subject,
         html,
         text: text || "",
       });
 
       if (error) {
-        logger.error(`Failed to send email: ${error.message}`);
+        logger.error(`❌ Resend API error:`, error);
         return false;
       }
 
-      logger.info(`Email sent successfully: ${data?.id}`);
+      logger.info(`✅ Email sent successfully via Resend:`, {
+        to,
+        subject,
+        messageId: data?.id,
+        sender: this.senderAddress
+      });
+
       return true;
-      */
     } catch (error: any) {
       logger.error(`❌ Email failed: ${error.message}`);
 
@@ -222,7 +222,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Hello ${name},</h1>
           <p>Thank you for signing up with Xequtive. Please verify your email address to complete your registration.</p>
@@ -250,7 +250,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Welcome to Xequtive, ${name}!</h1>
           <p>Thank you for joining Xequtive - London's premium transport service.</p>
@@ -277,7 +277,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Reset Your Password</h1>
           <p>We received a request to reset your password. Click the button below to create a new password:</p>
@@ -307,7 +307,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Hello ${name},</h1>
           <p>Your Xequtive account password has been successfully reset.</p>
@@ -334,7 +334,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Hello ${name},</h1>
           <p>Thank you for completing your profile information. Your Xequtive account is now fully set up and ready to use.</p>
@@ -378,7 +378,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Booking Confirmation</h1>
           <p>Dear ${bookingData.fullName},</p>
@@ -426,7 +426,7 @@ export class EmailService {
           <p>Your driver will arrive at the pickup location at the scheduled time.</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${this.frontendUrl}/bookings/${bookingData.id}" style="background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Manage Booking</a>
+            <a href="https://xeqcars.com/dashboard" style="background-color: #8B0000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Manage Booking</a>
           </div>
           
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
@@ -454,7 +454,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Booking Cancellation</h1>
           <p>Dear ${bookingData.fullName},</p>
@@ -520,7 +520,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Your Ride is Coming Up!</h1>
           <p>Dear ${bookingData.fullName},</p>
@@ -607,7 +607,7 @@ export class EmailService {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${this.logoUrl}" alt="Xequtive Logo" width="150">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
           
           <h1 style="color: #2c3e50; font-size: 24px;">New Contact Message Received</h1>

@@ -194,6 +194,26 @@ router.post(
         throw error;
       }
 
+      // Check minimum advance booking time (8 hours for one-way and return bookings)
+      if (bookingData.bookingType === "one-way" || bookingData.bookingType === "return") {
+        const bookingDateTime = new Date(
+          `${bookingData.datetime.date}T${bookingData.datetime.time}`
+        );
+        const now = new Date();
+        const hoursDifference = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursDifference < 8) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: "MINIMUM_ADVANCE_BOOKING_TIME",
+              message: "Bookings must be made at least 8 hours in advance",
+              details: `Booking is scheduled in ${hoursDifference.toFixed(2)} hours. Minimum advance time is 8 hours.`,
+            },
+          } as ApiResponse<never>);
+        }
+      }
+
       // Create fare estimation request from booking data
       const fareRequest: FareEstimateRequest = {
         bookingType: bookingData.bookingType,

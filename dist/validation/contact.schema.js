@@ -15,6 +15,12 @@ exports.contactMessageSchema = zod_1.z.object({
     email: zod_1.z.string()
         .email("Invalid email format")
         .max(255, "Email must be less than 255 characters"),
+    inquiryType: zod_1.z.enum(["bookings", "payments", "business-account", "lost-property", "other"], {
+        errorMap: () => ({ message: "Please select a valid inquiry type" })
+    }),
+    otherInquiryType: zod_1.z.string()
+        .max(100, "Other inquiry type must be less than 100 characters")
+        .optional(),
     phone: zod_1.z.string()
         .min(1, "Phone number is required")
         .max(50, "Phone number must be less than 50 characters")
@@ -27,4 +33,13 @@ exports.contactMessageSchema = zod_1.z.object({
         .refine((val) => val === true, {
         message: "You must agree to the terms and conditions"
     })
+}).refine((data) => {
+    // If inquiryType is "other", then otherInquiryType is required
+    if (data.inquiryType === "other" && (!data.otherInquiryType || data.otherInquiryType.trim() === "")) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Please specify the inquiry type when selecting 'Other'",
+    path: ["otherInquiryType"]
 });

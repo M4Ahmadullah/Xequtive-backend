@@ -36,7 +36,7 @@ const envSchema = z.object({
   EMAIL_SENDER_ADDRESS: z
     .string()
     .optional()
-    .default("Xequtive <onboarding@resend.dev>"),
+    .default("Xequtive <info@xeqcars.com>"),
 
   // Frontend URLs for email templates
   FRONTEND_URL: z.string(),
