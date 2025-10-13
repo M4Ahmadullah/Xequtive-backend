@@ -36,8 +36,15 @@ export interface WhatsAppBookingData {
 
 export interface WhatsAppIncomingMessage {
   from: string;
-  body: string;
+  body?: string;
   chatId: string;
+  timestamp: string;
+}
+
+interface WhatsAppReaction {
+  from: string;
+  chatId: string;
+  reaction: string;
   timestamp: string;
 }
 
@@ -320,14 +327,47 @@ export class WhatsAppService {
   }
 
   /**
-   * Process incoming WhatsApp messages to detect booking confirmations
+   * Process WhatsApp reactions (checkmark) to booking messages
    */
+  static async processBookingReaction(reaction: WhatsAppReaction): Promise<void> {
+    try {
+      logger.info(`📱 Processing booking reaction from ${reaction.from}: ${reaction.reaction}`);
+
+      // Find the most recent pending booking
+      logger.info(`🔍 Searching for most recent pending booking...`);
+      const booking = await this.findMostRecentPendingBooking();
+      
+      if (booking) {
+        logger.info(`✅ Found pending booking: ${booking.referenceNumber} (ID: ${booking.id})`);
+        logger.info(`📧 Booking email: ${booking.customer?.email || 'No email found'}`);
+        
+        // Update booking status to confirmed
+        logger.info(`🔄 Updating booking status to confirmed...`);
+        await this.updateBookingStatus(booking.id, 'confirmed');
+        
+        // Send confirmation email to customer
+        logger.info(`📧 Sending confirmation email...`);
+        await this.sendBookingConfirmationEmail(booking);
+        
+        // Send notification back to WhatsApp group
+        logger.info(`📱 Sending notification to WhatsApp group...`);
+        await this.sendConfirmationNotification(booking.referenceNumber);
+        
+        logger.info(`✅ Booking ${booking.referenceNumber} confirmed via checkmark reaction, email sent, and notification sent to group`);
+      } else {
+        logger.warn(`⚠️ No pending booking found for reaction from ${reaction.from}`);
+        logger.info(`🔍 This could mean: 1) No bookings exist, 2) All bookings are already confirmed, or 3) There's an issue with the query`);
+      }
+    } catch (error) {
+      logger.error('❌ Error processing booking reaction:', error);
+    }
+  }
   static async processIncomingMessage(message: WhatsAppIncomingMessage): Promise<void> {
     try {
-      logger.info(`📱 Processing incoming WhatsApp message from ${message.from}: ${message.body}`);
+      logger.info(`📱 Processing incoming WhatsApp message from ${message.from}: ${message.body || 'No body'}`);
 
       // Check if this is a booking confirmation message
-      const confirmationData = this.parseBookingConfirmationMessage(message.body);
+      const confirmationData = message.body ? this.parseBookingConfirmationMessage(message.body) : null;
       
       if (confirmationData) {
         logger.info(`✅ Detected booking confirmation for reference: ${confirmationData.referenceNumber}`);
@@ -342,7 +382,10 @@ export class WhatsAppService {
           // Send confirmation email to customer
           await this.sendBookingConfirmationEmail(booking);
           
-          logger.info(`✅ Booking ${confirmationData.referenceNumber} confirmed and email sent to customer`);
+          // Send notification back to WhatsApp group
+          await this.sendConfirmationNotification(confirmationData.referenceNumber);
+          
+          logger.info(`✅ Booking ${confirmationData.referenceNumber} confirmed, email sent, and notification sent to group`);
         } else {
           logger.warn(`⚠️ Booking not found for reference: ${confirmationData.referenceNumber}`);
         }
@@ -356,12 +399,23 @@ export class WhatsAppService {
 
   /**
    * Parse booking confirmation message from support team
-   * Expected format: "CONFIRMED: XEQ_123" or "BOOKING CONFIRMED: XEQ_123" or similar
+   * Expected format: Full booking confirmation message with "*BOOKING CONFIRMATION*" header
+   * or simple patterns like "CONFIRMED: XEQ_123"
    */
   private static parseBookingConfirmationMessage(messageBody: string): { referenceNumber: string } | null {
-    const trimmedMessage = messageBody.trim().toUpperCase();
+    const trimmedMessage = messageBody.trim();
     
-    // Look for confirmation patterns
+    // Check if this is a full booking confirmation message with the specific format
+    if (trimmedMessage.includes('*BOOKING CONFIRMATION*') && trimmedMessage.includes('*Ref:*')) {
+      // Extract reference number from the message
+      const refMatch = trimmedMessage.match(/\*Ref:\*\s*([A-Z]+_\d+)/i);
+      if (refMatch) {
+        return { referenceNumber: refMatch[1] };
+      }
+    }
+    
+    // Fallback: Look for simple confirmation patterns
+    const upperMessage = trimmedMessage.toUpperCase();
     const confirmationPatterns = [
       /CONFIRMED:\s*([A-Z]+_\d+)/i,
       /BOOKING\s+CONFIRMED:\s*([A-Z]+_\d+)/i,
@@ -372,7 +426,7 @@ export class WhatsAppService {
     ];
 
     for (const pattern of confirmationPatterns) {
-      const match = trimmedMessage.match(pattern);
+      const match = upperMessage.match(pattern);
       if (match && match[1]) {
         return { referenceNumber: match[1] };
       }
@@ -380,7 +434,7 @@ export class WhatsAppService {
 
     // Also check for simple patterns like "XEQ_123 ✓" or "XEQ_123 CONFIRMED"
     const simplePattern = /([A-Z]+_\d+)\s*[✓✅]|([A-Z]+_\d+)\s*CONFIRMED/i;
-    const simpleMatch = trimmedMessage.match(simplePattern);
+    const simpleMatch = upperMessage.match(simplePattern);
     if (simpleMatch && (simpleMatch[1] || simpleMatch[2])) {
       return { referenceNumber: simpleMatch[1] || simpleMatch[2] };
     }
@@ -389,8 +443,58 @@ export class WhatsAppService {
   }
 
   /**
-   * Find booking by reference number in Firestore
+   * Find the most recent pending booking from both collections
    */
+  private static async findMostRecentPendingBooking(): Promise<any> {
+    try {
+      // Check regular bookings collection
+      const bookingsRef = firestore.collection('bookings');
+      const bookingsSnapshot = await bookingsRef
+        .where('status', '==', 'pending')
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+
+      // Check hourly bookings collection
+      const hourlyBookingsRef = firestore.collection('hourlyBookings');
+      const hourlyBookingsSnapshot = await hourlyBookingsRef
+        .where('status', '==', 'pending')
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+
+      // Find the most recent booking from both collections
+      let mostRecentBooking = null;
+      let mostRecentTime = 0;
+
+      // Check regular bookings
+      if (!bookingsSnapshot.empty) {
+        const doc = bookingsSnapshot.docs[0];
+        const bookingData = doc.data();
+        const createdAt = bookingData.createdAt?.toDate?.() || new Date(bookingData.createdAt);
+        if (createdAt.getTime() > mostRecentTime) {
+          mostRecentBooking = { id: doc.id, ...bookingData };
+          mostRecentTime = createdAt.getTime();
+        }
+      }
+
+      // Check hourly bookings
+      if (!hourlyBookingsSnapshot.empty) {
+        const doc = hourlyBookingsSnapshot.docs[0];
+        const bookingData = doc.data();
+        const createdAt = bookingData.createdAt?.toDate?.() || new Date(bookingData.createdAt);
+        if (createdAt.getTime() > mostRecentTime) {
+          mostRecentBooking = { id: doc.id, ...bookingData };
+          mostRecentTime = createdAt.getTime();
+        }
+      }
+
+      return mostRecentBooking;
+    } catch (error) {
+      logger.error('❌ Error finding most recent pending booking:', error);
+      return null;
+    }
+  }
   private static async findBookingByReference(referenceNumber: string): Promise<any> {
     try {
       const bookingsRef = firestore.collection('bookings');
@@ -409,17 +513,34 @@ export class WhatsAppService {
   }
 
   /**
-   * Update booking status in Firestore
+   * Update booking status in Firestore (tries both collections)
    */
   private static async updateBookingStatus(bookingId: string, status: string): Promise<void> {
     try {
-      await firestore.collection('bookings').doc(bookingId).update({
-        status,
-        confirmedAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      logger.info(`✅ Updated booking ${bookingId} status to ${status}`);
+      // Try regular bookings collection first
+      try {
+        await firestore.collection('bookings').doc(bookingId).update({
+          status,
+          confirmedAt: new Date(),
+          updatedAt: new Date()
+        });
+        logger.info(`✅ Updated booking ${bookingId} status to ${status} in bookings collection`);
+        return;
+      } catch (error) {
+        // If not found in bookings, try hourly bookings collection
+        try {
+          await firestore.collection('hourlyBookings').doc(bookingId).update({
+            status,
+            confirmedAt: new Date(),
+            updatedAt: new Date()
+          });
+          logger.info(`✅ Updated booking ${bookingId} status to ${status} in hourlyBookings collection`);
+          return;
+        } catch (hourlyError) {
+          logger.error(`❌ Booking ${bookingId} not found in either collection:`, error);
+          throw error; // Throw the original error
+        }
+      }
     } catch (error) {
       logger.error('❌ Error updating booking status:', error);
       throw error;
@@ -446,6 +567,37 @@ export class WhatsAppService {
     } catch (error) {
       logger.error('❌ Error sending booking confirmation email:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Send confirmation notification back to WhatsApp group
+   */
+  private static async sendConfirmationNotification(referenceNumber: string): Promise<void> {
+    try {
+      const message = `✅ Confirmation Email Triggered for ${referenceNumber}`;
+      
+      const data = qs.stringify({
+        token: env.whatsapp.ultraMsgToken,
+        to: this.GROUP_ID,
+        body: message
+      });
+
+      const response = await axios.post(`${this.ULTRA_MSG_API_URL}/${env.whatsapp.instanceId}/messages/chat`, data, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 10000
+      });
+
+      if (response.data?.sent) {
+        logger.info(`✅ Confirmation notification sent to WhatsApp group for ${referenceNumber}`);
+      } else {
+        logger.warn(`⚠️ Failed to send confirmation notification for ${referenceNumber}:`, response.data);
+      }
+    } catch (error) {
+      logger.error(`❌ Error sending confirmation notification for ${referenceNumber}:`, error);
+      // Don't throw error - this is not critical for the main flow
     }
   }
 

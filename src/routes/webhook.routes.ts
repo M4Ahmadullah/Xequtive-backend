@@ -12,7 +12,7 @@ router.post('/whatsapp', async (req, res) => {
   try {
     logger.info('📱 Received WhatsApp webhook:', JSON.stringify(req.body, null, 2));
 
-    const { from, body, type, chatId } = req.body;
+    const { from, body, type, chatId, reaction } = req.body;
 
     // Only process messages from the Xeq Bookings group
     if (chatId !== '120363405665891669@g.us') {
@@ -20,19 +20,23 @@ router.post('/whatsapp', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Ignored - not from booking group' });
     }
 
-    // Only process text messages
-    if (type !== 'chat') {
-      logger.info('📱 Ignoring non-text message type:', type);
-      return res.status(200).json({ success: true, message: 'Ignored - not a text message' });
+    // Process reactions (checkmark) to booking messages
+    if (type === 'reaction' && reaction === '✅') {
+      logger.info('📱 Processing checkmark reaction from:', from);
+      await WhatsAppService.processBookingReaction({
+        from,
+        chatId,
+        reaction,
+        timestamp: new Date().toISOString()
+      });
+      return res.status(200).json({ success: true, message: 'Reaction processed' });
     }
 
-    // Process the message for booking confirmation
-    await WhatsAppService.processIncomingMessage({
-      from,
-      body,
-      chatId,
-      timestamp: new Date().toISOString()
-    });
+    // Ignore other message types
+    if (type !== 'reaction') {
+      logger.info('📱 Ignoring non-reaction message type:', type);
+      return res.status(200).json({ success: true, message: 'Ignored - not a reaction' });
+    }
 
     res.status(200).json({ success: true, message: 'Message processed' });
   } catch (error) {

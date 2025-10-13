@@ -239,13 +239,42 @@ class WhatsAppService {
         return message;
     }
     /**
-     * Process incoming WhatsApp messages to detect booking confirmations
+     * Process WhatsApp reactions (checkmark) to booking messages
      */
+    static async processBookingReaction(reaction) {
+        try {
+            logger_1.default.info(`📱 Processing booking reaction from ${reaction.from}: ${reaction.reaction}`);
+            // Find the most recent pending booking
+            logger_1.default.info(`🔍 Searching for most recent pending booking...`);
+            const booking = await this.findMostRecentPendingBooking();
+            if (booking) {
+                logger_1.default.info(`✅ Found pending booking: ${booking.referenceNumber} (ID: ${booking.id})`);
+                logger_1.default.info(`📧 Booking email: ${booking.customer?.email || 'No email found'}`);
+                // Update booking status to confirmed
+                logger_1.default.info(`🔄 Updating booking status to confirmed...`);
+                await this.updateBookingStatus(booking.id, 'confirmed');
+                // Send confirmation email to customer
+                logger_1.default.info(`📧 Sending confirmation email...`);
+                await this.sendBookingConfirmationEmail(booking);
+                // Send notification back to WhatsApp group
+                logger_1.default.info(`📱 Sending notification to WhatsApp group...`);
+                await this.sendConfirmationNotification(booking.referenceNumber);
+                logger_1.default.info(`✅ Booking ${booking.referenceNumber} confirmed via checkmark reaction, email sent, and notification sent to group`);
+            }
+            else {
+                logger_1.default.warn(`⚠️ No pending booking found for reaction from ${reaction.from}`);
+                logger_1.default.info(`🔍 This could mean: 1) No bookings exist, 2) All bookings are already confirmed, or 3) There's an issue with the query`);
+            }
+        }
+        catch (error) {
+            logger_1.default.error('❌ Error processing booking reaction:', error);
+        }
+    }
     static async processIncomingMessage(message) {
         try {
-            logger_1.default.info(`📱 Processing incoming WhatsApp message from ${message.from}: ${message.body}`);
+            logger_1.default.info(`📱 Processing incoming WhatsApp message from ${message.from}: ${message.body || 'No body'}`);
             // Check if this is a booking confirmation message
-            const confirmationData = this.parseBookingConfirmationMessage(message.body);
+            const confirmationData = message.body ? this.parseBookingConfirmationMessage(message.body) : null;
             if (confirmationData) {
                 logger_1.default.info(`✅ Detected booking confirmation for reference: ${confirmationData.referenceNumber}`);
                 // Find the booking in Firestore
@@ -255,7 +284,9 @@ class WhatsAppService {
                     await this.updateBookingStatus(booking.id, 'confirmed');
                     // Send confirmation email to customer
                     await this.sendBookingConfirmationEmail(booking);
-                    logger_1.default.info(`✅ Booking ${confirmationData.referenceNumber} confirmed and email sent to customer`);
+                    // Send notification back to WhatsApp group
+                    await this.sendConfirmationNotification(confirmationData.referenceNumber);
+                    logger_1.default.info(`✅ Booking ${confirmationData.referenceNumber} confirmed, email sent, and notification sent to group`);
                 }
                 else {
                     logger_1.default.warn(`⚠️ Booking not found for reference: ${confirmationData.referenceNumber}`);
@@ -271,11 +302,21 @@ class WhatsAppService {
     }
     /**
      * Parse booking confirmation message from support team
-     * Expected format: "CONFIRMED: XEQ_123" or "BOOKING CONFIRMED: XEQ_123" or similar
+     * Expected format: Full booking confirmation message with "*BOOKING CONFIRMATION*" header
+     * or simple patterns like "CONFIRMED: XEQ_123"
      */
     static parseBookingConfirmationMessage(messageBody) {
-        const trimmedMessage = messageBody.trim().toUpperCase();
-        // Look for confirmation patterns
+        const trimmedMessage = messageBody.trim();
+        // Check if this is a full booking confirmation message with the specific format
+        if (trimmedMessage.includes('*BOOKING CONFIRMATION*') && trimmedMessage.includes('*Ref:*')) {
+            // Extract reference number from the message
+            const refMatch = trimmedMessage.match(/\*Ref:\*\s*([A-Z]+_\d+)/i);
+            if (refMatch) {
+                return { referenceNumber: refMatch[1] };
+            }
+        }
+        // Fallback: Look for simple confirmation patterns
+        const upperMessage = trimmedMessage.toUpperCase();
         const confirmationPatterns = [
             /CONFIRMED:\s*([A-Z]+_\d+)/i,
             /BOOKING\s+CONFIRMED:\s*([A-Z]+_\d+)/i,
@@ -285,22 +326,68 @@ class WhatsAppService {
             /DONE:\s*([A-Z]+_\d+)/i
         ];
         for (const pattern of confirmationPatterns) {
-            const match = trimmedMessage.match(pattern);
+            const match = upperMessage.match(pattern);
             if (match && match[1]) {
                 return { referenceNumber: match[1] };
             }
         }
         // Also check for simple patterns like "XEQ_123 ✓" or "XEQ_123 CONFIRMED"
         const simplePattern = /([A-Z]+_\d+)\s*[✓✅]|([A-Z]+_\d+)\s*CONFIRMED/i;
-        const simpleMatch = trimmedMessage.match(simplePattern);
+        const simpleMatch = upperMessage.match(simplePattern);
         if (simpleMatch && (simpleMatch[1] || simpleMatch[2])) {
             return { referenceNumber: simpleMatch[1] || simpleMatch[2] };
         }
         return null;
     }
     /**
-     * Find booking by reference number in Firestore
+     * Find the most recent pending booking from both collections
      */
+    static async findMostRecentPendingBooking() {
+        try {
+            // Check regular bookings collection
+            const bookingsRef = firebase_1.firestore.collection('bookings');
+            const bookingsSnapshot = await bookingsRef
+                .where('status', '==', 'pending')
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            // Check hourly bookings collection
+            const hourlyBookingsRef = firebase_1.firestore.collection('hourlyBookings');
+            const hourlyBookingsSnapshot = await hourlyBookingsRef
+                .where('status', '==', 'pending')
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            // Find the most recent booking from both collections
+            let mostRecentBooking = null;
+            let mostRecentTime = 0;
+            // Check regular bookings
+            if (!bookingsSnapshot.empty) {
+                const doc = bookingsSnapshot.docs[0];
+                const bookingData = doc.data();
+                const createdAt = bookingData.createdAt?.toDate?.() || new Date(bookingData.createdAt);
+                if (createdAt.getTime() > mostRecentTime) {
+                    mostRecentBooking = { id: doc.id, ...bookingData };
+                    mostRecentTime = createdAt.getTime();
+                }
+            }
+            // Check hourly bookings
+            if (!hourlyBookingsSnapshot.empty) {
+                const doc = hourlyBookingsSnapshot.docs[0];
+                const bookingData = doc.data();
+                const createdAt = bookingData.createdAt?.toDate?.() || new Date(bookingData.createdAt);
+                if (createdAt.getTime() > mostRecentTime) {
+                    mostRecentBooking = { id: doc.id, ...bookingData };
+                    mostRecentTime = createdAt.getTime();
+                }
+            }
+            return mostRecentBooking;
+        }
+        catch (error) {
+            logger_1.default.error('❌ Error finding most recent pending booking:', error);
+            return null;
+        }
+    }
     static async findBookingByReference(referenceNumber) {
         try {
             const bookingsRef = firebase_1.firestore.collection('bookings');
@@ -317,16 +404,36 @@ class WhatsAppService {
         }
     }
     /**
-     * Update booking status in Firestore
+     * Update booking status in Firestore (tries both collections)
      */
     static async updateBookingStatus(bookingId, status) {
         try {
-            await firebase_1.firestore.collection('bookings').doc(bookingId).update({
-                status,
-                confirmedAt: new Date(),
-                updatedAt: new Date()
-            });
-            logger_1.default.info(`✅ Updated booking ${bookingId} status to ${status}`);
+            // Try regular bookings collection first
+            try {
+                await firebase_1.firestore.collection('bookings').doc(bookingId).update({
+                    status,
+                    confirmedAt: new Date(),
+                    updatedAt: new Date()
+                });
+                logger_1.default.info(`✅ Updated booking ${bookingId} status to ${status} in bookings collection`);
+                return;
+            }
+            catch (error) {
+                // If not found in bookings, try hourly bookings collection
+                try {
+                    await firebase_1.firestore.collection('hourlyBookings').doc(bookingId).update({
+                        status,
+                        confirmedAt: new Date(),
+                        updatedAt: new Date()
+                    });
+                    logger_1.default.info(`✅ Updated booking ${bookingId} status to ${status} in hourlyBookings collection`);
+                    return;
+                }
+                catch (hourlyError) {
+                    logger_1.default.error(`❌ Booking ${bookingId} not found in either collection:`, error);
+                    throw error; // Throw the original error
+                }
+            }
         }
         catch (error) {
             logger_1.default.error('❌ Error updating booking status:', error);
@@ -354,6 +461,35 @@ class WhatsAppService {
         catch (error) {
             logger_1.default.error('❌ Error sending booking confirmation email:', error);
             throw error;
+        }
+    }
+    /**
+     * Send confirmation notification back to WhatsApp group
+     */
+    static async sendConfirmationNotification(referenceNumber) {
+        try {
+            const message = `✅ Confirmation Email Triggered for ${referenceNumber}`;
+            const data = qs_1.default.stringify({
+                token: env_1.env.whatsapp.ultraMsgToken,
+                to: this.GROUP_ID,
+                body: message
+            });
+            const response = await axios_1.default.post(`${this.ULTRA_MSG_API_URL}/${env_1.env.whatsapp.instanceId}/messages/chat`, data, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                timeout: 10000
+            });
+            if (response.data?.sent) {
+                logger_1.default.info(`✅ Confirmation notification sent to WhatsApp group for ${referenceNumber}`);
+            }
+            else {
+                logger_1.default.warn(`⚠️ Failed to send confirmation notification for ${referenceNumber}:`, response.data);
+            }
+        }
+        catch (error) {
+            logger_1.default.error(`❌ Error sending confirmation notification for ${referenceNumber}:`, error);
+            // Don't throw error - this is not critical for the main flow
         }
     }
     /**

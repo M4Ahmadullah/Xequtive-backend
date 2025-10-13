@@ -308,23 +308,23 @@ router.post(
 
       console.log(`📅 Executive Cars booking created: ${referenceNumber} (${bookingDoc.id}) | User: ${req.user.uid} | Type: ${permanentBooking.bookingType} | Vehicle: ${permanentBooking.vehicle.name} | Price: £${permanentBooking.vehicle.price.amount}`);
 
-      // Send booking confirmation email (non-blocking)
-      EmailService.sendBookingConfirmationEmail(
-        permanentBooking.customer.email,
-        {
-          id: bookingDoc.id,
-          referenceNumber: referenceNumber,
-          fullName: permanentBooking.customer.fullName,
-          pickupDate: permanentBooking.pickupDate,
-          pickupTime: permanentBooking.pickupTime,
-          pickupLocation: getPickupLocation(permanentBooking),
-          dropoffLocation: getDropoffLocation(permanentBooking) || "Hourly booking",
-          vehicleType: permanentBooking.vehicle.name,
-          price: permanentBooking.vehicle.price.amount,
-        }
-      ).catch((error) => {
-        console.error("Failed to send Executive Cars booking confirmation email:", error);
-      });
+      // Send booking confirmation email (non-blocking) - COMMENTED OUT
+      // EmailService.sendBookingCreationEmail(
+      //   permanentBooking.customer.email,
+      //   {
+      //     id: bookingDoc.id,
+      //     referenceNumber: referenceNumber,
+      //     fullName: permanentBooking.customer.fullName,
+      //     pickupDate: permanentBooking.pickupDate,
+      //     pickupTime: permanentBooking.pickupTime,
+      //     pickupLocation: getPickupLocation(permanentBooking),
+      //     dropoffLocation: getDropoffLocation(permanentBooking) || "Hourly booking",
+      //     vehicleType: permanentBooking.vehicle.name,
+      //     price: permanentBooking.vehicle.price.amount,
+      //   }
+      // ).catch((error) => {
+      //   console.error("Failed to send Executive Cars booking confirmation email:", error);
+      // });
 
       // Send WhatsApp notification to group (non-blocking)
       WhatsAppService.sendBookingNotification({

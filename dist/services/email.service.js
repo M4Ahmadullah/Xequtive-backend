@@ -127,10 +127,15 @@ class EmailService {
         return this.sendEmail(email, subject, html);
     }
     /**
-     * Sends a booking confirmation email
+     * Sends a booking creation email (when booking is first created)
      */
+    static async sendBookingCreationEmail(email, bookingData) {
+        const subject = `Booking Created: ${bookingData.referenceNumber}`;
+        const html = this.getBookingCreationEmailTemplate(bookingData);
+        return this.sendEmail(email, subject, html);
+    }
     static async sendBookingConfirmationEmail(email, bookingData) {
-        const subject = `Booking Confirmation: ${bookingData.referenceNumber}`;
+        const subject = `Booking Confirmed: ${bookingData.referenceNumber}`;
         const html = this.getBookingConfirmationEmailTemplate(bookingData);
         return this.sendEmail(email, subject, html);
     }
@@ -375,19 +380,19 @@ class EmailService {
       </html>
     `;
     }
-    static getBookingConfirmationEmailTemplate(bookingData) {
+    static getBookingCreationEmailTemplate(bookingData) {
         return `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Booking Confirmation</title>
+          <title>Booking Creation</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
             <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
           </div>
-          <h1 style="color: #2c3e50; font-size: 24px;">Booking Confirmation</h1>
+          <h1 style="color: #2c3e50; font-size: 24px;">Booking Creation</h1>
           <p>Dear ${bookingData.fullName},</p>
           <p>Your booking has been created and is being processed, here are the details:</p>
           
@@ -418,8 +423,8 @@ class EmailService {
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.vehicleType}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Price:</td>
-                <td style="padding: 8px 0;">£${bookingData.price.toFixed(2)}</td>
+                <td style="padding: 8px 0; font-weight: bold;">Total Fare:</td>
+                <td style="padding: 8px 0; color: #27ae60; font-weight: bold; font-size: 18px;">£${bookingData.price.toFixed(2)}</td>
               </tr>
             </table>
           </div>
@@ -431,6 +436,73 @@ class EmailService {
           </div>
           
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #7f8c8d; font-size: 14px; text-align: center;">
+            &copy; ${new Date().getFullYear()} Xequtive Ltd. All rights reserved.
+          </p>
+        </body>
+      </html>
+    `;
+    }
+    static getBookingConfirmationEmailTemplate(bookingData) {
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Booking Confirmation</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
+          </div>
+          <h1 style="color: #2c3e50; font-size: 24px;">Booking Confirmation</h1>
+          <p>Dear ${bookingData.fullName},</p>
+          <p>Thank you for booking with XEQUTIVE CARS. Your trip is confirmed.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Reference Number:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #e74c3c; font-weight: bold; font-size: 18px;">${bookingData.referenceNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Type:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">One-way</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Date:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.pickupDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Time:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.pickupTime}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Pickup:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.pickupLocation}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Dropoff:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.dropoffLocation}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Vehicle:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.vehicleType}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Fare:</td>
+                <td style="padding: 8px 0; color: #27ae60; font-weight: bold; font-size: 18px;">£${bookingData.price.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #7f8c8d; font-size: 14px;">
+              <strong>For cancellations or urgent changes (within 24-hrs) contact:</strong><br>
+              <a href="tel:+447831054649" style="color: #3498db; text-decoration: none;">+447831054649</a>
+            </p>
+          </div>
+          
           <p style="color: #7f8c8d; font-size: 14px; text-align: center;">
             &copy; ${new Date().getFullYear()} Xequtive Ltd. All rights reserved.
           </p>
@@ -480,10 +552,6 @@ class EmailService {
           </div>
           
           <p>If you did not request this cancellation or need further assistance, please contact our customer support team.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${this.frontendUrl}/bookings" style="background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">View Your Bookings</a>
-          </div>
           
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           <p style="color: #7f8c8d; font-size: 14px; text-align: center;">

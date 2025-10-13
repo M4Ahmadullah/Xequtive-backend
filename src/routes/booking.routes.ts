@@ -272,23 +272,23 @@ router.post(
 
               const destination = permanentBooking.bookingType === "hourly" ? "Hourly booking" : permanentBooking.locations?.dropoff?.address || "Dropoff not specified";
 
-      // Send booking confirmation email (non-blocking)
-      EmailService.sendBookingConfirmationEmail(
-        permanentBooking.customer.email,
-        {
-          id: bookingDoc.id,
-          referenceNumber: referenceNumber,
-          fullName: permanentBooking.customer.fullName,
-          pickupDate: permanentBooking.pickupDate,
-          pickupTime: permanentBooking.pickupTime,
-          pickupLocation: permanentBooking.locations?.pickup?.address || "Pickup location not specified",
-          dropoffLocation: permanentBooking.bookingType === "hourly" ? "Hourly booking - driver stays with you" : permanentBooking.locations?.dropoff?.address || "Dropoff location not specified",
-          vehicleType: permanentBooking.vehicle.name,
-          price: permanentBooking.vehicle.price.amount,
-        }
-      ).catch((error) => {
-        console.error("Failed to send booking confirmation email:", error);
-      });
+      // Send booking confirmation email (non-blocking) - COMMENTED OUT
+      // EmailService.sendBookingCreationEmail(
+      //   permanentBooking.customer.email,
+      //   {
+      //     id: bookingDoc.id,
+      //     referenceNumber: referenceNumber,
+      //     fullName: permanentBooking.customer.fullName,
+      //     pickupDate: permanentBooking.pickupDate,
+      //     pickupTime: permanentBooking.pickupTime,
+      //     pickupLocation: permanentBooking.locations?.pickup?.address || "Pickup location not specified",
+      //     dropoffLocation: permanentBooking.bookingType === "hourly" ? "Hourly booking - driver stays with you" : permanentBooking.locations?.dropoff?.address || "Dropoff location not specified",
+      //     vehicleType: permanentBooking.vehicle.name,
+      //     price: permanentBooking.vehicle.price.amount,
+      //   }
+      // ).catch((error) => {
+      //   console.error("Failed to send booking confirmation email:", error);
+      // });
 
       // Send WhatsApp notification to group (non-blocking)
       WhatsAppService.sendBookingNotification({
