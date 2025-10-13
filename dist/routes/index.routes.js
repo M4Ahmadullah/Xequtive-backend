@@ -10,6 +10,9 @@ const fare_routes_1 = __importDefault(require("./fare.routes"));
 const dashboard_routes_1 = __importDefault(require("./dashboard.routes"));
 const hourlyBooking_routes_1 = __importDefault(require("./hourlyBooking.routes"));
 const contact_routes_1 = __importDefault(require("./contact.routes"));
+const webhook_routes_1 = __importDefault(require("./webhook.routes"));
+const passwordReset_routes_1 = __importDefault(require("./passwordReset.routes"));
+const emailVerification_routes_1 = __importDefault(require("./emailVerification.routes"));
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const email_service_1 = require("../services/email.service");
 const env_1 = require("../config/env");
@@ -182,4 +185,10 @@ router.use("/hourly-bookings", hourlyBooking_routes_1.default);
 router.use("/dashboard", dashboard_routes_1.default);
 // Contact routes
 router.use("/contact", contact_routes_1.default);
+// Webhook routes (for external services like WhatsApp)
+router.use("/webhook", webhook_routes_1.default);
+// Password reset routes
+router.use("/password-reset", passwordReset_routes_1.default);
+// Email verification routes
+router.use("/email-verification", emailVerification_routes_1.default);
 exports.default = router;

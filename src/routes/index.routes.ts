@@ -5,6 +5,9 @@ import fareRoutes from "./fare.routes";
 import dashboardRoutes from "./dashboard.routes";
 import hourlyBookingRoutes from "./hourlyBooking.routes";
 import contactRoutes from "./contact.routes";
+import webhookRoutes from "./webhook.routes";
+import passwordResetRoutes from "./passwordReset.routes";
+import emailVerificationRoutes from "./emailVerification.routes";
 import { verifyToken } from "../middleware/authMiddleware";
 import { AuthenticatedRequest, ApiResponse } from "../types";
 import { EmailService } from "../services/email.service";
@@ -214,5 +217,14 @@ router.use("/dashboard", dashboardRoutes);
 
 // Contact routes
 router.use("/contact", contactRoutes);
+
+// Webhook routes (for external services like WhatsApp)
+router.use("/webhook", webhookRoutes);
+
+// Password reset routes
+router.use("/password-reset", passwordResetRoutes);
+
+// Email verification routes
+router.use("/email-verification", emailVerificationRoutes);
 
 export default router;

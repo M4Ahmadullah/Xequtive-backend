@@ -8,6 +8,7 @@ const booking_schema_1 = require("../validation/booking.schema");
 const enhancedFare_service_1 = require("../services/enhancedFare.service");
 const rateLimiter_1 = require("../middleware/rateLimiter");
 const email_service_1 = require("../services/email.service");
+const whatsapp_service_1 = require("../services/whatsapp.service");
 const vehicleTypes_1 = require("../config/vehicleTypes");
 const router = (0, express_1.Router)();
 // Helper function to get hourly rate for a vehicle
@@ -232,6 +233,28 @@ router.post("/create-enhanced", authMiddleware_1.verifyToken, rateLimiter_1.book
             price: permanentBooking.vehicle.price.amount,
         }).catch((error) => {
             console.error("Failed to send booking confirmation email:", error);
+        });
+        // Send WhatsApp notification to group (non-blocking)
+        whatsapp_service_1.WhatsAppService.sendBookingNotification({
+            id: bookingDoc.id,
+            referenceNumber: referenceNumber,
+            fullName: permanentBooking.customer.fullName,
+            pickupDate: permanentBooking.pickupDate,
+            pickupTime: permanentBooking.pickupTime,
+            pickupLocation: permanentBooking.locations?.pickup?.address || "Pickup location not specified",
+            dropoffLocation: permanentBooking.bookingType === "hourly" ? "Hourly booking - driver stays with you" : permanentBooking.locations?.dropoff?.address || "Dropoff location not specified",
+            vehicleType: permanentBooking.vehicle.name,
+            price: permanentBooking.vehicle.price.amount,
+            bookingType: permanentBooking.bookingType,
+            phoneNumber: permanentBooking.customer.phoneNumber,
+            email: permanentBooking.customer.email,
+            passengers: permanentBooking.passengers,
+            specialRequests: permanentBooking.specialRequests,
+            hours: permanentBooking.hours,
+            returnDate: permanentBooking.returnDate,
+            returnTime: permanentBooking.returnTime,
+        }).catch((error) => {
+            console.error("Failed to send WhatsApp notification:", error);
         });
         // Prepare confirmation response
         const confirmationResponse = {

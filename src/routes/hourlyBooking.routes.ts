@@ -22,6 +22,7 @@ import {
 import { HourlyFareService } from "../services/hourlyFare.service";
 import { bookingLimiter } from "../middleware/rateLimiter";
 import { EmailService } from "../services/email.service";
+import { WhatsAppService } from "../services/whatsapp.service";
 
 const router = Router();
 
@@ -323,6 +324,29 @@ router.post(
         }
       ).catch((error) => {
         console.error("Failed to send Executive Cars booking confirmation email:", error);
+      });
+
+      // Send WhatsApp notification to group (non-blocking)
+      WhatsAppService.sendBookingNotification({
+        id: bookingDoc.id,
+        referenceNumber: referenceNumber,
+        fullName: permanentBooking.customer.fullName,
+        pickupDate: permanentBooking.pickupDate,
+        pickupTime: permanentBooking.pickupTime,
+        pickupLocation: getPickupLocation(permanentBooking),
+        dropoffLocation: getDropoffLocation(permanentBooking) || "Hourly booking",
+        vehicleType: permanentBooking.vehicle.name,
+        price: permanentBooking.vehicle.price.amount,
+        bookingType: permanentBooking.bookingType,
+        phoneNumber: permanentBooking.customer.phoneNumber,
+        email: permanentBooking.customer.email,
+        passengers: permanentBooking.passengers,
+        specialRequests: permanentBooking.specialRequests,
+        hours: permanentBooking.hourlyDetails?.hours,
+        returnDate: permanentBooking.returnDetails?.returnDateTime?.date,
+        returnTime: permanentBooking.returnDetails?.returnDateTime?.time,
+      }).catch((error) => {
+        console.error("Failed to send WhatsApp notification:", error);
       });
 
       // Prepare confirmation response

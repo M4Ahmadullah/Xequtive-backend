@@ -38,6 +38,10 @@ const envSchema = z.object({
     .optional()
     .default("Xequtive <info@xeqcars.com>"),
 
+  // Ultramsg (WhatsApp)
+  ULTRA_MSG_TOKEN: z.string().optional(),
+  ULTRA_MSG_INSTANCE_ID: z.string().optional(),
+
   // Frontend URLs for email templates
   FRONTEND_URL: z.string(),
   LOGO_URL: z.string(),
@@ -75,6 +79,8 @@ try {
       GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
       RESEND_API_KEY: process.env.RESEND_API_KEY,
       EMAIL_SENDER_ADDRESS: process.env.EMAIL_SENDER_ADDRESS || "Xequtive <onboarding@resend.dev>",
+      ULTRA_MSG_TOKEN: process.env.ULTRA_MSG_TOKEN,
+      ULTRA_MSG_INSTANCE_ID: process.env.ULTRA_MSG_INSTANCE_ID,
     };
   } else {
   throw new Error("Invalid environment variables");
@@ -108,6 +114,10 @@ export const env = {
     senderAddress: validatedEnv.EMAIL_SENDER_ADDRESS,
     frontendUrl: validatedEnv.FRONTEND_URL || "https://localhost:3000",
     logoUrl: validatedEnv.LOGO_URL || "https://example.com/logo.png",
+  },
+  whatsapp: {
+    ultraMsgToken: validatedEnv.ULTRA_MSG_TOKEN,
+    instanceId: validatedEnv.ULTRA_MSG_INSTANCE_ID,
   },
   mapbox: {
     token: validatedEnv.MAPBOX_TOKEN || "missing",

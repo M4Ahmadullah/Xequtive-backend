@@ -95,6 +95,22 @@ class EmailService {
         return this.sendEmail(email, subject, html);
     }
     /**
+     * Sends a password reset OTP email
+     */
+    static async sendPasswordResetOTPEmail(email, otp) {
+        const subject = "Your Password Reset OTP - Xequtive";
+        const html = this.getPasswordResetOTPEmailTemplate(otp);
+        return this.sendEmail(email, subject, html);
+    }
+    /**
+     * Sends an email verification OTP email
+     */
+    static async sendEmailVerificationOTPEmail(email, otp, name) {
+        const subject = "Verify Your Email - Xequtive";
+        const html = this.getEmailVerificationOTPEmailTemplate(otp, name);
+        return this.sendEmail(email, subject, html);
+    }
+    /**
      * Sends a password reset confirmation email
      */
     static async sendPasswordResetConfirmationEmail(email, name) {
@@ -241,6 +257,91 @@ class EmailService {
       </html>
     `;
     }
+    static getPasswordResetOTPEmailTemplate(otp) {
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Your Password Reset OTP</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
+          </div>
+          <h1 style="color: #2c3e50; font-size: 24px;">Password Reset Request</h1>
+          <p>We received a request to reset your Xequtive account password. Use the OTP below to verify your identity:</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="background-color: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; padding: 20px; display: inline-block;">
+              <h2 style="color: #2c3e50; font-size: 32px; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">${otp}</h2>
+            </div>
+          </div>
+          
+          <p><strong>Important Security Information:</strong></p>
+          <ul style="color: #7f8c8d;">
+            <li>This OTP is valid for <strong>5 minutes</strong> only</li>
+            <li>You have <strong>3 attempts</strong> to enter the correct OTP</li>
+            <li>If you didn't request this reset, please ignore this email</li>
+            <li>Never share this OTP with anyone</li>
+          </ul>
+          
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #856404;"><strong>⚠️ Security Notice:</strong> If you didn't request a password reset, your account may be at risk. Please contact our support team immediately.</p>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #7f8c8d; font-size: 14px; text-align: center;">
+            &copy; ${new Date().getFullYear()} Xequtive Ltd. All rights reserved.<br>
+            This is an automated message, please do not reply to this email.
+          </p>
+        </body>
+      </html>
+    `;
+    }
+    static getEmailVerificationOTPEmailTemplate(otp, name) {
+        const greeting = name ? `Hello ${name},` : 'Hello,';
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Verify Your Email</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://xeqcars.com/logo.png" alt="Xequtive Logo" width="150">
+          </div>
+          <h1 style="color: #2c3e50; font-size: 24px;">${greeting}</h1>
+          <p>Welcome to Xequtive! To complete your account registration, please verify your email address using the verification code below:</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="background-color: #f8f8f8; border: 2px solid #8B0000; border-radius: 8px; padding: 20px; display: inline-block;">
+              <h2 style="color: #8B0000; font-size: 32px; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">${otp}</h2>
+            </div>
+          </div>
+          
+          <p><strong>Important Information:</strong></p>
+          <ul style="color: #7f8c8d;">
+            <li>This verification code is valid for <strong>5 minutes</strong> only</li>
+            <li>You have <strong>3 attempts</strong> to enter the correct code</li>
+            <li>If you didn't create an account with us, please ignore this email</li>
+            <li>Never share this code with anyone</li>
+          </ul>
+          
+          <div style="background-color: #f8f8f8; border: 1px solid #8B0000; border-radius: 4px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #8B0000;"><strong>✅ Next Steps:</strong> Enter this code in the verification form to complete your account setup and start using Xequtive services.</p>
+          </div>
+          
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #7f8c8d; font-size: 14px; text-align: center;">
+            &copy; ${new Date().getFullYear()} Xequtive Ltd. All rights reserved.
+          </p>
+        </body>
+      </html>
+    `;
+    }
     static getProfileCompletionEmailTemplate(name) {
         return `
       <!DOCTYPE html>
@@ -288,17 +389,13 @@ class EmailService {
           </div>
           <h1 style="color: #2c3e50; font-size: 24px;">Booking Confirmation</h1>
           <p>Dear ${bookingData.fullName},</p>
-          <p>Your booking has been confirmed. Here are the details:</p>
+          <p>Your booking has been created and is being processed, here are the details:</p>
           
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Reference Number:</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #e74c3c; font-weight: bold; font-size: 18px;">${bookingData.referenceNumber}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Booking ID:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #ddd;">${bookingData.id}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: bold;">Date:</td>
@@ -328,8 +425,6 @@ class EmailService {
           </div>
           
           <p><strong>Please quote your reference number (${bookingData.referenceNumber}) when contacting us about this booking.</strong></p>
-          
-          <p>Your driver will arrive at the pickup location at the scheduled time.</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://xeqcars.com/dashboard" style="background-color: #8B0000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Manage Booking</a>

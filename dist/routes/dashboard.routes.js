@@ -39,6 +39,7 @@ const firebase_1 = require("../config/firebase");
 const firebase_2 = require("../config/firebase");
 const auth_service_1 = require("../services/auth.service");
 const vehicleTypes_1 = require("../config/vehicleTypes");
+const whatsapp_service_1 = require("../services/whatsapp.service");
 const adminBooking_schema_1 = require("../validation/adminBooking.schema");
 const router = (0, express_1.Router)();
 // Helper function to get hourly rate for a vehicle
@@ -3032,7 +3033,7 @@ router.put("/bookings/:id", async (req, res) => {
                 error: {
                     message: "Invalid booking update data",
                     code: "dashboard/invalid-data",
-                    details: validationResult.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', '),
+                    details: validationResult.error.errors.map((err) => `${err.path.join('.')}: ${err.message}`).join(', '),
                 },
             });
         }
@@ -3187,6 +3188,19 @@ router.put("/bookings/:id", async (req, res) => {
             updateFields.driverPhone = validatedData.driverPhone;
             updatedFields.push("driverPhone");
         }
+        // Update vehicle details
+        if (validatedData.vehicleMake !== undefined) {
+            updateFields.vehicleMake = validatedData.vehicleMake;
+            updatedFields.push("vehicleMake");
+        }
+        if (validatedData.vehicleColor !== undefined) {
+            updateFields.vehicleColor = validatedData.vehicleColor;
+            updatedFields.push("vehicleColor");
+        }
+        if (validatedData.vehicleReg !== undefined) {
+            updateFields.vehicleReg = validatedData.vehicleReg;
+            updatedFields.push("vehicleReg");
+        }
         // Update flight information
         if (validatedData.flightNumber !== undefined) {
             updateFields.flightNumber = validatedData.flightNumber;
@@ -3267,6 +3281,87 @@ router.put("/bookings/:id", async (req, res) => {
             error: {
                 message: "Failed to update booking",
                 code: "dashboard/update-error",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
+        });
+    }
+});
+// =====================================================
+// Booking Confirmation WhatsApp Message
+// =====================================================
+/**
+ * Send booking confirmation message to WhatsApp group
+ */
+router.post("/bookings/:id/send-confirmation", authMiddleware_1.verifyDashboardToken, async (req, res) => {
+    try {
+        // Check if user is admin
+        if (!req.user?.role || req.user.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                error: {
+                    message: "Admin access required",
+                    code: "dashboard/admin-required",
+                },
+            });
+        }
+        const { id } = req.params;
+        // Get booking data
+        const bookingDoc = await firebase_1.firestore.collection("bookings").doc(id).get();
+        if (!bookingDoc.exists) {
+            return res.status(404).json({
+                success: false,
+                error: {
+                    message: "Booking not found",
+                    code: "dashboard/booking-not-found",
+                },
+            });
+        }
+        const booking = bookingDoc.data();
+        // Prepare WhatsApp booking data
+        const whatsappData = {
+            id: bookingDoc.id,
+            referenceNumber: booking.referenceNumber || `XEQ_${bookingDoc.id.slice(-3)}`,
+            fullName: booking.customer?.fullName || 'Unknown',
+            pickupDate: booking.pickupDate,
+            pickupTime: booking.pickupTime,
+            pickupLocation: booking.locations?.pickup?.address || 'Unknown',
+            dropoffLocation: booking.locations?.dropoff?.address,
+            vehicleType: booking.vehicle?.name || 'Unknown',
+            price: booking.vehicle?.price?.totalFare || 0,
+            bookingType: booking.bookingType || 'one-way',
+            phoneNumber: booking.customer?.phoneNumber,
+            email: booking.customer?.email,
+            passengers: booking.passengers,
+            specialRequests: booking.specialRequests,
+            hours: booking.hours,
+            returnDate: booking.returnDate,
+            returnTime: booking.returnTime,
+            // Vehicle details for confirmation
+            vehicleMake: booking.vehicleMake,
+            vehicleColor: booking.vehicleColor,
+            vehicleReg: booking.vehicleReg,
+            driverName: booking.driverName,
+            driverPhone: booking.driverPhone,
+        };
+        // Send confirmation message
+        await whatsapp_service_1.WhatsAppService.sendBookingConfirmation(whatsappData);
+        console.log(`✅ Admin ${req.user.email} sent booking confirmation for booking ${id}`);
+        return res.json({
+            success: true,
+            data: {
+                message: "Booking confirmation sent successfully",
+                bookingId: id,
+                referenceNumber: whatsappData.referenceNumber,
+            },
+        });
+    }
+    catch (error) {
+        console.error("❌ Failed to send booking confirmation:", error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                message: "Failed to send booking confirmation",
+                code: "dashboard/confirmation-error",
                 details: error instanceof Error ? error.message : "Unknown error",
             },
         });

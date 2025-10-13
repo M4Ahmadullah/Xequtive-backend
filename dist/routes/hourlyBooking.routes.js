@@ -9,6 +9,7 @@ const hourlyBooking_schema_1 = require("../validation/hourlyBooking.schema");
 const hourlyFare_service_1 = require("../services/hourlyFare.service");
 const rateLimiter_1 = require("../middleware/rateLimiter");
 const email_service_1 = require("../services/email.service");
+const whatsapp_service_1 = require("../services/whatsapp.service");
 const router = (0, express_1.Router)();
 // Generate sequential reference number
 async function generateReferenceNumber() {
@@ -270,6 +271,28 @@ router.post("/create", authMiddleware_1.verifyToken, rateLimiter_1.bookingLimite
             price: permanentBooking.vehicle.price.amount,
         }).catch((error) => {
             console.error("Failed to send Executive Cars booking confirmation email:", error);
+        });
+        // Send WhatsApp notification to group (non-blocking)
+        whatsapp_service_1.WhatsAppService.sendBookingNotification({
+            id: bookingDoc.id,
+            referenceNumber: referenceNumber,
+            fullName: permanentBooking.customer.fullName,
+            pickupDate: permanentBooking.pickupDate,
+            pickupTime: permanentBooking.pickupTime,
+            pickupLocation: getPickupLocation(permanentBooking),
+            dropoffLocation: getDropoffLocation(permanentBooking) || "Hourly booking",
+            vehicleType: permanentBooking.vehicle.name,
+            price: permanentBooking.vehicle.price.amount,
+            bookingType: permanentBooking.bookingType,
+            phoneNumber: permanentBooking.customer.phoneNumber,
+            email: permanentBooking.customer.email,
+            passengers: permanentBooking.passengers,
+            specialRequests: permanentBooking.specialRequests,
+            hours: permanentBooking.hourlyDetails?.hours,
+            returnDate: permanentBooking.returnDetails?.returnDateTime?.date,
+            returnTime: permanentBooking.returnDetails?.returnDateTime?.time,
+        }).catch((error) => {
+            console.error("Failed to send WhatsApp notification:", error);
         });
         // Prepare confirmation response
         const confirmationResponse = {

@@ -29,6 +29,8 @@ The Xequtive Dashboard is a comprehensive admin-only platform that provides comp
 - **Pricing Adjustments**: Modify fares, apply discounts, add charges
 - **Special Requests**: Add, modify, or remove special requirements
 - **🆕 Admin Booking Edit**: Comprehensive booking modification with audit trail
+- **🆕 WhatsApp Integration**: Send booking confirmations with vehicle/driver details
+- **🆕 Enhanced Vehicle Details**: Vehicle make, color, registration management
 
 **🔄 COMPLETE STATUS WORKFLOW CONTROL:**
 - **Pending → Confirmed**: Review and approve new booking requests
@@ -1040,6 +1042,9 @@ Provides website traffic analytics data with visitor insights.
 - ✅ Flexible field updates (single or multiple fields in one request)
 - ✅ Comprehensive validation and error handling
 - ✅ Security: Admin-only access with authentication required
+- ✅ **NEW**: Vehicle details management (make, color, registration)
+- ✅ **NEW**: Driver assignment with contact information
+- ✅ **NEW**: WhatsApp integration for booking confirmations
 
 **Documentation:** See [ADMIN_BOOKING_EDIT_FEATURE.md](./ADMIN_BOOKING_EDIT_FEATURE.md) for complete implementation guide, examples, and best practices.
 
@@ -1049,9 +1054,15 @@ PUT /api/dashboard/bookings/{bookingId}
 {
   "status": "confirmed",
   "vehicleType": "executive-saloon",
+  "vehicleMake": "Mercedes S-Class",
+  "vehicleColor": "Black",
+  "vehicleReg": "RG62 YHG",
+  "driverName": "Mohammad Khan",
+  "driverPhone": "+447831054649",
   "pricing": {
-    "amount": 150.00,
-    "currency": "GBP"
+    "totalFare": 150.00,
+    "baseFare": 100.00,
+    "distanceCharge": 50.00
   },
   "adminOverride": {
     "pricingOverridden": true,
@@ -1059,6 +1070,95 @@ PUT /api/dashboard/bookings/{bookingId}
   }
 }
 ```
+
+#### 🆕 Send Booking Confirmation (WhatsApp)
+
+**Endpoint:** `POST /api/dashboard/bookings/:id/send-confirmation`
+
+**Description:** Send a professional booking confirmation message to the WhatsApp group with vehicle and driver details.
+
+**Features:**
+- ✅ Professional confirmation message format
+- ✅ Includes vehicle details (make, color, registration)
+- ✅ Includes driver information (name, phone)
+- ✅ Customer contact information
+- ✅ Admin-only access with authentication required
+
+**Request:**
+```json
+POST /api/dashboard/bookings/{bookingId}/send-confirmation
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Booking confirmation sent successfully",
+    "bookingId": "booking_123",
+    "referenceNumber": "XEQ_133"
+  }
+}
+```
+
+**WhatsApp Message Format:**
+```
+*BOOKING CONFIRMATION*
+
+Thank you for booking with XEQUTIVE CARS. Your trip is confirmed.
+
+*Ref:* XEQ_133
+*Type:* One-way
+*Date:* 12-10-2025
+*Time:* 00:00AM
+*Pickup:* Westminster, London SW1A, UK
+*Dropoff:* Shoreditch, London E1, UK
+*Vehicle:* Standard Saloon
+*Fare:* £20.00
+______________________________
+
+*Vehicle Make:* Mercedes S-Class
+*Colour*: Black
+*Reg*: RG62 YHG
+*Driver*: Mohammad Khan
+______________________________
+
+For cancellations or urgent changes (within 24-hrs) contact: +447831054649 📱
+```
+
+#### 🆕 Updated New Booking Message Format
+
+**Description:** The WhatsApp new booking notification format has been updated with enhanced formatting and additional information.
+
+**Updated Message Format:**
+```
+*NEW BOOKING:* XEQ_133
+
+*Type:* One-way
+*Date:* Monday, 12-10-2025
+*Time:* 00:00AM
+*Pickup:* Westminster, London SW1A, UK
+*Dropoff:* Shoreditch, London E1, UK
+*Vehicle:* Standard Saloon
+*Fare:* £20.00
+_________________________
+
+*Name:* John Doe
+*Passengers:* 1
+*Luggage*: 2 checked
+*Special Requests*: Wheelchair accessible
+
+*Contact*: +447123456789
+*Email*: john@example.com
+*Status:* Pending
+*Created:* 11/10/2025, 12:44:07
+```
+
+**Key Updates:**
+- ✅ **Day Name**: Date now includes day of week (e.g., "Monday, 12-10-2025")
+- ✅ **Separate Email Field**: Email is now displayed separately from contact
+- ✅ **Enhanced Formatting**: Better spacing and organization
+- ✅ **Complete Information**: All booking details included
 
 #### Get All Bookings (Enhanced)
 
@@ -1331,7 +1431,7 @@ Retrieves comprehensive details of a specific booking including timeline, with e
       "boosterSeat": 0,
       "wheelchair": 0
     },
-        "specialRequests": "Please call when arriving",
+    "specialRequests": "Please call when arriving",
         "additionalStops": [],
         "waitingTime": 0,
         "paymentMethods": {
@@ -2542,7 +2642,7 @@ async function logout() {
     await auth.signOut();
 
     // Redirect to login page
-    window.location.href = "/login";
+      window.location.href = "/login";
   } catch (error) {
     console.error("Sign out error:", error);
     throw error;

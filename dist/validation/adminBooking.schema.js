@@ -72,6 +72,10 @@ exports.adminBookingUpdateSchema = zod_1.z.object({
     driverId: zod_1.z.string().optional(),
     driverName: zod_1.z.string().optional(),
     driverPhone: zod_1.z.string().optional(),
+    // Vehicle details (for confirmation messages)
+    vehicleMake: zod_1.z.string().optional(),
+    vehicleColor: zod_1.z.string().optional(),
+    vehicleReg: zod_1.z.string().optional(),
     // Flight information (for airport transfers)
     flightNumber: zod_1.z.string().optional(),
     terminal: zod_1.z.string().optional(),

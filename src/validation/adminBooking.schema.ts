@@ -81,6 +81,11 @@ export const adminBookingUpdateSchema = z.object({
   driverName: z.string().optional(),
   driverPhone: z.string().optional(),
   
+  // Vehicle details (for confirmation messages)
+  vehicleMake: z.string().optional(),
+  vehicleColor: z.string().optional(),
+  vehicleReg: z.string().optional(),
+  
   // Flight information (for airport transfers)
   flightNumber: z.string().optional(),
   terminal: z.string().optional(),
